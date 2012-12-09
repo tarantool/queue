@@ -11,7 +11,7 @@ if queue == nil then
     queue.default.delay = 0
     queue.default.pri = 2 ^ 26
     queue.default.ttl = 86400 * 365 -- 1 year
-    queue.default.ttr = 86400 * 365 -- 1 year
+    queue.default.ttr = 10 * 60 -- 10 minute
 
 --     queue.service = box.ipc.channel(1)
 end
@@ -28,6 +28,17 @@ local i_ttr         = 8
 local i_task        = 9
 
 
+local function cp_channel(space, tube)
+    if queue.tube[tube] == nil then
+        queue.tube[tube] = {}
+        queue.tube[tube][space] = box.ipc.channel(1)
+        return
+    end
+    if queue.tube[tube][space] == nil then
+        queue.tube[tube][space] = box.ipc.channel(1)
+    end
+end
+
 -- queue.put
 --   1. queue.put(sno, tube, task)
 --      - put task into tube queue
@@ -37,8 +48,6 @@ local i_task        = 9
 --      - put task into tube queue with delay and ttl options
 --   4. queue.put(sno, tube, delay, ttl, ttr, pri, task, ...)
 --      - put task into tube queue with additional arguments and all options
-
-
 queue.put = function(space, tube, ...)
     local pri = queue.default.pri
     local ttl = queue.default.ttl
@@ -46,12 +55,8 @@ queue.put = function(space, tube, ...)
     local delay = queue.default.delay
     local task
 
+    cp_channel(space, tube)
 
-    if tube == nil then
-        error 'You should define tube name'
-    end
-
-    
     local acount = select('#', ...)
     if acount == 0 then
         task = { }
@@ -112,22 +117,98 @@ queue.put = function(space, tube, ...)
     return task
 end
 
-
-queue.service.process_tube = function(space, tube, channel)
-    if queue.tube[tube] == nil then
-        return false
-    end
-    if queue.tube[tube][space] == nil then
-        return false
-    end
-    if not queue.tube[tube][space]:has_readers() then
-        return false
+-- task = queue.take(space, tube)
+-- task = queue.take(space, tube, timeout)
+queue.take = function(space, tube, timeout)
+    if timeout == nil then
+        timeout = 0
+    else
+        timeout = tonumber(timeout)
     end
 
+    cp_channel(space, tube)
+    if queue.tube[tube][space]:has_readers() then
+        return queue.tube[tube][space]:get(timeout)
+    end
     
-
+    -- select ready
+    local task = box.select_range(space, 1, 1, tube, 'ready')
+    if task ~= nil then
+        local now = os.time()
+        local event = now + task[i_ttr]
+        local tl = task[i_started] + task[i_ttl]
+        if tl < event then
+            event = tl
+        end
+        if task[i_event] < now then
+            return box.update(space, task[i_uuid], '=p=p',
+                i_event,
+                event,
+                i_status,
+                'run'
+            )
+        else
+            queue.service.wakeup()
+        end
+    end
+    return queue.tube[tube][space]:get(timeout)
 end
 
+queue.service.process_tube = function(space, tube)
+
+    -- run -> ready | done
+    while true do
+        local task = box.select_range(space, 1, 1, tube, 'run')
+        if task == nil then
+            break
+        end
+        local now = os.time()
+        if task[i_event] > now then
+            break
+        end
+        if task[i_started] + task[i_ttl] <= now then
+            box.update(space, task[i_uuid], '=p=p',
+                i_status, 'ready',
+                i_event, task[i_started], task[i_ttl]
+            )
+        else
+            box.delete(space, task[i_uuid])
+        end
+    end
+
+    -- delay -> ready
+    while true do
+        local task = box.select_range(space, 1, 1, tube, 'delay')
+        if task == nil then
+            break
+        end
+        local now = os.time()
+        if task[i_event] > now then
+            break
+        end
+        box.update(space, task[i_uuid], '=p=p',
+            i_status, 'ready',
+            i_event,  task[i_started] + task[i_ttl]
+        )
+    end
+
+    -- select ready
+    while true do
+        local task = box.select_range(space, 1, 1, tube, 'ready')
+        if task == nil then
+            return
+        end
+
+        local now = os.time()
+        if task[i_event] < now then
+            if queue.tube[tube][space]:has_readers() then
+                queue.tube[tube][space]:put(task)
+            end
+            return
+        end
+        box.delete(space, tash[i_uuid])
+    end
+end
 
 
 queue.service.worker = function()
@@ -136,7 +217,7 @@ queue.service.worker = function()
     while(true) do
         for i, space in pairs(queue.tube) do
             for tube, channel in pairs(space) do
-                queue.service.process_tube(space, tube, channel)
+                queue.service.process_tube(space, tube)
             end
         end
         local taskp = queue.service.channel:get(0.5)
@@ -162,117 +243,3 @@ queue.service.wakeup = function(space, tube)
 end
 
 
--- -- find ready tasks
--- local queue.get_ready_task = function(space, tube)
---     while true do
---         local task = box.select_range(space, 1, 1, tube, 'r')
---         if task == nil then
---             return
---         end
--- 
---         if box.unpack('i', task[i_event]) < os.time() then
---             local tr = box.unpack('i', task[i_ttr]) + os.time()
---             local tl = box.unpack('i', task[i_ttl]) + os.time()
---             local ne
---             if tr > tl then
---                 ne = tl
---             else
---                 ne = tr
---             end
---             return box.update(space, task[i_uuid], '=p', box.pack('i', ne))
---         end
--- 
---         -- task is expired
---         box.delete(space, task[0])
---     end
--- end
--- 
--- queue.service_fiber = function()
---     box.fiber.detach()
---     while(true) do
--- 
---         for space, tubes in pairs(queue.tube) do
---             for tube, ch in pairs(tubes) do
---                 while ch:has_readers() do
--- 
---                     local task = queue.get_ready_task(space, tube)
---                     if task == nil then
---                         break
---                     end
---                     ch:put(task)
--- 
---                 end
---             end
---         end
---         queue.service:get(.5)
---     end
--- end
--- 
--- 
--- queue.service_wakeup = function(tube)
---     -- run service fiber
---     if queue.fid == nil then
---         queue.fid = box.fiber.create(queue.service_fiber)
---         box.fiber.resume(queue.fid)
---     end
--- 
---     -- wakeup service fiber
---     if queue.service:has_readers() then
---         queue.service:put(tube)
---     end
--- end
--- 
--- queue.put = function(space, tube, delay, pri, ttl, ttr, body, ...)
---     local now = os.time()
---     ttl = tonumber(ttl)
---     if ttl <= 0 then
---         ttl = queue.default.ttl
---     end
---     ttr = tonumber(ttr)
---     if ttr <= 0 then
---         ttr = queue.default.ttr
---     end
---     delay = tonumber(delay)
--- 
---     local etime
---     local status
---     if delay > 0 then
---         ttl = ttl + delay
---         etime = now + delay
---         status = 'd'
---     else
---         etime = now + ttl
---         status = 'r'
---     end
--- 
---     local task
---     task[ i_uuid + 1    ] = box.uuid_hex()
---     task[ i_tube + 1    ] = tube
---     task[ i_status + 1  ] = status
---     task[ i_event + 1   ] = box.pack('i', etime)
---     task[ i_pri + 1     ] = box.pack('i', queue.default.pri + tonumber(pri))
---     task[ i_cid + 1     ] = ''
---     task[ i_started + 1 ] = box.pack('i', now)
---     task[ i_ttl + 1     ] = box.pack('i', ttl)
---     task[ i_ttr + 1     ] = box.pack('i', ttr)
---     task[ i_task + 1    ] = body
---     local args = { ... }
---     for i, a in pairs(args) do
---         table.insert(task, a)
---     end
--- 
---     task = box.insert(space, unpack(task))
--- 
---     if queue.tube[space] == nil then
---         queue.tube[space] = {}
---         queue.tube[space].tube = {}
---         queue.tube[space].tube[tube] = box.fiber.channel()
---     else
---         if queue.tube[space].tube[tube] == nil then
---             queue.tube[space].tube[tube] = box.fiber.channel()
---         end
---     end
--- 
---     queue.service_wakeup(tube)
---     return task[0]
--- end
