@@ -1,21 +1,8 @@
-if queue == nil then
-    queue = {}
-    queue.service = {}
-    queue.tube = {}
-    queue.default = {}
-    queue.service.channel = box.ipc.channel(1)
-    queue.service.workers = {}
+-- Global parameters
+local PUSH_CHANNEL_SIZE     = 20
+local PUSH_POOL_FIBERS      = 20
 
-
-    -- default parameters
-    queue.default.delay = 0
-    queue.default.pri = 2 ^ 26
-    queue.default.ttl = 86400 * 365 -- 1 year
-    queue.default.ttr = 10 * 60 -- 10 minute
-
---     queue.service = box.ipc.channel(1)
-end
-
+-- tuple structure
 local i_uuid        = 0
 local i_tube        = 1
 local i_status      = 2
@@ -27,219 +14,232 @@ local i_ttl         = 7
 local i_ttr         = 8
 local i_task        = 9
 
+-- task statuses
+local ST_READY      = 'r'
+local ST_DELAYED    = 'd'
+local ST_RUN        = '!'
+local ST_BURIED     = 'b'
+local ST_DONE       = '*'
 
-local function cp_channel(space, tube)
-    if queue.tube[tube] == nil then
-        queue.tube[tube] = {}
-        queue.tube[tube][space] = box.ipc.channel(1)
-        return
-    end
-    if queue.tube[tube][space] == nil then
-        queue.tube[tube][space] = box.ipc.channel(1)
-    end
-end
-
--- queue.put
---   1. queue.put(sno, tube, task)
---      - put task into tube queue
---   2. queue.put(sno, tube, delay, task)
---      - put task into tube queue with delay
---   3. queue.put(sno, tube, delay, ttl, task)
---      - put task into tube queue with delay and ttl options
---   4. queue.put(sno, tube, delay, ttl, ttr, pri, task, ...)
---      - put task into tube queue with additional arguments and all options
-queue.put = function(space, tube, ...)
-    local pri = queue.default.pri
-    local ttl = queue.default.ttl
-    local ttr = queue.default.ttr
-    local delay = queue.default.delay
-    local task
-
-    cp_channel(space, tube)
-
-    local acount = select('#', ...)
-    if acount == 0 then
-        task = { }
-    elseif acount == 1 then                 -- put(sno, tube, task)
-        task = { ... }
-    elseif acount == 2 then                 -- put(sno, tube, delay, task)
-        delay = tonumber(select(1, ...))
-        task = { select(2, ...) }
-    elseif acount == 3 then                 -- put(sno, tube, delay, ttl, task)
-        delay = tonumber(select(1, ...))
-        ttl = tonumber(select(2, ...))
-        task = { select(3, ...) }
-    else
-        delay = tonumber(select(1, ...))
-        ttl   = tonumber(select(2, ...))
-        ttr   = tonumber(select(3, ...))
-        pri   = queue.default.pri + tonumber(select(4, ...))
-        task  = tonumber(select(5, ...))
-    end
-
-    if ttl == 0 then
-        ttl = queue.default.ttl
-    end
-    if ttr == 0 then
-        ttl = queue.default.ttr
-    end
-
-    local now = os.time()
-    local event
-    local status
-
-    if delay > 0 then
-        ttl = ttl + delay
-        status = 'delayed'
-        event = now + ttl
-    else
-        status = 'ready'
-        event = now
-    end
-
-
-    local tuple = { }
-    tuple[ i_uuid + 1    ] = box.uuid_hex()
-    tuple[ i_tube + 1    ] = tube
-    tuple[ i_status + 1  ] = status
-    tuple[ i_event + 1   ] = box.pack('i', event)
-    tuple[ i_pri + 1     ] = box.pack('i', pri)
-    tuple[ i_cid + 1     ] = ''
-    tuple[ i_started + 1 ] = box.pack('i', now)
-    tuple[ i_ttl + 1     ] = box.pack('i', ttl)
-    tuple[ i_ttr + 1     ] = box.pack('i', ttr)
-    for i, a in pairs(task) do
-        table.insert(tuple, a)
-    end
-
-    queue.service.wakeup(space, tube)
-    task = box.insert(space, unpack(tuple))
-    return task
-end
-
--- task = queue.take(space, tube)
--- task = queue.take(space, tube, timeout)
-queue.take = function(space, tube, timeout)
-    if timeout == nil then
-        timeout = 0
-    else
-        timeout = tonumber(timeout)
-    end
-
-    cp_channel(space, tube)
-    if queue.tube[tube][space]:has_readers() then
-        return queue.tube[tube][space]:get(timeout)
-    end
+if queue == nil then
+    queue = {}
+    queue.push_fiber_count = 0
+    queue.push_channel = box.ipc.channel(PUSH_CHANNEL_SIZE)
+    queue.consumers = {}
     
-    -- select ready
-    local task = box.select_range(space, 1, 1, tube, 'ready')
-    if task ~= nil then
-        local now = os.time()
-        local event = now + task[i_ttr]
-        local tl = task[i_started] + task[i_ttl]
-        if tl < event then
-            event = tl
-        end
-        if task[i_event] < now then
-            return box.update(space, task[i_uuid], '=p=p',
-                i_event,
-                event,
-                i_status,
-                'run'
-            )
-        else
-            queue.service.wakeup()
-        end
-    end
-    return queue.tube[tube][space]:get(timeout)
+    queue.stat = {}
+    queue.stat.ttl = 0
+    queue.stat.ttr = 0
+    queue.stat.done_ttl = 0
+    queue.stat.race_cond = 0
+    queue.stat.put = 0
+    queue.stat.take = 0
+    queue.stat.take_timeout = 0
 end
 
-queue.service.process_tube = function(space, tube)
 
-    -- run -> ready | done
-    while true do
-        local task = box.select_range(space, 1, 1, tube, 'run')
-        if task == nil then
-            break
-        end
-        local now = os.time()
-        if task[i_event] > now then
-            break
-        end
-        if task[i_started] + task[i_ttl] <= now then
-            box.update(space, task[i_uuid], '=p=p',
-                i_status, 'ready',
-                i_event, task[i_started], task[i_ttl]
-            )
-        else
-            box.delete(space, task[i_uuid])
-        end
+local function consumers_create_channels(space, tube)
+    if queue.consumers[space] == nil then
+        queue.consumers[space] = {}
+        queue.consumers[space][tube] = box.ipc.channel(1)
+    elseif queue.consumers[space][tube] == nil then
+        queue.consumers[space][tube] = box.ipc.channel(1)
     end
+end
 
-    -- delay -> ready
+
+local function process_tube(space, tube)
     while true do
-        local task = box.select_range(space, 1, 1, tube, 'delay')
+        local now = os.time()
+        local task = box.select_range(space, 1, 1, tube, ST_DELAYED)
         if task == nil then
             break
         end
-        local now = os.time()
-        if task[i_event] > now then
+        local event = box.unpack('i', task[i_event])
+        if event >= now then
             break
         end
-        box.update(space, task[i_uuid], '=p=p',
-            i_status, 'ready',
-            i_event,  task[i_started] + task[i_ttl]
+        
+        local ttl       = box.unpack('i', task[i_ttl])
+        local started   = box.unpack('i', task[i_started])
+        
+        box.update(space, task[i_uuid],
+            '=p=p',
+                i_status,
+                task[i_status],
+                i_event,
+                box.pack('i', started + ttl)
         )
     end
-
-    -- select ready
+    
     while true do
-        local task = box.select_range(space, 1, 1, tube, 'ready')
+        local task = box.select_range(space, 1, 1, tube, ST_RUN)
         if task == nil then
-            return
+            break
         end
 
         local now = os.time()
-        if task[i_event] < now then
-            if queue.tube[tube][space]:has_readers() then
-                queue.tube[tube][space]:put(task)
-            end
-            return
+        local event     = box.unpack('i', task[i_event])
+        if event >= now then
+            break
         end
-        box.delete(space, tash[i_uuid])
+
+        local ttl       = box.unpack('i', task[i_ttl])
+        local started   = box.unpack('i', task[i_started])
+        
+        if started + ttl >= now then
+            box.delete(space, task[i_uuid])
+            queue.stat.ttl = queue.stat.ttl + 1
+        else
+            box.update(space, task[i_uuid],
+                '=p=p',
+                i_status,
+                ST_READY,
+                i_event,
+                box.pack('i', started + ttl)
+            )
+
+            queue.stat.ttr = queue.stat.ttr + 1
+        end
+    end
+
+    while true do
+        local task = box.select_range(space, 1, 1, tube, ST_DONE)
+        if task == nil then
+            break
+        end
+        local now = os.time()
+        local event     = box.unpack('i', task[i_event])
+        if event >= now then
+            break
+        end
+        queue.stat.ttl = queue.stat.ttl + 1
+        queue.stat.done_ttl = queue.stat.done_ttl + 1
+        box.delete(space, task[i_uuid])
+    end
+    
+    while true do
+        local task = box.select_range(space, 1, 1, tube, ST_DONE)
+        if task == nil then
+            break
+        end
+        local now = os.time()
+        local event     = box.unpack('i', task[i_event])
+        if event < now then
+            queue.stat.ttl = queue.stat.ttl + 1
+            box.delete(space, task[i_uuid])
+        else
+            if not queue.consumers[space][tube]:has_readers() then
+                break
+            end
+            local ttr = task[i_ttr]
+            local ttl = task[i_ttl]
+            local started = task[i_started]
+            if ttl > ttr then
+                event = started + ttr
+            else
+                event = started + ttl
+            end
+            task = box.update(space,
+                task[i_uuid],
+                '=p=p',
+                i_status,
+                ST_RUN,
+                i_event,
+                box.pack('i', event)
+            )
+
+            if queue.consumers[space][tube]:has_readers() then
+                queue.consumers[space][tube]:put(task)
+            else
+                queue.stat.race_cond = queue.stat.race_cond + 1
+                
+                box.update(space,
+                    '=p=p',
+                    i_status,
+                    ST_READY,
+                    i_event,
+                    box.pack('i', started + ttl)
+                )
+            end
+        end
     end
 end
 
-
-queue.service.worker = function()
+local function push_fiber()
     box.fiber.detach()
     box.fiber.yield()
     while(true) do
-        for i, space in pairs(queue.tube) do
-            for tube, channel in pairs(space) do
-                queue.service.process_tube(space, tube)
+        local t = queue.push_channel:get()
+        local space = t[1]
+        local tube = t[2][ i_tube + 1 ]
+        box.insert(space, unpack(t[2]))
+        consumers_create_channels(space, tube)
+
+        for space, tubes in pairs(queue.consumers) do
+            for tube, channel in pairs(tubes) do
+                process_tube(space, tube)
             end
-        end
-        local taskp = queue.service.channel:get(0.5)
-        if taskp ~= nil then
-            queue.service.process_tube(unpack(taskp))
         end
     end
 end
 
-queue.service.wakeup = function(space, tube)
-    for i = 1, 10 do
-        local fiber = box.fiber.create(queue.service.worker)
-        table.insert(queue.service.workers, fiber)
+
+queue.statistic = function()
+    return {
+        'race_cond',
+        tostring(queue.stat.race_cond),
+        'ttl',
+        tostring(queue.stat.ttl),
+        'ttr',
+        tostring(queue.stat.ttr),
+        'done_ttl',
+        tostring(queue.stat.done_ttl),
+        'put',
+        tostring(queue.stat.put),
+        'take',
+        tostring(queue.stat.take),
+        'take_timeout',
+        tostring(queue.stat.take_timeout),
+    }
+end
+
+queue.put = function(space, tube, delay, ttl, ttr, pri, ...)
+    delay = tonumber(delay)
+    ttl = tonumber(ttl)
+    ttr = tonumber(ttr)
+    pri = tonumber(pri)
+
+    local task = {}
+    local now = os.time()
+    task[ i_uuid + 1 ] = box.uuid_hex()
+    task[ i_tube + 1 ] = tube
+    if delay > 0 then
+        ttl = ttl + delay
+        task[ i_status + 1 ]    = ST_DELAYED
+        task[ i_event + 1 ]     = box.pack('i', now + delay)
+    else
+        task[ i_status + 1 ]    = ST_READY
+        task[ i_event + 1 ]     = box.pack('i', now + ttl)
+    end
+    task[ i_pri + 1 ]           = box.pack('i', pri)
+    task[ i_cid + 1 ]           = ''
+    task[ i_started + 1 ]       = box.pack('i', now)
+    task[ i_ttl + 1 ]           = box.pack('i', ttl)
+    task[ i_ttr + 1 ]           = box.pack('i', ttr)
+    for i = 1, select('#', ...) do
+        local arg = select(i, ...)
+        table.insert(task, arg)
+    end
+
+    if queue.push_fiber_count < PUSH_POOL_FIBERS then
+        queue.push_fiber_count = queue.push_fiber_count + 1
+        local fiber = box.fiber.create(push_fiber)
         box.fiber.resume(fiber)
     end
 
-    queue.service.wakeup = function(space, tube)
-        if queue.service.channel:has_readers() then
-            queue.service.channel:put({space, tube })
-        end
-    end
-    queue.service.wakeup(space, tube)
+    queue.push_channel:put({space, task})
+    queue.stat.put = queue.stat.put + 1
+
+    return task
 end
-
-

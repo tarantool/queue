@@ -82,5 +82,19 @@ diag $t->log unless
     ok eval { tnt }, 'Client connected to';
 
 my $task = tnt->call_lua('queue.put',
-    [ tnt->space('queue')->number, 'tube_name', 'task' ], 'queue');
+    # queue.put = function(space, tube, delay, ttl, ttr, pri, ...)
+    [
+        tnt->space('queue')->number,
+        'tube_name',
+        0,
+        10,
+        20,
+        30,
+        'task',
+    ], 'queue');
 note explain $task->raw;
+
+note explain tnt->call_lua('queue.statistic', [])->raw;
+
+sleep .5;
+note $t->log;
