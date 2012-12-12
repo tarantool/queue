@@ -90,11 +90,16 @@ my $task = tnt->call_lua('queue.put',
         10,
         20,
         30,
-        'task',
+        'task', 1 .. 1
     ], 'queue');
 note explain $task->raw;
 
-note explain tnt->call_lua('queue.statistic', [])->raw;
+note explain tnt->call_lua('queue.take', [
+    tnt->space('queue')->number,
+    'tube_name'
+])->raw;
 
+
+note explain tnt->call_lua('queue.statistic', [])->raw;
 sleep .5;
 note $t->log;

@@ -243,3 +243,67 @@ queue.put = function(space, tube, delay, ttl, ttr, pri, ...)
 
     return task
 end
+
+local function rettask(task)
+    -- TODO: use tuple:transform here
+    local tuple = { task[i_uuid], tostring(box.unpack('i', task[i_ttr])) }
+    for i = i_task, #task - 1 do
+        table.insert(tuple, task[i])
+    end
+    return tuple
+end
+
+local function take_from_channel(space, tube, timeout)
+    local task
+    if timeout ~= nil then
+        timeout = tonumber(timeout)
+        if timeout > 0 then
+            task = queue.consumers[space][tube]:get(timeout)
+        else
+            task = queue.consumers[space][tube]:get()
+        end
+    else
+        task = queue.consumers[space][tube]:get()
+    end
+    queue.stat.take = queue.stat.take + 1
+    if task == nil then
+        queue.stat.take_timeout = queue.stat.take_timeout + 1
+        return
+    else
+        return rettask(task)
+    end
+end
+
+queue.take = function(space, tube, timeout)
+    consumers_create_channels(space, tube)
+    if queue.consumers[space][tube]:has_readers() then
+        return take_from_channel(space, tube, timeout)
+    end
+
+    local task = box.select_range(space, 1, 1, tube, ST_READY)
+    if task == nil then
+        return take_from_channel(space, tube, timeout)
+    end
+    local started = box.unpack('i', task[i_started])
+    local now = os.time()
+    local ttr = box.unpack('i', task[i_ttl])
+    local ttl = box.unpack('i', task[i_ttr])
+    local event;
+
+    if started + ttl > now + ttr then
+        event = now + ttr
+    else
+        event = started + ttl
+    end
+    box.update(space,
+        task[i_uuid],
+            '=p=p',
+            i_status,
+            ST_RUN,
+            i_event,
+            box.pack('i', event)
+    )
+
+    queue.stat.take = queue.stat.take + 1
+    return rettask(task)
+end
