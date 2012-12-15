@@ -38,27 +38,20 @@ sub tnt {
 tnt->ping;
 
 my (@f, %t);
-my $no = 1;
-for (my $i = 0; $i < 25; $i++) {
+my $no = 0;
+for (my $i = 0; $i < 250; $i++) {
     push @f => async {
-        eval {
-            my $tuple = tnt->call_lua('queue.put', [ 0, 'test' ]);
-            $t{ $tuple->raw(0) }++;
-            warn "@{[ $no++ ]} put task";
-            1;
-        } or warn $@;
+        my $tuple = tnt->call_lua('queue.put', [ 0, 'test' ]);
+        $t{ $tuple->raw(0) }++ if $tuple;
     };
 
     push @f => async {
-        eval {
-            my $tuple = tnt->call_lua('queue.take', [ 0, 'test' ]);
-            $t{ $tuple->raw(0) }++;
-            warn "@{[ $no++ ]} take task";
-            1;
-        } or warn $@;
+        my $tuple = tnt->call_lua('queue.take', [ 0, 'test', 3 ]);
+        $t{ $tuple->raw(0) }++ if $tuple;
     };
 
 }
 
 $_->join for @f;
-# print $t->log;
+print $t->log;
+print Dumper \%t;

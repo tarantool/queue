@@ -85,7 +85,7 @@ local function process_tube(space, tube)
         
         local ttl       = box.unpack('i', task[i_ttl])
         local started   = box.unpack('i', task[i_started])
-        
+       
         box.update(space, task[i_uuid],
             '=p=p',
                 i_status,
@@ -167,8 +167,8 @@ local function process_tube(space, tube)
             local ttr = box.unpack('i', task[i_ttr])
             local ttl = box.unpack('i', task[i_ttl])
             local started = box.unpack('i', task[i_started])
-            if ttl > ttr then
-                event = started + ttr
+            if started + ttl > now + ttr then
+                event = now + ttr
             else
                 event = started + ttl
             end
@@ -185,8 +185,9 @@ local function process_tube(space, tube)
                 queue.consumers[space][tube]:put(task)
             else
                 queue.stat.race_cond = queue.stat.race_cond + 1
-                
+
                 box.update(space,
+                    task[i_uuid],
                     '=p=p',
                     i_status,
                     ST_READY,
@@ -381,8 +382,11 @@ queue.take = function(space, tube, timeout)
     if task == nil then
         return take_from_channel(space, tube, timeout)
     end
-    local started = box.unpack('i', task[i_started])
+    if task[i_status] ~= ST_READY then
+        return take_from_channel(space, tube, timeout)
+    end
     local now = os.time()
+    local started = box.unpack('i', task[i_started])
     local ttr = box.unpack('i', task[i_ttl])
     local ttl = box.unpack('i', task[i_ttr])
     local event;
@@ -392,6 +396,7 @@ queue.take = function(space, tube, timeout)
     else
         event = started + ttl
     end
+    print("direct take")
     task = box.update(space,
         task[i_uuid],
             '=p=p',
