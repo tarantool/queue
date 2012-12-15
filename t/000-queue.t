@@ -125,4 +125,6 @@ cmp_ok time - $started, '<=', 3, 'delay less than 3 second';
 
 
 
-
+END {
+    note $t->log;
+}

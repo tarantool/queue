@@ -21,12 +21,30 @@ local ST_RUN        = '!'
 local ST_BURIED     = 'b'
 local ST_DONE       = '*'
 
+
+
+
 if queue == nil then
     queue = {}
     queue.push_fiber_count = 0
     queue.push_channel = box.ipc.channel(PUSH_CHANNEL_SIZE)
     queue.consumers = {}
-    
+
+    setmetatable(queue.consumers, {
+            __index = function(tbs, space)
+                local spt = {}
+                setmetatable(spt, {
+                    __index = function(tbt, tube)
+                        local channel = box.ipc.channel()
+                        rawset(tbt, tube, channel)
+                        return channel
+                    end
+                })
+                rawset(tbs, space, spt)
+                return spt
+            end
+        }
+    )
 end
 
 queue.default = {}
@@ -54,16 +72,6 @@ local function wakeup_pushers()
         if queue.push_channel:has_readers() then
             queue.push_channel:put(nil)
         end
-    end
-end
-
-
-local function consumers_create_channels(space, tube)
-    if queue.consumers[space] == nil then
-        queue.consumers[space] = {}
-        queue.consumers[space][tube] = box.ipc.channel(1)
-    elseif queue.consumers[space][tube] == nil then
-        queue.consumers[space][tube] = box.ipc.channel(1)
     end
 end
 
@@ -208,7 +216,6 @@ local function push_fiber()
             local space = t[1]
             local tube = t[2][ i_tube + 1 ]
             box.insert(space, unpack(t[2]))
-            consumers_create_channels(space, tube)
         end
 
         for space, tubes in pairs(queue.consumers) do
@@ -349,8 +356,6 @@ queue.put = function(space, tube, ...)
 end
 
 local function take_from_channel(space, tube, timeout)
-    print("take_from_channel")
-
     local task
     if timeout ~= nil then
         timeout = tonumber(timeout)
@@ -372,11 +377,9 @@ local function take_from_channel(space, tube, timeout)
 end
 
 queue.take = function(space, tube, timeout)
-    consumers_create_channels(space, tube)
     if queue.consumers[space][tube]:has_readers() then
         return take_from_channel(space, tube, timeout)
     end
-
 
     local task = box.select_range(space, 1, 1, tube, ST_READY)
     if task == nil then
@@ -396,7 +399,6 @@ queue.take = function(space, tube, timeout)
     else
         event = started + ttl
     end
-    print("direct take")
     task = box.update(space,
         task[i_uuid],
             '=p=p',
