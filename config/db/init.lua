@@ -1,3 +1,53 @@
+-- queue in tarantool
+
+-- tarantool config example:
+-- space = [
+--     {
+--         enabled = 1,
+--         index = [
+--             {
+--                 type = "TREE",
+--                 unique = 1,
+--                 key_field = [
+--                     {
+--                         fieldno = 0,
+--                         type = "STR"
+--                     }
+--                 ]
+--             },
+--             {
+--                 type = "TREE",
+--                 unique = 0,
+--                 key_field = [
+--                     {
+--                         fieldno = 1,    # tube
+--                         type = "STR"
+--                     },
+--                     {
+--                         fieldno = 2,    # status
+--                         type = "STR"
+--                     },
+--                     {
+--                         fieldno = 3,    # next_event (timestamp)
+--                         type = "NUM"
+--                     },
+--                     {
+--                         fieldno = 4,    # pri
+--                         type = "NUM"
+--                     }
+--                 ]
+--             }
+--         ]
+--     }
+-- ]
+
+-- space - number of space contains tubes
+-- tube - queue name
+-- ttl - time to live
+-- ttr - time to release (when task is run)
+-- delay - delay period for task
+
+
 -- Global parameters
 local PUSH_CHANNEL_SIZE     = 20
 local PUSH_POOL_FIBERS      = 20
@@ -529,6 +579,9 @@ queue.task_status = function(space, task)
     end
     return 'unknown: ' .. tuple[i_status]
 end
+
+
+
 
 queue.get = function(space, task)
     local tuple = box.select(space, 0, task)
