@@ -25,6 +25,7 @@ my $t = DR::Tarantool::StartTest->run(
 sub tnt {
     our $tnt;
     unless(defined $tnt) {
+        print "Коннектимся\n";
         $tnt = coro_tarantool
             host => 'localhost',
             port => $t->primary_port,
@@ -74,6 +75,7 @@ my $started = time;
     }
 
     $_->join for @f;
+    @f = ();
 
     my $interval = time - $started;
     $done += $cnt;

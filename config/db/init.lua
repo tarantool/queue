@@ -22,8 +22,6 @@ local ST_BURIED     = 'b'
 local ST_DONE       = '*'
 
 
-
-
 if queue == nil then
     queue = {}
     queue.push_fiber_count = 0
@@ -247,6 +245,9 @@ queue.statistic = function()
 end
 
 local function rettask(task)
+    if task == nil then
+        return
+    end
     -- TODO: use tuple:transform here
     local tuple = {}
     if type(task) == 'table' then
@@ -410,4 +411,126 @@ queue.take = function(space, tube, timeout)
 
     queue.stat.take = queue.stat.take + 1
     return rettask(task)
+end
+
+queue.delete = function(space, task)
+    local tuple = box.delete(space, task)
+    if tuple ~= nil then
+        return rettask(tuple)
+    end
+end
+
+queue.ack = function(space, task)
+    return queue.delete(space, task)
+end
+
+queue.done = function(space, task, ...)
+    local tuple = box.select(space, 0, task)
+    if tuple == nil then
+        return
+    end
+    tuple = tuple:transform(i_task, #tuple, ...)
+    tuple = tuple:transform(i_status, 1, ST_DONE)
+    tuple = box.replace(space, tuple:unpack())
+    return rettask(tuple)
+end
+
+queue.release = function(space, task, delay, pri, ttr, ttl)
+    local tuple = box.select(space, 0, task)
+    if tuple == nil then
+        return
+    end
+    if tuple[i_status] ~= ST_RUN then
+        return rettask(tuple)
+    end
+
+    local now = os.time()
+
+    if ttl == nil then
+        ttl = box.unpack('i', tuple[i_ttl])
+    else
+        ttl = tonumber(ttl)
+    end
+
+    if ttr == nil then
+        ttr = box.unpack('i', tuple[i_ttr])
+    else
+        ttr = tonumber(ttr)
+    end
+
+    if delay == nil then
+        delay = 0
+    else
+        delay = tonumber(delay)
+        ttl = ttl + delay 
+    end
+
+    if pri == nil then
+        pri = box.unpack('i', tuple[i_pri])
+    else
+        pri = tonumber(pri)
+    end
+
+    if delay > 0 then
+        tuple = box.update(space,
+            task,
+            '=p=p=p=p=p',
+            i_status,
+            ST_DELAYED,
+            i_event,
+            now + delay,
+            i_ttl,
+            ttl,
+            i_ttr,
+            ttr,
+            i_pri,
+            pri
+        )
+    else
+        tuple = box.update(space,
+            task,
+            '=p=p=p=p=p',
+            i_status,
+            ST_READY,
+            i_event,
+            box.unpack('i', tuple[i_started]) + ttl,
+            i_ttl,
+            ttl,
+            i_ttr,
+            ttr,
+            i_pri,
+            pri
+        )
+    end
+
+    return rettask(tuple)
+end
+
+queue.task_status = function(space, task)
+    local tuple = box.select(space, 0, task)
+    if tuple == nil then
+        return 'not found'
+    end
+
+    if tuple[i_status] == ST_READY then
+        return 'ready'
+    end
+    if tuple[i_status] == ST_DELAYED then
+        return 'delayed'
+    end
+    if tuple[i_status] == ST_RUN then
+        return 'run'
+    end
+    if tuple[i_status] == ST_BURIED then
+        return 'bury'
+    end
+    if tuple[i_status] == ST_DONE then
+        return 'done'
+    end
+    return 'unknown: ' .. tuple[i_status]
+end
+
+queue.get = function(space, task)
+    local tuple = box.select(space, 0, task)
+    return rettask(tuple)
 end

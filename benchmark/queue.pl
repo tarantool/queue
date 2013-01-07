@@ -17,6 +17,7 @@ use DR::Tarantool ':all';
 use DR::Tarantool::StartTest;
 use Time::HiRes 'time';
 use Data::Dumper;
+use Coro::AnyEvent;
 
 my $t = DR::Tarantool::StartTest->run(
     cfg         => catfile(cwd, 'config/db/tarantool.cfg'),
@@ -37,21 +38,52 @@ sub tnt {
 
 tnt->ping;
 
-my (@f, %t);
-my $no = 0;
-for (my $i = 0; $i < 250; $i++) {
-    push @f => async {
-        my $tuple = tnt->call_lua('queue.put', [ 0, 'test' ]);
-        $t{ $tuple->raw(0) }++ if $tuple;
-    };
+my $done = 0;
+my $total_time = 0;
+my $process = 1;
 
-    push @f => async {
-        my $tuple = tnt->call_lua('queue.take', [ 0, 'test', 3 ]);
-        $t{ $tuple->raw(0) }++ if $tuple;
-    };
+$SIG{INT} = $SIG{TERM} = sub {
+    print "\nПолучен сигнал выхода\n";
+    $process = 0;
+};
+
+
+while($process) {
+
+    my $start_time = time;
+    my (@f, %t);
+    my $no = 0;
+    for (my $i = 0; $i < 250; $i++) {
+        push @f => async {
+            my $tuple = tnt->call_lua('queue.put', [ 0, 'test' ]);
+            $t{ $tuple->raw(0) }++ if $tuple;
+        };
+
+        push @f => async {
+            my $tuple = tnt->call_lua('queue.take', [ 0, 'test', 3 ]);
+            $t{ $tuple->raw(0) }++ if $tuple;
+
+            Coro::AnyEvent::sleep .1;
+            tnt->call_lua('queue.ack', [ 0, $tuple->raw(0) ]);
+        };
+
+        $no++;
+
+    }
+
+    $_->join for @f;
+    @f = ();
+
+    my $done_time = time - $start_time;
+    $total_time += $done_time;
+    $done += $no;
+
+
+    printf "Done %d sessions in %3.2f seconds (%d r/s, %f s/r)\n",
+        $done,
+        $total_time,
+        $done / $total_time,
+        $total_time / $done
+    ;
 
 }
-
-$_->join for @f;
-print $t->log;
-print Dumper \%t;

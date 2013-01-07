@@ -13,3 +13,7 @@ function get(delay)
     end
     return ch:get()
 end
+
+function ping(...)
+    return ...
+end
