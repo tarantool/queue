@@ -6,11 +6,13 @@ use utf8;
 use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
-use Test::More tests    => 30;
+use Test::More tests    => 31;
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
 use feature 'state';
+
+
 
 BEGIN {
     # Подготовка объекта тестирования для работы с utf8
@@ -29,51 +31,68 @@ my $t = DR::Tarantool::StartTest->run(
     script_dir  => catfile(cwd, 'config/db')
 );
 
+$SIG{INT} = sub {
+    note $t->log;
+    $t->kill('KILL');
+    exit 2;
+};
+
 sub tnt {
     state $tnt;
     unless($tnt) {
-        $tnt = coro_tarantool
-            host => 'localhost',
-            port => $t->primary_port,
-            spaces => {
-                0   => {
-                    name            => 'queue',
-                    default_type    => 'STR',
-                    fields          => [
-                        qw(uuid tube status),
-                        {
-                            type => 'NUM64',
-                            name => 'event'
-                        },
-                        {
-                            type => 'NUM',
-                            name => 'pri'
-                        },
-                        'cid',
+        $tnt = eval {
+            coro_tarantool
+                host => 'localhost',
+                port => $t->primary_port,
+                spaces => {
+                    0   => {
+                        name            => 'queue',
+                        default_type    => 'STR',
+                        fields          => [
+                            qw(uuid tube status),
+                            {
+                                type => 'NUM64',
+                                name => 'event'
+                            },
+                            {
+                                type => 'NUM',
+                                name => 'pri'
+                            },
+                            'cid',
 
-                        {
-                            type => 'NUM64',
-                            name => 'started'
-                        },
-                        {
-                            type => 'NUM64',
-                            name => 'ttl',
-                        },
-                        {
-                            type => 'NUM64',
-                            name => 'ttr',
-                        },
-                        'task',
-                    ],
-                    indexes => {
-                        0 => 'uuid',
-                        1 => {
-                            name => 'event',
-                            fields => [qw(tube status event pri)]
+                            {
+                                type => 'NUM64',
+                                name => 'started'
+                            },
+                            {
+                                type => 'NUM64',
+                                name => 'ttl',
+                            },
+                            {
+                                type => 'NUM64',
+                                name => 'ttr',
+                            },
+                            {
+                                type => 'NUM64',
+                                name => 'ready'
+                            },
+                            {
+                                type => 'NUM64',
+                                name => 'bury'
+                            },
+                            'task',
+                        ],
+                        indexes => {
+                            0 => 'uuid',
+                            1 => {
+                                name => 'event',
+                                fields => [qw(tube status event pri)]
+                            }
                         }
                     }
-                }
-            },
+                },
+            };
+            note $t->log unless $tnt;
     }
     $tnt;
 };
@@ -98,7 +117,9 @@ my $task1 = tnt->call_lua('queue.put',
     ]
 )->raw;
 
-is tnt->call_lua('queue.task_status', [ $sno, $task1->[0] ])->raw(0), 'ready',
+
+
+is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'ready',
     'task1 is ready';
 
 is_deeply $task1, [ $task1->[0], 'task', 1 .. 10 ], 'task 1';
@@ -108,7 +129,7 @@ my $task2 = tnt->call_lua('queue.put',
     [
         $sno,
         'tube_name',
-        1,
+        .5,
         10,
         20,
         30,
@@ -116,55 +137,60 @@ my $task2 = tnt->call_lua('queue.put',
     ]
 )->raw;
 
-is tnt->call_lua('queue.task_status', [ $sno, $task2->[0] ])->raw(0), 'delayed',
+is tnt->call_lua('queue.meta', [ $sno, $task2->[0] ])->raw(2), 'delayed',
     'task2 is delayed';
 
-is_deeply tnt->call_lua('queue.get', [ $sno, $task2->[0] ])->raw, $task2,
+is_deeply tnt->call_lua('queue.peek', [ $sno, $task2->[0] ])->raw, $task2,
     'task2.get';
 
 is_deeply $task2, [ $task2->[0], 'task', 10 .. 20 ], 'task 2';
 
 my $task1_t = tnt->call_lua('queue.take', [ $sno, 'tube_name', 5 ])->raw;
 is_deeply $task1_t, $task1, 'task1 taken';
-is tnt->call_lua('queue.task_status', [ $sno, $task1->[0] ])->raw(0), 'run',
-    'task1 is run';
+is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'taken',
+    'task1 is taken';
 
 
 my $task2_t = eval {tnt->call_lua('queue.take', [ $sno, 'tube_name', 5 ])->raw};
 is_deeply $task2_t, $task2, 'task2 taken';
-cmp_ok time - $started, '>=', 1, 'delay more than 1 second';
-cmp_ok time - $started, '<=', 3, 'delay less than 3 second';
+cmp_ok time - $started, '>=', .5, 'delay more than 0.5 second';
+cmp_ok time - $started, '<=', .7, 'delay less than 0.7 second';
 
-is_deeply tnt->call_lua('queue.get', [ $sno, $task2->[0] ])->raw, $task2,
-    'queue.get';
+is_deeply tnt->call_lua('queue.peek', [ $sno, $task2->[0] ])->raw, $task2,
+    'queue.peek';
 
 my $task_ack = tnt->call_lua('queue.ack', [ $sno, $task2->[0] ])->raw;
 is_deeply $task_ack, $task2, 'task was ack';
 
-# note explain [ tnt->call_lua('queue.get', [ $sno, $task2->[0] ]), $task2 ];
+# note explain [ tnt->call_lua('queue.peek', [ $sno, $task2->[0] ]), $task2 ];
 
-is_deeply tnt->call_lua('queue.get', [ $sno, $task2->[0] ]), undef, 'queue.get';
+is_deeply tnt->call_lua('queue.peek', [ $sno, $task2->[0] ]), undef, 'queue.peek';
 # note $t->log;
 
-$task_ack = tnt->call_lua('queue.ack', [ $sno, $task2->[0] ]);
+$task_ack = eval { tnt->call_lua('queue.ack', [ $sno, $task2->[0] ]) };
+like $@, qr{task not found}i, 'error message';
 is $task_ack, undef, 'repeat ack';
 
 is_deeply  tnt->call_lua('queue.release', [ $sno, $task1->[0] ])->raw, $task1,
     'task1 release';
-is tnt->call_lua('queue.task_status', [ $sno, $task1->[0] ])->raw(0), 'ready',
+is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'ready',
     'task1 is ready';
 
 $task1_t = tnt->call_lua('queue.take', [ $sno, 'tube_name', 5 ])->raw;
 is_deeply $task1_t, $task1, 'repeatly take task1';
-is_deeply  tnt->call_lua('queue.release', [ $sno, $task1->[0], 1 ])->raw,
-    $task1, 'task1 release (delayed)';
-is tnt->call_lua('queue.task_status', [ $sno, $task1->[0] ])->raw(0), 'delayed',
-    'task1 is delayed';
 $started = time;
+is_deeply  tnt->call_lua('queue.release', [ $sno, $task1->[0], .5 ])->raw,
+    $task1, 'task1 release (delayed)';
+is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'delayed',
+    'task1 is delayed';
 $task1_t = tnt->call_lua('queue.take', [ $sno, 'tube_name', 5 ])->raw;
-cmp_ok time - $started, '>=', 1, 'take took more than 1 second';
-cmp_ok time - $started, '<=', 2.1, 'take took less than 2 second';
+cmp_ok time - $started, '>=', .5, 'take took more than 0.5 second';
+cmp_ok time - $started, '<=', .7, 'take took less than 0.7 second';
 
-is tnt->call_lua('queue.task_status', [ $sno, $task1->[0] ])->raw(0), 'run',
+is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'taken',
     'task1 is run';
 is_deeply $task1_t, $task1, 'task1 is deeply';
+
+END {
+note $t->log;
+}
