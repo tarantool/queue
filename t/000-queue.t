@@ -42,7 +42,7 @@ sub tnt {
                     fields          => [
                         qw(uuid tube status),
                         {
-                            type => 'NUM',
+                            type => 'NUM64',
                             name => 'event'
                         },
                         {
@@ -52,15 +52,15 @@ sub tnt {
                         'cid',
 
                         {
-                            type => 'NUM',
+                            type => 'NUM64',
                             name => 'started'
                         },
                         {
-                            type => 'NUM',
+                            type => 'NUM64',
                             name => 'ttl',
                         },
                         {
-                            type => 'NUM',
+                            type => 'NUM64',
                             name => 'ttr',
                         },
                         'task',
