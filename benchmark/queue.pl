@@ -56,7 +56,8 @@ while($process) {
     my $no = 0;
     for (my $i = 0; $i < 500; $i++) {
         push @f => async {
-            my $tuple = tnt->call_lua('queue.put', [ 0, 'tube', 0, 10, 1, 1, 'task body' ]);
+            my $tuple = tnt->call_lua('queue.put',
+                [ 0, 'tube', 0, 10, 1, 1, 'task body' ]);
             $t{ $tuple->raw(0) }++;
         };
 

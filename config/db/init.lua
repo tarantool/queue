@@ -724,14 +724,87 @@ queue.done = function(space, id, ...)
     if box.unpack('i', task[i_cid]) ~= box.session.id() then
         error('Only consumer that took the task can it done')
     end
+
+    local event = box.unpack('l', task[i_started]) +
+        box.unpack('l', task[i_ttl])
+    local tube = task[i_tube]
+
     task = task
-                :transform(i_task, #tuple, ...)
+                :transform(i_task, #task, ...)
                 :transform(i_status, 1, ST_DONE)
+                :transform(i_event, 1, box.pack('l', event))
+
     task = box.replace(space, task:unpack())
     if not queue.workers[space][tube].ch:is_full() then
         queue.workers[space][tube].ch:put(true)
     end
-    queue.stat[space][ task[i_tube] ]:inc('done')
+    queue.stat[space][ tube ]:inc('done')
+    return rettask(task)
+end
+
+queue.bury = function(space, id)
+    local task = box.select(space, 0, id)
+    if task == nil then
+        error("Task not found")
+    end
+    if task[i_status] ~= ST_TAKEN then
+        error('Task is not taken')
+    end
+
+    if box.unpack('i', task[i_cid]) ~= box.session.id() then
+        error('Only consumer that took the task can it done')
+    end
+
+    local event = box.unpack('l', task[i_started]) +
+        box.unpack('l', task[i_ttl])
+    local tube = task[i_tube]
+
+    task = box.update(space, task[i_uuid],
+        '=p=p+p',
+
+        i_status,
+        ST_BURIED,
+
+        i_event,
+        box.pack('l', event),
+
+        i_cbury,
+        box.pack('i', 1)
+    )
+
+    if not queue.workers[space][tube].ch:is_full() then
+        queue.workers[space][tube].ch:put(true)
+    end
+    queue.stat[space][ tube ]:inc('bury')
+    return rettask(task)
+end
+
+
+queue.dig = function(space, id)
+    local task = box.select(space, 0, id)
+    if task == nil then
+        error("Task not found")
+    end
+    if task[i_status] ~= ST_BURIED then
+        error('Task is not buried')
+    end
+
+    local tube = task[i_tube]
+
+    task = box.update(space, task[i_uuid],
+        '=p+p',
+
+        i_status,
+        ST_READY,
+        
+        i_cbury,
+        box.pack('i', 1)
+    )
+
+    if not queue.workers[space][tube].ch:is_full() then
+        queue.workers[space][tube].ch:put(true)
+    end
+    queue.stat[space][ tube ]:inc('bury')
     return rettask(task)
 end
 

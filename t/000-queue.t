@@ -6,7 +6,7 @@ use utf8;
 use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
-use Test::More tests    => 55;
+use Test::More tests    => 65;
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
@@ -312,6 +312,20 @@ $task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
 is $task1_m->status, 'ready', 'task1 is ready (by dead consumer)';
 is $task2_m->status, 'ready', 'task2 is ready (by dead consumer)';
 
+$task1 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+$task2 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+isnt $task1->[0], $task2->[0], 'task1 and task2 were taken';
+
+$task1_t = tnt->call_lua('queue.done', [ $sno, $task1->[0], 'abc' ])->raw;
+
+is_deeply
+    $task1_t,
+    [ $task1->[0], 'abc' ],
+    'task1.done';
+
+$task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
+is $task1_m->status, 'done', 'task1.status';
+
 my %stat = @{ tnt->call_lua('queue.statistic', [])->raw };
 
 is $stat{"space$sno.tube_name.ready_by_disconnect"}, 2,
@@ -320,10 +334,23 @@ is $stat{"space$sno.tube_name.ttl.total"}, 1,
     'cnt ttl.total';
 is $stat{"space$sno.tube_name.tasks.buried"}, 0,
     'cnt tasks.buried';
-is $stat{"space$sno.tube_name.tasks.ready"}, 3,
-    'cnt tasks.ready';
+is $stat{"space$sno.tube_name.tasks.ready"}, 1, 'cnt tasks.ready';
+is $stat{"space$sno.tube_name.tasks.taken"}, 1, 'cnt tasks.taken';
+is $stat{"space$sno.tube_name.tasks.done"}, 1, 'cnt tasks.done';
 
 
+$task2_t = tnt->call_lua('queue.bury', [ $sno, $task2->[0] ])->raw;
+is_deeply $task2_t, $task2, 'task2.bury';
+$task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
+is $task2_m->status, 'buried', 'task2.status';
+
+is scalar eval { tnt->call_lua('queue.dig', [ $sno, $task1->[0] ])}, undef,
+    'wrong task.dig';
+
+$task2_t = tnt->call_lua('queue.dig', [ $sno, $task2->[0] ])->raw;
+is_deeply $task2_t, $task2, 'task2.dig';
+$task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
+is $task2_m->status, 'ready', 'task2.status';
 
 END {
 note $t->log;
