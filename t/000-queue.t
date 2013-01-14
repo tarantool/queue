@@ -6,7 +6,7 @@ use utf8;
 use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
-use Test::More tests    => 31;
+use Test::More tests    => 55;
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
@@ -38,8 +38,8 @@ $SIG{INT} = sub {
     exit 2;
 };
 
+our $tnt;
 sub tnt {
-    state $tnt;
     unless($tnt) {
         $tnt = eval {
             coro_tarantool
@@ -86,6 +86,10 @@ sub tnt {
                             {
                                 type => 'NUM64',
                                 name => 'bury'
+                            },
+                            {
+                                type => 'NUM64',
+                                name => 'taken'
                             },
                             'task',
                         ],
@@ -198,7 +202,8 @@ is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'taken',
     'task1 is run';
 is_deeply $task1_t, $task1, 'task1 is deeply';
 
-
+is_deeply tnt->call_lua('queue.ack', [ $sno, $task1->[0]])->raw,
+    $task1, 'task1.ack';
 
 
 $task1 = tnt->call_lua('queue.put', 
@@ -206,7 +211,7 @@ $task1 = tnt->call_lua('queue.put',
         $sno,
         'tube_name',
         0,                  # delay
-        3,                  # ttl
+        5,                  # ttl
         0.5,                # ttr
         30,                 # pri 
         'task', 30 .. 40
@@ -220,7 +225,7 @@ $task2 = tnt->call_lua('queue.urgent',
         $sno,
         'tube_name',
         0,                  # delay
-        3,                  # ttl
+        5,                  # ttl
         0.5,                # ttr
         30,                 # pri 
         'task', 40 .. 50
@@ -231,9 +236,21 @@ my $task3 = tnt->call_lua('queue.put',
     [
         $sno,
         'tube_name',
-        1,                  # delay
-        .5,                 # ttl
+        .5,                 # delay
+        .1,                 # ttl
         0.1,                # ttr
+        30,                 # pri 
+        'task', 50 .. 60
+    ]
+)->raw;
+
+my $task4 = tnt->call_lua('queue.put', 
+    [
+        $sno,
+        'tube_name',
+        0,                  # delay
+        5,                  # ttl
+        1,                  # ttr
         30,                 # pri 
         'task', 50 .. 60
     ]
@@ -245,6 +262,7 @@ cmp_ok $task2_m->ipri, '<', $task1_m->ipri, 'ipri(task2) < ipri(task1)';
 
 $task2_t = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
 $task1_t = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+isnt $task1->[0], $task2->[0], "task1 and task2 aren't the same";
 
 is_deeply $task1_t, $task1, 'task1 was fetched as urgent';
 is_deeply $task2_t, $task2, 'task2 was fetched as usual';
@@ -258,14 +276,54 @@ for (1 .. 10) {
 $task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
 $task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
 
+is $task1_m->ready, 1, 'cready';
+
 is $task1_m->status, 'taken', 'task1 is taken';
 is $task2_m->status, 'ready', 'task2 is ready (by ttr)';
 
-note explain
-tnt->call_lua('queue.peek', [ $sno, $task3->[0] ])->raw,
-tnt->call_lua('queue.meta', [ $sno, $task3->[0] ], 'queue')->raw;
+is scalar eval { tnt->call_lua('queue.peek', [ $sno, $task3->[0] ]) }, undef,
+    'task3 was deleted by ttl';
+like $@, qr{Task not found}, 'error string';
 
-note explain tnt->call_lua('queue.statistic', [])->raw;
+is_deeply tnt->call_lua('queue.requeue', [ $sno, $task1->[0] ])->raw,
+    $task1, 'task1.requeue';
+
+cmp_ok tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue')->ipri,
+    '>',
+    $task1_m->ipri,
+    'requeue increase ipri';
+
+$task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
+is $task1_m->status, 'ready', 'requeue sets status as ready';
+is $task1_m->ready, 2, 'requeue increases cready';
+
+$task1 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+$task2 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+isnt $task1->[0], $task2->[0], 'task1 and task2 were taken';
+
+$tnt->disconnect(sub {  });
+$tnt = undef;
+
+ok tnt->ping, 'new tarantool connection';
+
+$task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
+$task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
+
+is $task1_m->status, 'ready', 'task1 is ready (by dead consumer)';
+is $task2_m->status, 'ready', 'task2 is ready (by dead consumer)';
+
+my %stat = @{ tnt->call_lua('queue.statistic', [])->raw };
+
+is $stat{"space$sno.tube_name.ready_by_disconnect"}, 2,
+    'cnt ready_by_disconnect';
+is $stat{"space$sno.tube_name.ttl.total"}, 1,
+    'cnt ttl.total';
+is $stat{"space$sno.tube_name.tasks.buried"}, 0,
+    'cnt tasks.buried';
+is $stat{"space$sno.tube_name.tasks.ready"}, 3,
+    'cnt tasks.ready';
+
+
 
 END {
 note $t->log;

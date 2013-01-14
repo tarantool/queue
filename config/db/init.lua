@@ -71,9 +71,12 @@ local i_cid            = 6
 local i_started        = 7
 local i_ttl            = 8
 local i_ttr            = 9
+
 local i_cready         = 10
 local i_cbury          = 11
-local i_task           = 12
+local i_ctaken         = 12
+
+local i_task           = 13
 
 -- indexes
 local idx_task         = 0
@@ -95,6 +98,49 @@ local human_status = {}
     human_status[ST_BURIED]     = 'buried'
     human_status[ST_DONE]       = 'done'
 
+local all_statuses = {
+    ST_READY,
+    ST_DELAYED,
+    ST_TAKEN,
+    ST_BURIED,
+    ST_DONE,
+}
+
+
+local function get_ipri(space, tube, inc)
+    local toptask
+    if inc < 0 then
+        toptask = box.select_limit(space, idx_tube, 0, 1, tube, ST_READY)
+        if toptask == nil then
+            return queue.default.ipri
+        end
+    else
+        toptask = box.select_reverse_range(space, idx_tube, 1, tube, ST_READY)
+        if toptask == nil then
+            return queue.default.ipri
+        end
+        if toptask[i_status] ~= ST_READY then
+            return queue.default.ipri
+        end
+    end
+
+    local ipri = box.unpack('i', toptask[i_ipri])
+    if inc < 0 then
+        if ipri > -inc then
+            ipri = ipri + inc
+        else
+            ipri = 0
+        end
+    else
+        if ipri < 0xFFFFFFFF - inc then
+            ipri = ipri + inc
+        else
+            ipri = 0xFFFFFFFF
+        end
+    end
+
+    return ipri
+end
 
 local function to_time64(time)
     return time * 1000000
@@ -143,13 +189,13 @@ local function process_tube(space, tube)
                 break
             end
 
-            local ttl = box.unpack('l', task[i_ttl])
-            local started = box.unpack('l', task[i_started])
-            local ttr = box.unpack('l', task[i_ttr])
+            local started   = box.unpack('l', task[i_started])
+            local ttl       = box.unpack('l', task[i_ttl])
+            local ttr       = box.unpack('l', task[i_ttr])
 
 
             if now >= started + ttl then
-                queue.stat[space][tube]:inc('ttl')
+                queue.stat[space][tube]:inc('ttl.total')
                 queue.stat[space][tube]:inc(
                     'ttl.' .. human_status[task[i_status]])
                 box.delete(space, task[i_uuid])
@@ -157,25 +203,40 @@ local function process_tube(space, tube)
             -- delayed -> ready
             elseif task[i_status] == ST_DELAYED then
                 box.update(space, task[i_uuid],
-                    '=p=p',
+                    '=p=p+p',
+
                     i_status,
                     ST_READY,
+
                     i_event,
-                    box.pack('l', started + ttl)
+                    box.pack('l', started + ttl),
+
+                    i_cready,
+                    box.pack('i', 1)
                 )
-                queue.consumers[space][tube]:put(true)
+                queue.consumers[space][tube]:put(true, 0.1)
+            -- taken -> ready
             elseif task[i_status] == ST_TAKEN then
                 box.update(space, task[i_uuid],
-                    '=p=p=p',
+                    '=p=p=p+p',
+
                     i_status,
                     ST_READY,
+
                     i_cid,
                     box.pack('i', 0),
+
                     i_event,
-                    box.pack('l', started + ttl)
+                    box.pack('l', started + ttl),
+
+                    i_cready,
+                    box.pack('i', 1)
                 )
-                queue.consumers[space][tube]:put(true)
+                queue.consumers[space][tube]:put(true, 0.1)
             else
+                print("Internal error: unexpected task status: ",
+                    task[i_status],
+                    " (", human_status[ task[i_status] ], ")")
                 box.update(space, task[i_uuid],
                     '=p',
                     i_event,
@@ -189,7 +250,54 @@ local function process_tube(space, tube)
     end
 end
 
+local function consumer_dead_tube(space, tube, cid)
+    local index = box.space[tonumber(space)].index[idx_tube]
 
+    for task in index:iterator(box.index.LE, tube, ST_TAKEN) do
+        if task[i_status] ~= ST_TAKEN then
+            break
+        end
+        local started = box.unpack('l', task[i_started])
+        local ttl = box.unpack('l', task[i_ttl])
+        if box.unpack('i', task[i_cid]) == cid then
+            queue.stat[space][tube]:inc('ready_by_disconnect')
+            box.update(
+                space,
+                task[i_uuid],
+                '=p=p=p+p',
+
+                i_status,
+                ST_READY,
+
+                i_event,
+                box.pack('l', started + ttl),
+
+                i_cid,
+                box.pack('i', 0),
+
+                i_cready,
+                box.pack('i', 1)
+            )
+
+
+            if not queue.consumers[space][tube]:is_full() then
+                queue.consumers[space][tube]:put(true)
+            end
+            if not queue.workers[space][tube].ch:is_full() then
+                queue.workers[space][tube].ch:put(true)
+            end
+        end
+    end
+end
+
+
+local function consumer_dead(cid)
+    for space, tbt in pairs(queue.consumers) do
+        for tube, ch in pairs(tbt) do
+            consumer_dead_tube(space, tube, cid)
+        end
+    end
+end
 
 if queue == nil then
     queue = {}
@@ -336,6 +444,26 @@ queue.statistic = function()
                 end
 
             end
+            table.insert(stat,
+                        'space' .. tostring(space) .. '.' .. tostring(tube)
+                            .. '.tasks.total'
+            )
+            table.insert(stat,
+                tostring(box.space[tonumber(space)].index[idx_tube]:count(tube))
+            )
+
+            for i, s in pairs(all_statuses) do
+                table.insert(stat,
+                            'space' .. tostring(space) .. '.' .. tostring(tube)
+                                .. '.tasks.' .. human_status[s]
+                )
+                table.insert(stat,
+                    tostring(
+                        box.space[tonumber(space)]
+                            .index[idx_tube]:count(tube, s)
+                    )
+                )
+            end
         end
     end
     return stat
@@ -376,7 +504,6 @@ local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
     end
 
 
-
     local task
     local now = box.time64()
 
@@ -393,6 +520,7 @@ local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
             box.pack('l', ttl),
             box.pack('l', ttr),
             box.pack('l', 0),
+            box.pack('l', 0),
             box.pack('l', 0)
         }
     else
@@ -407,6 +535,7 @@ local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
             box.pack('l', now),
             box.pack('l', ttl),
             box.pack('l', ttr),
+            box.pack('l', 1),
             box.pack('l', 0),
             box.pack('l', 0)
         }
@@ -435,6 +564,7 @@ queue.put = function(space, tube, ...)
     return put_push(space, tube, queue.default.ipri, ...)
 end
 
+
 queue.urgent = function(space, tube, delayed, ...)
     delayed = tonumber(delayed)
     queue.stat[space][tube]:inc('urgent')
@@ -443,16 +573,8 @@ queue.urgent = function(space, tube, delayed, ...)
     if delayed > 0 then
         return put_push(space, tube, queue.default.ipri, delayed, ...)
     end
-    
-    local toptask = box.select_limit(space, idx_tube, 0, 1, tube, ST_READY)
-    if toptask == nil then
-        return put_push(space, tube, queue.default.ipri, delayed, ...)
-    end
 
-    local ipri = box.unpack('i', toptask[i_ipri])
-    if ipri > 0 then
-        ipri = ipri - 1
-    end
+    local ipri = get_ipri(space, tube, -1)
     return put_push(space, tube, ipri, delayed, ...)
 end
 
@@ -473,20 +595,21 @@ queue.take = function(space, tube, timeout)
     while true do
 
         local task = box.select_limit(space, idx_tube, 0, 1, tube, ST_READY)
-        if task ~= nil then
+        if task ~= nil and task[i_status] == ST_READY then
 
             local now = box.time64()
             local started = box.unpack('l', task[i_started])
-            local ttr = box.unpack('l', task[i_ttl])
-            local ttl = box.unpack('l', task[i_ttr])
+            local ttr = box.unpack('l', task[i_ttr])
+            local ttl = box.unpack('l', task[i_ttl])
             local event = now + ttr
             if event > started + ttl then
                 event = started + ttl
             end
 
+
             task = box.update(space,
                 task[i_uuid],
-                    '=p=p=p',
+                    '=p=p=p+p',
                     i_status,
                     ST_TAKEN,
 
@@ -494,7 +617,10 @@ queue.take = function(space, tube, timeout)
                     box.pack('l', event),
 
                     i_cid,
-                    box.session.id()
+                    box.session.id(),
+
+                    i_ctaken,
+                    box.pack('i', 1)
             )
 
             if not queue.workers[space][tube].ch:is_full() then
@@ -609,7 +735,7 @@ queue.done = function(space, id, ...)
     return rettask(task)
 end
 
-queue.release = function(space, id, delay, pri, ttr, ttl)
+queue.release = function(space, id, delay, ttl)
     local task = box.select(space, idx_task, id)
     if task == nil then
         error('Task not found')
@@ -631,58 +757,55 @@ queue.release = function(space, id, delay, pri, ttr, ttl)
         ttl = to_time64(tonumber(ttl))
     end
 
-    if ttr == nil then
-        ttr = box.unpack('l', task[i_ttr])
-    else
-        ttr = to_time64(tonumber(ttr))
-    end
-
     if delay == nil then
         delay = 0
     else
         delay = to_time64(tonumber(delay))
+        if delay <= 0 then
+            delay = 0
+        end
         ttl = ttl + delay
     end
 
-    if pri == nil then
-        pri = box.unpack('i', task[i_pri])
-    else
-        pri = tonumber(pri)
-    end
+    local started = box.unpack('l', task[i_started])
+
 
     if delay > 0 then
         task = box.update(space,
             id,
-            '=p=p=p=p=p=p',
+            '=p=p=p=p',
+
             i_status,
             ST_DELAYED,
+
             i_event,
-            now + delay,
+            box.pack('l', now + delay),
+
             i_ttl,
-            ttl,
-            i_ttr,
-            ttr,
-            i_pri,
-            pri,
+            box.pack('l', ttl),
+
             i_cid,
-            0
+            box.pack('i', 0)
         )
     else
         task = box.update(space,
             id,
-            '=p=p=p=p=p=p',
+            '=p=p=p=p+p',
+
             i_status,
             ST_READY,
+
             i_event,
-            box.unpack('l', task[i_started]) + ttl,
+            box.pack('l', started + ttl),
+
             i_ttl,
-            ttl,
-            i_ttr,
-            ttr,
-            i_pri,
-            pri,
+            box.pack('l', ttl),
+
             i_cid,
-            0
+            box.pack('i', 0),
+            
+            i_cready,
+            box.pack('i', 1)
         )
         if not queue.consumers[space][tube]:is_full() then
             queue.consumers[space][tube]:put(true)
@@ -697,20 +820,73 @@ queue.release = function(space, id, delay, pri, ttr, ttl)
     return rettask(task)
 end
 
+
+queue.requeue = function(space, id)
+    local task = box.select(space, idx_task, id)
+    if task == nil then
+        error('Task not found')
+    end
+    if task[i_status] ~= ST_TAKEN then
+        error('Task is not taken')
+    end
+    if box.unpack('i', task[i_cid]) ~= box.session.id() then
+        error('Only consumer that took the task can it release')
+    end
+
+    local tube = task[i_tube]
+
+    local now = box.time64()
+
+
+    local ipri = get_ipri(space, tube, 1)
+
+    local started = box.unpack('l', task[i_started])
+    local ttl = box.unpack('l', task[i_ttl])
+
+
+    task = box.update(space,
+        id,
+        '=p=p=p+p=p',
+
+        i_status,
+        ST_READY,
+
+        i_event,
+        box.pack('l', started + ttl),
+
+        i_cid,
+        box.pack('i', 0),
+        
+        i_cready,
+        box.pack('i', 1),
+
+        i_ipri,
+        box.pack('i', ipri)
+    )
+    if not queue.consumers[space][tube]:is_full() then
+        queue.consumers[space][tube]:put(true)
+    end
+    if not queue.workers[space][tube].ch:is_full() then
+        queue.workers[space][tube].ch:put(true)
+    end
+    
+    queue.stat[space][ task[i_tube] ]:inc('requeue')
+
+    return rettask(task)
+end
+
 queue.meta = function(space, id)
     local task = box.select(space, 0, id)
     if task == nil then
         error('Task not found');
     end
 
-
     queue.stat[space][ task[i_tube] ]:inc('meta')
 
     task = task
-        :transform(i_task, #task - i_task)
+        :transform(i_task, #task - i_task, tostring(box.time64()))
         :transform(i_status, 1, human_status[ task[i_status] ])
     return task
-
 end
 
 
@@ -724,4 +900,19 @@ queue.peek = function(space, id)
     return rettask(task)
 end
 
+
+
+box.session.on_disconnect(
+    function()
+        local cid = box.session.id()
+        box.fiber.resume(
+            box.fiber.create(
+                function()
+                    box.fiber.detach()
+                    consumer_dead(cid)
+                end
+            )
+        )
+    end
+)
 
