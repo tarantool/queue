@@ -209,10 +209,10 @@ local function process_tube(space, tube)
                     ST_READY,
 
                     i_event,
-                    box.pack('l', started + ttl),
+                    started + ttl,
 
                     i_cready,
-                    box.pack('i', 1)
+                    1
                 )
                 queue.consumers[space][tube]:put(true, 0.1)
             -- taken -> ready
@@ -224,13 +224,13 @@ local function process_tube(space, tube)
                     ST_READY,
 
                     i_cid,
-                    box.pack('i', 0),
+                    0,
 
                     i_event,
-                    box.pack('l', started + ttl),
+                    started + ttl,
 
                     i_cready,
-                    box.pack('i', 1)
+                    1
                 )
                 queue.consumers[space][tube]:put(true, 0.1)
             else
@@ -240,7 +240,7 @@ local function process_tube(space, tube)
                 box.update(space, task[i_uuid],
                     '=p',
                     i_event,
-                    box.pack('l', now + to_time64(5))
+                    now + to_time64(5)
                 )
             end
             now = box.time64()
@@ -270,13 +270,13 @@ local function consumer_dead_tube(space, tube, cid)
                 ST_READY,
 
                 i_event,
-                box.pack('l', started + ttl),
+                started + ttl,
 
                 i_cid,
-                box.pack('i', 0),
+                0,
 
                 i_cready,
-                box.pack('i', 1)
+                1
             )
 
 
@@ -614,13 +614,13 @@ queue.take = function(space, tube, timeout)
                     ST_TAKEN,
 
                     i_event,
-                    box.pack('l', event),
+                    event,
 
                     i_cid,
                     box.session.id(),
 
                     i_ctaken,
-                    box.pack('i', 1)
+                    1
             )
 
             if not queue.workers[space][tube].ch:is_full() then
@@ -732,7 +732,7 @@ queue.done = function(space, id, ...)
     task = task
                 :transform(i_task, #task, ...)
                 :transform(i_status, 1, ST_DONE)
-                :transform(i_event, 1, box.pack('l', event))
+                :transform(i_event, 1, event)
 
     task = box.replace(space, task:unpack())
     if not queue.workers[space][tube].ch:is_full() then
@@ -766,10 +766,10 @@ queue.bury = function(space, id)
         ST_BURIED,
 
         i_event,
-        box.pack('l', event),
+        event,
 
         i_cbury,
-        box.pack('i', 1)
+        1
     )
 
     if not queue.workers[space][tube].ch:is_full() then
@@ -798,7 +798,7 @@ queue.dig = function(space, id)
         ST_READY,
         
         i_cbury,
-        box.pack('i', 1)
+        1
     )
 
     if not queue.workers[space][tube].ch:is_full() then
@@ -852,13 +852,13 @@ queue.release = function(space, id, delay, ttl)
             ST_DELAYED,
 
             i_event,
-            box.pack('l', now + delay),
+            now + delay,
 
             i_ttl,
-            box.pack('l', ttl),
+            ttl,
 
             i_cid,
-            box.pack('i', 0)
+            0
         )
     else
         task = box.update(space,
@@ -869,16 +869,16 @@ queue.release = function(space, id, delay, ttl)
             ST_READY,
 
             i_event,
-            box.pack('l', started + ttl),
+            started + ttl,
 
             i_ttl,
-            box.pack('l', ttl),
+            ttl,
 
             i_cid,
-            box.pack('i', 0),
+            0,
             
             i_cready,
-            box.pack('i', 1)
+            1
         )
         if not queue.consumers[space][tube]:is_full() then
             queue.consumers[space][tube]:put(true)
@@ -925,16 +925,16 @@ queue.requeue = function(space, id)
         ST_READY,
 
         i_event,
-        box.pack('l', started + ttl),
+        started + ttl,
 
         i_cid,
-        box.pack('i', 0),
+        0,
         
         i_cready,
-        box.pack('i', 1),
+        1,
 
         i_ipri,
-        box.pack('i', ipri)
+        ipri
     )
     if not queue.consumers[space][tube]:is_full() then
         queue.consumers[space][tube]:put(true)
