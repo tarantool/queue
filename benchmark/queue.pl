@@ -87,3 +87,5 @@ while($process) {
     ;
 
 }
+
+warn $t->log;

@@ -25,6 +25,7 @@ BEGIN {
     use_ok 'DR::Tarantool', ':all';
     use_ok 'DR::Tarantool::StartTest';
     use_ok 'Time::HiRes', 'time';
+    use_ok 'Coro::AnyEvent';
 }
 my $t = DR::Tarantool::StartTest->run(
     cfg         => catfile(cwd, 'config/db/tarantool.cfg'),
@@ -56,10 +57,16 @@ sub tnt {
                             },
                             {
                                 type => 'NUM',
+                                name => 'ipri'
+                            },
+                            {
+                                type => 'NUM',
                                 name => 'pri'
                             },
-                            'cid',
-
+                            {
+                                type => 'NUM',
+                                name => 'cid',
+                            },
                             {
                                 type => 'NUM64',
                                 name => 'started'
@@ -162,10 +169,10 @@ is_deeply tnt->call_lua('queue.peek', [ $sno, $task2->[0] ])->raw, $task2,
 my $task_ack = tnt->call_lua('queue.ack', [ $sno, $task2->[0] ])->raw;
 is_deeply $task_ack, $task2, 'task was ack';
 
-# note explain [ tnt->call_lua('queue.peek', [ $sno, $task2->[0] ]), $task2 ];
 
-is_deeply tnt->call_lua('queue.peek', [ $sno, $task2->[0] ]), undef, 'queue.peek';
-# note $t->log;
+is_deeply scalar eval { tnt->call_lua('queue.peek', [ $sno, $task2->[0] ]) },
+    undef, 'queue.peek';
+like $@, qr{Task not found}, 'task not found';
 
 $task_ack = eval { tnt->call_lua('queue.ack', [ $sno, $task2->[0] ]) };
 like $@, qr{task not found}i, 'error message';
@@ -190,6 +197,75 @@ cmp_ok time - $started, '<=', .7, 'take took less than 0.7 second';
 is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'taken',
     'task1 is run';
 is_deeply $task1_t, $task1, 'task1 is deeply';
+
+
+
+
+$task1 = tnt->call_lua('queue.put', 
+    [
+        $sno,
+        'tube_name',
+        0,                  # delay
+        3,                  # ttl
+        0.5,                # ttr
+        30,                 # pri 
+        'task', 30 .. 40
+    ]
+)->raw;
+
+my $task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
+
+$task2 = tnt->call_lua('queue.urgent', 
+    [
+        $sno,
+        'tube_name',
+        0,                  # delay
+        3,                  # ttl
+        0.5,                # ttr
+        30,                 # pri 
+        'task', 40 .. 50
+    ]
+)->raw;
+
+my $task3 = tnt->call_lua('queue.put', 
+    [
+        $sno,
+        'tube_name',
+        1,                  # delay
+        .5,                 # ttl
+        0.1,                # ttr
+        30,                 # pri 
+        'task', 50 .. 60
+    ]
+)->raw;
+
+my $task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
+
+cmp_ok $task2_m->ipri, '<', $task1_m->ipri, 'ipri(task2) < ipri(task1)';
+
+$task2_t = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+$task1_t = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+
+is_deeply $task1_t, $task1, 'task1 was fetched as urgent';
+is_deeply $task2_t, $task2, 'task2 was fetched as usual';
+
+
+for (1 .. 10) {
+    Coro::AnyEvent::sleep .2;
+    tnt->call_lua('queue.touch', [ $sno, $task1->[0] ])->raw;
+}
+
+$task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
+$task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
+
+is $task1_m->status, 'taken', 'task1 is taken';
+is $task2_m->status, 'ready', 'task2 is ready (by ttr)';
+
+note explain
+tnt->call_lua('queue.peek', [ $sno, $task3->[0] ])->raw,
+tnt->call_lua('queue.meta', [ $sno, $task3->[0] ], 'queue')->raw;
+
+note explain tnt->call_lua('queue.statistic', [])->raw;
 
 END {
 note $t->log;

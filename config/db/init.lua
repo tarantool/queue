@@ -1,3 +1,5 @@
+-- vim: set ft=lua et :
+
 -- queue in tarantool
 
 -- tarantool config example:
@@ -55,31 +57,35 @@
 -- delay - delay period for task
 
 
+
+local FIBERS_PER_TUBE  =   1
+
 -- tuple structure
-local i_uuid        = 0
-local i_tube        = 1
-local i_status      = 2
-local i_event       = 3
-local i_pri         = 4
-local i_cid         = 5
-local i_started     = 6
-local i_ttl         = 7
-local i_ttr         = 8
-local i_cready      = 9
-local i_cbury       = 10
-local i_task        = 11
+local i_uuid           = 0
+local i_tube           = 1
+local i_status         = 2
+local i_event          = 3
+local i_ipri           = 4
+local i_pri            = 5
+local i_cid            = 6
+local i_started        = 7
+local i_ttl            = 8
+local i_ttr            = 9
+local i_cready         = 10
+local i_cbury          = 11
+local i_task           = 12
 
 -- indexes
-local idx_task      = 0
-local idx_tube      = 1
-local idx_event     = 2
+local idx_task         = 0
+local idx_tube         = 1
+local idx_event        = 2
 
 -- task statuses
-local ST_READY      = 'r'
-local ST_DELAYED    = 'd'
-local ST_TAKEN      = 't'
-local ST_BURIED     = 'b'
-local ST_DONE       = '*'
+local ST_READY         = 'r'
+local ST_DELAYED       = 'd'
+local ST_TAKEN         = 't'
+local ST_BURIED        = 'b'
+local ST_DONE          = '*'
 
 
 local human_status = {}
@@ -95,7 +101,7 @@ local function to_time64(time)
 end
 
 local function from_time64(time)
-    return tonumber(time) / 1000000.0
+    return tonumber(time) / 1000000
 end
 
 local function rettask(task)
@@ -143,13 +149,9 @@ local function process_tube(space, tube)
 
 
             if now >= started + ttl then
-                queue.stat.ttl.total = queue.stat.ttl.total + 1
-                -- TODO: fill all statuses
-
-                queue.stat.ttl[ human_status[task[i_status]] ] =
-                    queue.stat.ttl[ human_status[task[i_status]] ] + 1
-
-                
+                queue.stat[space][tube]:inc('ttl')
+                queue.stat[space][tube]:inc(
+                    'ttl.' .. human_status[task[i_status]])
                 box.delete(space, task[i_uuid])
 
             -- delayed -> ready
@@ -184,7 +186,6 @@ local function process_tube(space, tube)
         end
 
         queue.workers[space][tube].ch:get(next_event)
---         box.fiber.sleep(next_event)
     end
 end
 
@@ -194,6 +195,7 @@ if queue == nil then
     queue = {}
     queue.consumers = {}
     queue.workers = {}
+    queue.stat = {}
 
     setmetatable(queue.consumers, {
             __index = function(tbs, space)
@@ -202,72 +204,115 @@ if queue == nil then
                     __index = function(tbt, tube)
                         local channel = box.ipc.channel(1)
                         rawset(tbt, tube, channel)
-
-                        if queue.workers[space] == nil then
-                            queue.workers[space] = {}
-                        end
-
                         return channel
                     end
                 })
                 rawset(tbs, space, spt)
                 return spt
+            end,
+            __gc = function(tbs)
+                for space, tubes in pairs(tbs) do
+                    for tube, tbt in pairs(tubes) do
+                        rawset(tubes, tube, nil)
+                    end
+                    rawset(tbs, space, nil)
+                end
+            end
+        }
+    )
+    
+    setmetatable(queue.stat, {
+            __index = function(tbs, space)
+                local spt = {}
+                setmetatable(spt, {
+                    __index = function(tbt, tube)
+                        local stat = {
+                            inc = function(t, cnt)
+                                t[cnt] = t[cnt] + 1
+                                return t[cnt]
+                            end
+                        }
+                        setmetatable(stat, {
+                            __index = function(t, cnt)
+                                rawset(t, cnt, 0)
+                                return 0
+                            end
+
+                        })
+
+                        rawset(tbt, tube, stat)
+                        return stat
+                    end
+                })
+                rawset(tbs, space, spt)
+                return spt
+            end,
+            __gc = function(tbs)
+                for space, tubes in pairs(tbs) do
+                    for tube, tbt in pairs(tubes) do
+                        rawset(tubes, tube, nil)
+                    end
+                    rawset(tbs, space, nil)
+                end
             end
         }
     )
 
     setmetatable(queue.workers, {
             __index = function(tbs, space)
-                local spt = {}
+                
+                local spt = rawget(tbs, space)
+                spt = {}
                 setmetatable(spt, {
                     __index = function(tbt, tube)
-                        local channel = box.ipc.channel(1)
-
-                        local v = {
-                            ch = channel,
-                            fibers = {}
-                        }
-
-
-                        local fiber = box.fiber.create(
-                            function()
-                                box.fiber.detach()
-                                process_tube(space, tube)
-                            end
-                        )
-                        box.fiber.resume(fiber)
-                        table.insert(v.fibers, fiber)
                         
+                        local v = rawget(tbt, tube)
+
+                        v = { fibers = {}, ch = box.ipc.channel(1) }
+
                         rawset(tbt, tube, v)
+
+                        for i = 1, FIBERS_PER_TUBE do
+                            local fiber = box.fiber.create(
+                                function()
+                                    box.fiber.detach()
+                                    process_tube(space, tube)
+                                end
+                            )
+                            box.fiber.resume(fiber)
+                            table.insert(v.fibers, fiber)
+                        end
+                        
                         return v
                     end
                 })
                 rawset(tbs, space, spt)
                 return spt
+            end,
+
+            __gc = function(tbs)
+                for space, tubes in pairs(tbs) do
+                    for tube, tbt in pairs(tubes) do
+                        for i, fiber in pairs(tbt.fibers) do
+                            box.fiber.cancel(fiber)
+                        end
+                        tbt.fibers = nil
+                        tbt.ch = nil
+                        rawset(tubes, tube, nil)
+                    end
+                    rawset(tbs, space, nil)
+                end
             end
         }
     )
 end
 
 queue.default = {}
-    queue.default.pri = 0x7FFF
-    queue.default.ttl = 3600 * 24 * 1
-    queue.default.ttr = 60
+    queue.default.pri   = 0x7FFFFFFF
+    queue.default.ipri  = 0x7FFFFFFF
+    queue.default.ttl   = 3600 * 24 * 1
+    queue.default.ttr   = 60
     queue.default.delay = 0
-
-
-queue.stat = {}
-    queue.stat.ttl = { total = 0 }
-    queue.stat.ttl[ human_status[ST_DONE] ] = 0
-    queue.stat.ttl[ human_status[ST_READY] ] = 0
-    queue.stat.ttl[ human_status[ST_TAKEN] ] = 0
-
-
-    queue.stat.ttr = 0
-    queue.stat.race_cond = 0
-    queue.stat.put = 0
-    queue.stat.take = 0
-    queue.stat.take_timeout = 0
 
 
 
@@ -275,80 +320,61 @@ queue.stat = {}
 
 
 queue.statistic = function()
-    return {
-        'race_cond',
-        tostring(queue.stat.race_cond),
-        'ttl',
-        tostring(queue.stat.ttl.total),
-        'ttr',
-        tostring(queue.stat.ttr),
-        'put',
-        tostring(queue.stat.put),
-        'take',
-        tostring(queue.stat.take),
-        'take_timeout',
-        tostring(queue.stat.take_timeout),
-    }
+
+    local stat = {}
+
+    for space, spt in pairs(queue.stat) do
+        for tube, st in pairs(spt) do
+            for name, value in pairs(st) do
+                if type(value) ~= 'function' then
+
+                    table.insert(stat,
+                        'space' .. tostring(space) .. '.' .. tostring(tube)
+                            .. '.' .. tostring(name)
+                    )
+                    table.insert(stat, tostring(value))
+                end
+
+            end
+        end
+    end
+    return stat
+
 end
 
 
-queue.put = function(space, tube, ...)
+local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
 
-    local delay, ttl, ttr, pri, utask
+    local utask = { ... }
 
-    delay   = queue.default.delay
-    ttl     = queue.default.ttl
-    ttr     = queue.default.ttr
-    pri     = queue.default.pri
-
-    local arlen = select('#', ...)
-    if arlen == 0 then          -- empty task
-        utask    = {}
-    elseif arlen == 1 then      -- put(task)
-        utask    = {...}
-    elseif arlen == 2 then      -- put(delay, task)
-        delay = select(1, ...)
-        utask  = { select(2, ...) }
-    elseif arlen == 3 then      -- put(delay, ttl, task)
-        delay = select(1, ...)
-        ttl  = select(2, ...)
-        utask = { select(3, ...) }
-    elseif arlen == 4 then      -- put(delay, ttl, ttr, task)
-        delay = select(1, ...)
-        ttl  = select(2, ...)
-        ttr  = select(3, ...)
-        utask = { select(4, ...) }
-    elseif arlen >= 5 then      -- full version of put
-        delay = select(1, ...)
-        ttl  = select(2, ...)
-        ttr  = select(3, ...)
-        pri  = select(4, ...)
-        utask = { select(5, ...) }
-    end
-
-
-    delay   = tonumber(delay)
-    ttl     = tonumber(ttl)
-    ttr     = tonumber(ttr)
-    pri     = tonumber(pri)
-
-    if delay == 0 then
-        delay = queue.default.delay
-    end
-    if ttl == 0 then
+    ttl = tonumber(ttl)
+    if ttl <= 0 then
         ttl = queue.default.ttl
     end
-    if ttr == 0 then
+    ttl     = to_time64(ttl)
+
+    delay = tonumber(delay)
+    if delay <= 0 then
+        delay = queue.default.delay
+    end
+    delay = to_time64(delay)
+    ttl = ttl + delay
+
+
+    ttr = tonumber(ttr)
+    if ttr <= 0 then
         ttr = queue.default.ttr
     end
-    if pri == 0 then
-        pri = queue.default.pri
+    ttr = to_time64(ttr)
+
+    pri = tonumber(pri)
+    pri = pri + queue.default.pri
+    if pri > 0xFFFFFFFF then
+        pri = 0xFFFFFFFF
+    elseif pri < 0 then
+        pri = 0
     end
 
-
-    delay   = to_time64(delay)
-    ttl     = to_time64(ttl)
-    ttr     = to_time64(ttr)
 
 
     local task
@@ -360,6 +386,7 @@ queue.put = function(space, tube, ...)
             tube,
             ST_DELAYED,
             box.pack('l', now + delay),
+            box.pack('i', ipri),
             box.pack('i', pri),
             box.pack('i', 0),
             box.pack('l', now),
@@ -374,6 +401,7 @@ queue.put = function(space, tube, ...)
             tube,
             ST_READY,
             box.pack('l', now + ttl),
+            box.pack('i', ipri),
             box.pack('i', pri),
             box.pack('i', 0),
             box.pack('l', now),
@@ -398,6 +426,34 @@ queue.put = function(space, tube, ...)
     end
 
     return rettask(task)
+
+end
+
+
+queue.put = function(space, tube, ...)
+    queue.stat[space][tube]:inc('put')
+    return put_push(space, tube, queue.default.ipri, ...)
+end
+
+queue.urgent = function(space, tube, delayed, ...)
+    delayed = tonumber(delayed)
+    queue.stat[space][tube]:inc('urgent')
+
+    -- TODO: may decrease ipri before put_push
+    if delayed > 0 then
+        return put_push(space, tube, queue.default.ipri, delayed, ...)
+    end
+    
+    local toptask = box.select_limit(space, idx_tube, 0, 1, tube, ST_READY)
+    if toptask == nil then
+        return put_push(space, tube, queue.default.ipri, delayed, ...)
+    end
+
+    local ipri = box.unpack('i', toptask[i_ipri])
+    if ipri > 0 then
+        ipri = ipri - 1
+    end
+    return put_push(space, tube, ipri, delayed, ...)
 end
 
 
@@ -444,6 +500,7 @@ queue.take = function(space, tube, timeout)
             if not queue.workers[space][tube].ch:is_full() then
                 queue.workers[space][tube].ch:put(true)
             end
+            queue.stat[space][tube]:inc('take')
             return rettask(task)
         end
 
@@ -452,6 +509,7 @@ queue.take = function(space, tube, timeout)
             if now < started + timeout then
                 queue.consumers[space][tube]:get(started + timeout - now)
             else
+                queue.stat[space][tube]:inc('take_timeout')
                 return
             end
         end
@@ -459,6 +517,12 @@ queue.take = function(space, tube, timeout)
 end
 
 queue.delete = function(space, id)
+    local task = box.select(space, idx_task, id)
+    if task == nil then
+        error("Task not found")
+    end
+
+    queue.stat[space][ task[i_tube] ]:inc('delete')
     return rettask(box.delete(space, id))
 end
 
@@ -475,22 +539,74 @@ queue.ack = function(space, id)
     if box.unpack('i', task[i_cid]) ~= box.session.id() then
         error('Only consumer that took the task can it ack')
     end
+    local task = box.select(space, idx_task, id)
+    if task == nil then
+        error("Task not found")
+    end
 
-    return queue.delete(space, id)
+    queue.stat[space][ task[i_tube] ]:inc('ack')
+    return rettask(box.delete(space, id))
 end
 
-queue.done = function(space, task, ...)
-    local tuple = box.select(space, 0, task)
-    if tuple == nil then
-        return
+queue.touch = function(space, id)
+    local task = box.select(space, idx_task, id)
+    if task == nil then
+        error('Task not found')
     end
-    tuple = tuple:transform(i_task, #tuple, ...)
-    tuple = tuple:transform(i_status, 1, ST_DONE)
-    tuple = box.replace(space, tuple:unpack())
+
+    if task[i_status] ~= ST_TAKEN then
+        error('Task is not taken')
+    end
+
+    if box.unpack('i', task[i_cid]) ~= box.session.id() then
+        error('Only consumer that took the task can it touch')
+    end
+    local task = box.select(space, idx_task, id)
+    if task == nil then
+        error("Task not found")
+    end
+    
+
+    local ttr = box.unpack('l', task[i_ttr])
+    local ttl = box.unpack('l', task[i_ttl])
+    local started = box.unpack('l', task[i_started])
+    local now = box.time64()
+    
+    local event
+
+    if started + ttl > now + ttr then
+        event = now + ttr
+    else
+        event = started + ttl
+    end
+
+    task = box.update(space, id, '=p', i_event, event)
+
+    queue.stat[space][ task[i_tube] ]:inc('touch')
+    return rettask(task)
+end
+
+queue.done = function(space, id, ...)
+    local task = box.select(space, 0, id)
+    if task == nil then
+        error("Task not found")
+    end
+    if task[i_status] ~= ST_TAKEN then
+        error('Task is not taken')
+    end
+
+    if box.unpack('i', task[i_cid]) ~= box.session.id() then
+        error('Only consumer that took the task can it done')
+    end
+    task = task
+                :transform(i_task, #tuple, ...)
+                :transform(i_status, 1, ST_DONE)
+    task = box.replace(space, task:unpack())
     if not queue.workers[space][tube].ch:is_full() then
         queue.workers[space][tube].ch:put(true)
     end
-    return rettask(tuple)
+    queue.stat[space][ task[i_tube] ]:inc('done')
+    return rettask(task)
 end
 
 queue.release = function(space, id, delay, pri, ttr, ttl)
@@ -502,7 +618,7 @@ queue.release = function(space, id, delay, pri, ttr, ttl)
         error('Task is not taken')
     end
     if box.unpack('i', task[i_cid]) ~= box.session.id() then
-        error('Only consumer that took the task can it ack')
+        error('Only consumer that took the task can it release')
     end
 
     local tube = task[i_tube]
@@ -575,6 +691,8 @@ queue.release = function(space, id, delay, pri, ttr, ttl)
     if not queue.workers[space][tube].ch:is_full() then
         queue.workers[space][tube].ch:put(true)
     end
+    
+    queue.stat[space][ task[i_tube] ]:inc('release')
 
     return rettask(task)
 end
@@ -586,19 +704,24 @@ queue.meta = function(space, id)
     end
 
 
+    queue.stat[space][ task[i_tube] ]:inc('meta')
 
-    task = task:transform(i_task, #task - i_task)
+    task = task
+        :transform(i_task, #task - i_task)
         :transform(i_status, 1, human_status[ task[i_status] ])
     return task
 
 end
 
 
-
-
 queue.peek = function(space, id)
-    local tuple = box.select(space, 0, id)
-    return rettask(tuple)
+    local task = box.select(space, 0, id)
+    if task == nil then
+        error("Task not found")
+    end
+
+    queue.stat[space][ task[i_tube] ]:inc('peek')
+    return rettask(task)
 end
 
 
