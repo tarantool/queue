@@ -378,6 +378,7 @@ if queue == nil then
 
                         v = { fibers = {}, ch = box.ipc.channel(1) }
 
+                        -- rawset have to be before start fiber
                         rawset(tbt, tube, v)
 
                         for i = 1, FIBERS_PER_TUBE do
