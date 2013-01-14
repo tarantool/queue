@@ -44,6 +44,7 @@ my $process = 1;
 
 $SIG{INT} = $SIG{TERM} = sub {
     print "\nПолучен сигнал выхода\n";
+    $t->kill unless $process;
     $process = 0;
 };
 
@@ -53,19 +54,19 @@ while($process) {
     my $start_time = time;
     my (@f, %t);
     my $no = 0;
-    for (my $i = 0; $i < 250; $i++) {
+    for (my $i = 0; $i < 500; $i++) {
         push @f => async {
-            my $tuple = tnt->call_lua('queue.put', [ 0, 'test' ]);
-            $t{ $tuple->raw(0) }++ if $tuple;
+            my $tuple = tnt->call_lua('queue.put', [ 0, 'tube', 0, 10, 1, 1, 'task body' ]);
+            $t{ $tuple->raw(0) }++;
         };
 
-        push @f => async {
-            my $tuple = tnt->call_lua('queue.take', [ 0, 'test', 3 ]);
+        push @f => async {{
+            my $tuple = tnt->call_lua('queue.take', [ 0, 'tube', 3 ]);
+            redo unless $tuple;
             $t{ $tuple->raw(0) }++ if $tuple;
 
-            Coro::AnyEvent::sleep .1;
             tnt->call_lua('queue.ack', [ 0, $tuple->raw(0) ]);
-        };
+        }};
 
         $no++;
 
@@ -78,6 +79,14 @@ while($process) {
     $total_time += $done_time;
     $done += $no;
 
+    if (scalar keys %t != $no) {
+        print "Некорректное число результатов\n";
+        last;
+    }
+    if ($no != grep { $_ == 2 } values %t) {
+        print "Не все результаты фигурируют два раза\n";
+        last;
+    }
 
     printf "Done %d sessions in %3.2f seconds (%d r/s, %f s/r)\n",
         $done,

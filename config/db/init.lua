@@ -595,7 +595,7 @@ queue.take = function(space, tube, timeout)
     while true do
 
         local task = box.select_limit(space, idx_tube, 0, 1, tube, ST_READY)
-        if task ~= nil and task[i_status] == ST_READY then
+        if task ~= nil  then
 
             local now = box.time64()
             local started = box.unpack('l', task[i_started])
