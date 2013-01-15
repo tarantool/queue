@@ -3,6 +3,7 @@
 -- queue in tarantool
 
 -- tarantool config example:
+
 -- space = [
 --     {
 --         enabled = 1,
@@ -30,7 +31,11 @@
 --                         type = "STR"
 --                     },
 --                     {
---                         fieldno = 4,    # pri
+--                         fieldno = 4,    # ipri
+--                         type = "NUM"
+--                     },
+--                     {
+--                         fieldno = 5    # pri
 --                         type = "NUM"
 --                     }
 --                 ]
