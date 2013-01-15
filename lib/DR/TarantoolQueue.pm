@@ -20,7 +20,7 @@ DR::TarantoolQueue - client for tarantool's queue
     my $queue = DR::TarantoolQueue->new(
         host    => 'tarantool.host',
         port    => 33014,
-        name    => 'request_queue',
+        tube    => 'request_queue',
         space   => 11
     );
 
@@ -40,7 +40,7 @@ has coro    => (is => 'ro', isa => 'Bool',  default  => 1);
 has ttl     => (is => 'rw', isa => 'Num|Undef');
 has ttr     => (is => 'rw', isa => 'Num|Undef');
 has space   => (is => 'rw', isa => 'Str|Undef');
-has name    => (is => 'rw', isa => 'Str|Undef');
+has tube    => (is => 'rw', isa => 'Str|Undef');
 with 'DR::TarantoolQueue::JSE';
 
 
@@ -88,13 +88,13 @@ sub _check_opts($@) {
 sub _producer {
     my ($self, $method, $o) = @_;
 
-    _check_opts $o, qw(space name delay ttl ttr pri data);
+    _check_opts $o, qw(space tube delay ttl ttr pri data);
 
     $o->{space} = $self->space unless defined $o->{space};
     croak 'space was not defined' unless defined $o->{space};
 
-    $o->{name}  = $self->name unless defined $o->{name};
-    croak 'queue name was not defined' unless defined $o->{name};
+    $o->{tube}  = $self->tube unless defined $o->{tube};
+    croak 'tube was not defined' unless defined $o->{tube};
 
     $o->{ttl} ||= $self->ttl || 0;
     $o->{ttr} ||= $self->ttr || 0;
@@ -106,7 +106,7 @@ sub _producer {
     my $tuple = $self->tnt->call_lua(
         "queue.$method" => [
             $o->{space},
-            $o->{name},
+            $o->{tube},
             $o->{delay},
             $o->{ttl},
             $o->{ttr},
@@ -115,11 +115,13 @@ sub _producer {
         ]
     );
 
-    DR::TarantoolQueue::Task->new(
+    return DR::TarantoolQueue::Task->new(
         id      => $tuple->raw(0),
-        rawdata => $tuple->raw(1)
+        rawdata => $tuple->raw(1),
+        space   => $o->{space},
+        tube    => $o->{tube},
+        queue   => $self,
     );
-
 }
 
 sub put {
@@ -132,6 +134,50 @@ sub urgent {
     return $self->_producer(urgent => \%opts);
 }
 
+sub take {
+    my ($self, %o) = @_;
+    _check_opts \%o, qw(space tube timeout);
+    $o{space} = $self->space unless defined $o{space};
+    croak 'space was not defined' unless defined $o{space};
+    $o{tube} = $self->tube unless defined $o{tube};
+    croak 'tube was not defined' unless defined $o{tube};
+    $o{timeout} ||= 0;
+    
+    my $tuple = $self->tnt->call_lua(
+        'queue.take' => [
+            $o{space},
+            $o{tube},
+            $o{timeout}
+        ]
+    );
+    return unless $tuple;
+    return DR::TarantoolQueue::Task->new(
+        id      => $tuple->raw(0),
+        rawdata => $tuple->raw(1),
+        space   => $o{space},
+        tube    => $o{tube},
+        queue   => $self,
+    );
+}
+
+sub ack {
+    my ($self, %o) = @_;
+    _check_opts \%o, qw(task);
+    croak 'task was not defined' unless $o{task};
+    my $tuple = $self->tnt->call_lua(
+        'queue.ack' => [
+            $o{task}->space,
+            $o{task}->id,
+        ]
+    );
+    return DR::TarantoolQueue::Task->new(
+        id      => $tuple->raw(0),
+        rawdata => $tuple->raw(1),
+        space   => $o{task}->space,
+        tube    => $o{task}->tube,
+        queue   => $self,
+    );
+}
 
 
 __PACKAGE__->meta->make_immutable();

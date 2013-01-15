@@ -48,14 +48,14 @@ my $q = DR::TarantoolQueue->new(
     host    => '127.0.0.1',
     port    => $t->primary_port,
     space   => 0,
-    name    => 'test_queue',
+    tube    => 'test_queue',
 );
 
 my $qs = DR::TarantoolQueue->new(
     host    => '127.0.0.1',
     port    => $t->primary_port,
     space   => 0,
-    name    => 'test_queue',
+    tube    => 'test_queue',
     coro    => 0
 );
 
@@ -82,3 +82,18 @@ for ('put', 'urgent') {
     like $task3->id, qr[^[0-9a-fA-F]{32}$], 'task3.id';
     is_deeply $task3->data, [ 3, 4, 'привет' ], "$_(data => arrayref)";
 }
+
+
+
+my $task1_t = $q->take;
+isa_ok $task1_t => 'DR::TarantoolQueue::Task';
+my $task2_t = $q->take;
+isa_ok $task2_t => 'DR::TarantoolQueue::Task';
+my $task3_t = $q->take;
+isa_ok $task3_t => 'DR::TarantoolQueue::Task';
+
+isnt $task1_t->id, $task2_t->id, "task1 and task2 aren't the same";
+isnt $task1_t->id, $task3_t->id, "task1 and task3 aren't the same";
+
+isa_ok $task1_t->ack => 'DR::TarantoolQueue::Task', 'task1.ack';
+
