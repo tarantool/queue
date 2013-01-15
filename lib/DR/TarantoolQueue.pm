@@ -8,6 +8,8 @@ use Carp;
 use JSON::XS;
 require DR::TarantoolQueue::Task;
 
+our $VERSION = '0.02';
+
 =head1 NAME
 
 DR::TarantoolQueue - client for tarantool's queue
