@@ -416,7 +416,7 @@ end
 queue.default = {}
     queue.default.pri   = med_pri
     queue.default.ipri  = med_pri
-    queue.default.ttl   = 3600 * 24 * 1
+    queue.default.ttl   = 3600 * 24 * 25
     queue.default.ttr   = 60
     queue.default.delay = 0
 
