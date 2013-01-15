@@ -6,7 +6,7 @@ use utf8;
 use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
-use Test::More tests    => 65;
+use Test::More tests    => 71;
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
@@ -352,6 +352,30 @@ is_deeply $task2_t, $task2, 'task2.dig';
 $task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
 is $task2_m->status, 'ready', 'task2.status';
 
+
+$task1 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+$task2 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+isnt $task1->[0], $task2->[0], '2 tasks were taken';
+$task1_t = tnt->call_lua('queue.bury', [ $sno, $task1->[0] ])->raw;
+$task2_t = tnt->call_lua('queue.bury', [ $sno, $task2->[0] ])->raw;
+$task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
+$task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
+is $task1_m->status, 'buried', 'task1.status';
+is $task2_m->status, 'buried', 'task2.status';
+
+
+my $kicked = tnt->call_lua(
+    'queue.kick', [ $sno, 'tube_name', 10 ],
+    fields => [ { name => 'count', type => 'NUM' }]
+)->raw(0);
+
+is $kicked, 2, '2 tasks were kicked';
+
+$task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
+$task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
+is $task1_m->status, 'ready', 'task1.status';
+is $task2_m->status, 'ready', 'task2.status';
+
 END {
-note $t->log;
+    note $t->log if $ENV{DEBUG};
 }

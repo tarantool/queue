@@ -43,7 +43,7 @@ my $total_time = 0;
 my $process = 1;
 
 $SIG{INT} = $SIG{TERM} = sub {
-    print "\nПолучен сигнал выхода\n";
+    print "\nSIGING received\n";
     $t->kill unless $process;
     $process = 0;
 };
@@ -57,7 +57,7 @@ while($process) {
     for (my $i = 0; $i < 500; $i++) {
         push @f => async {
             my $tuple = tnt->call_lua('queue.put',
-                [ 0, 'tube', 0, 10, 1, 1, 'task body' ]);
+                [ 0, 'tube', 0, 10, 5, 1, 'task body' ]);
             $t{ $tuple->raw(0) }++;
         };
 
@@ -98,4 +98,4 @@ while($process) {
 
 }
 
-warn $t->log;
+warn $t->log if $ENV{DEBUG};

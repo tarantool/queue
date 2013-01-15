@@ -253,10 +253,7 @@ end
 local function consumer_dead_tube(space, tube, cid)
     local index = box.space[tonumber(space)].index[idx_tube]
 
-    for task in index:iterator(box.index.LE, tube, ST_TAKEN) do
-        if task[i_status] ~= ST_TAKEN then
-            break
-        end
+    for task in index:iterator(box.index.EQ, tube, ST_TAKEN) do
         local started = box.unpack('l', task[i_started])
         local ttl = box.unpack('l', task[i_ttl])
         if box.unpack('i', task[i_cid]) == cid then
@@ -805,8 +802,40 @@ queue.dig = function(space, id)
     if not queue.workers[space][tube].ch:is_full() then
         queue.workers[space][tube].ch:put(true)
     end
-    queue.stat[space][ tube ]:inc('bury')
+    queue.stat[space][ tube ]:inc('dig')
     return rettask(task)
+end
+
+
+queue.kick = function(space, tube, count)
+    local index = box.space[tonumber(space)].index[idx_tube]
+
+    if count == nil then
+        error("wrong count")
+    end
+    count = tonumber(count)
+
+    if count <= 0 then
+        return 0
+    end
+
+    local kicked = 0
+    
+    for task in index:iterator(box.index.EQ, tube, ST_BURIED) do
+        box.update(space, task[i_uuid],
+            '=p+p',
+
+            i_status,
+            ST_READY,
+            
+            i_cbury,
+            1
+        )
+        kicked = kicked + 1
+        queue.stat[space][ tube ]:inc('dig')
+    end
+
+    return kicked
 end
 
 queue.release = function(space, id, delay, ttl)
