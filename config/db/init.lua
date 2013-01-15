@@ -73,7 +73,7 @@ local i_event          = 3
 local i_ipri           = 4
 local i_pri            = 5
 local i_cid            = 6
-local i_started        = 7
+local i_created        = 7
 local i_ttl            = 8
 local i_ttr            = 9
 
@@ -194,12 +194,12 @@ local function process_tube(space, tube)
                 break
             end
 
-            local started   = box.unpack('l', task[i_started])
+            local created   = box.unpack('l', task[i_created])
             local ttl       = box.unpack('l', task[i_ttl])
             local ttr       = box.unpack('l', task[i_ttr])
 
 
-            if now >= started + ttl then
+            if now >= created + ttl then
                 queue.stat[space][tube]:inc('ttl.total')
                 queue.stat[space][tube]:inc(
                     'ttl.' .. human_status[task[i_status]])
@@ -214,7 +214,7 @@ local function process_tube(space, tube)
                     ST_READY,
 
                     i_event,
-                    started + ttl,
+                    created + ttl,
 
                     i_cready,
                     1
@@ -232,7 +232,7 @@ local function process_tube(space, tube)
                     0,
 
                     i_event,
-                    started + ttl,
+                    created + ttl,
 
                     i_cready,
                     1
@@ -259,7 +259,7 @@ local function consumer_dead_tube(space, tube, cid)
     local index = box.space[tonumber(space)].index[idx_tube]
 
     for task in index:iterator(box.index.EQ, tube, ST_TAKEN) do
-        local started = box.unpack('l', task[i_started])
+        local created = box.unpack('l', task[i_created])
         local ttl = box.unpack('l', task[i_ttl])
         if box.unpack('i', task[i_cid]) == cid then
             queue.stat[space][tube]:inc('ready_by_disconnect')
@@ -272,7 +272,7 @@ local function consumer_dead_tube(space, tube, cid)
                 ST_READY,
 
                 i_event,
-                started + ttl,
+                created + ttl,
 
                 i_cid,
                 0,
@@ -593,7 +593,7 @@ queue.take = function(space, tube, timeout)
         end
     end
 
-    local started = box.time()
+    local created = box.time()
 
     while true do
 
@@ -601,12 +601,12 @@ queue.take = function(space, tube, timeout)
         if task ~= nil  then
 
             local now = box.time64()
-            local started = box.unpack('l', task[i_started])
+            local created = box.unpack('l', task[i_created])
             local ttr = box.unpack('l', task[i_ttr])
             local ttl = box.unpack('l', task[i_ttl])
             local event = now + ttr
-            if event > started + ttl then
-                event = started + ttl
+            if event > created + ttl then
+                event = created + ttl
             end
 
 
@@ -635,8 +635,8 @@ queue.take = function(space, tube, timeout)
 
         if timeout > 0 then
             now = box.time()
-            if now < started + timeout then
-                queue.consumers[space][tube]:get(started + timeout - now)
+            if now < created + timeout then
+                queue.consumers[space][tube]:get(created + timeout - now)
             else
                 queue.stat[space][tube]:inc('take_timeout')
                 return
@@ -698,15 +698,15 @@ queue.touch = function(space, id)
 
     local ttr = box.unpack('l', task[i_ttr])
     local ttl = box.unpack('l', task[i_ttl])
-    local started = box.unpack('l', task[i_started])
+    local created = box.unpack('l', task[i_created])
     local now = box.time64()
     
     local event
 
-    if started + ttl > now + ttr then
+    if created + ttl > now + ttr then
         event = now + ttr
     else
-        event = started + ttl
+        event = created + ttl
     end
 
     task = box.update(space, id, '=p', i_event, event)
@@ -728,7 +728,7 @@ queue.done = function(space, id, ...)
         error('Only consumer that took the task can it done')
     end
 
-    local event = box.unpack('l', task[i_started]) +
+    local event = box.unpack('l', task[i_created]) +
         box.unpack('l', task[i_ttl])
     local tube = task[i_tube]
 
@@ -758,7 +758,7 @@ queue.bury = function(space, id)
         error('Only consumer that took the task can it done')
     end
 
-    local event = box.unpack('l', task[i_started]) +
+    local event = box.unpack('l', task[i_created]) +
         box.unpack('l', task[i_ttl])
     local tube = task[i_tube]
 
@@ -875,7 +875,7 @@ queue.release = function(space, id, delay, ttl)
         ttl = ttl + delay
     end
 
-    local started = box.unpack('l', task[i_started])
+    local created = box.unpack('l', task[i_created])
 
 
     if delay > 0 then
@@ -904,7 +904,7 @@ queue.release = function(space, id, delay, ttl)
             ST_READY,
 
             i_event,
-            started + ttl,
+            created + ttl,
 
             i_ttl,
             ttl,
@@ -948,7 +948,7 @@ queue.requeue = function(space, id)
 
     local ipri = get_ipri(space, tube, 1)
 
-    local started = box.unpack('l', task[i_started])
+    local created = box.unpack('l', task[i_created])
     local ttl = box.unpack('l', task[i_ttl])
 
 
@@ -960,7 +960,7 @@ queue.requeue = function(space, id)
         ST_READY,
 
         i_event,
-        started + ttl,
+        created + ttl,
 
         i_cid,
         0,
