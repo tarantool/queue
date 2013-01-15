@@ -6,7 +6,17 @@ use utf8;
 use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
-use Test::More tests    => 70;
+use Test::More;
+
+BEGIN {
+    system 'which tarantool_box >/dev/null 2>&1';
+    if ($? == 0) {
+        plan tests    => 70;
+    } else {
+        plan skip_all => 'tarantool_box not found';
+    }
+}
+
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
@@ -33,7 +43,7 @@ my $t = DR::Tarantool::StartTest->run(
 );
 
 $SIG{INT} = sub {
-    note $t->log;
+    note $t->log if $ENV{DEBUG};
     $t->kill('KILL');
     exit 2;
 };
