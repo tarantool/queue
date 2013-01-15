@@ -423,8 +423,8 @@ queue.default = {}
 
 
 
-
-
+-- queue.statistic
+-- returns statistic about all queues
 queue.statistic = function()
 
     local stat = {}
@@ -555,12 +555,23 @@ local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
 end
 
 
+-- queue.put(space, tube, delay, ttl, ttr, pri, ...)
+--  put task into queue.
+--   arguments
+--      1. tube - queue name
+--      2. delay - delay before task can be taken
+--      3. ttl - time to live (if delay > 0 ttl := ttl + delay)
+--      4. ttr - time to release (when task is taken)
+--      5. pri - priority
+--      6. ... - task data
 queue.put = function(space, tube, ...)
     queue.stat[space][tube]:inc('put')
     return put_push(space, tube, queue.default.ipri, ...)
 end
 
 
+-- queue.urgent(space, tube, delay, ttl, ttr, pri, ...)
+--  like queue.put but put task at begin of queue
 queue.urgent = function(space, tube, delayed, ...)
     delayed = tonumber(delayed)
     queue.stat[space][tube]:inc('urgent')
@@ -574,7 +585,8 @@ queue.urgent = function(space, tube, delayed, ...)
     return put_push(space, tube, ipri, delayed, ...)
 end
 
-
+-- queue.take(space, tube, timeout)
+-- take task for processing
 queue.take = function(space, tube, timeout)
 
     if timeout == nil then
@@ -638,6 +650,9 @@ queue.take = function(space, tube, timeout)
     end
 end
 
+
+-- queue.delete(space, id)
+--  deletes task from queue
 queue.delete = function(space, id)
     local task = box.select(space, idx_task, id)
     if task == nil then
@@ -648,6 +663,9 @@ queue.delete = function(space, id)
     return rettask(box.delete(space, id))
 end
 
+
+-- queue.ack(space, id)
+--  done task processing (task will be deleted)
 queue.ack = function(space, id)
     local task = box.select(space, idx_task, id)
     if task == nil then
@@ -670,6 +688,9 @@ queue.ack = function(space, id)
     return rettask(box.delete(space, id))
 end
 
+
+-- queue.touch(space, id)
+--  prolong ttr for taken task
 queue.touch = function(space, id)
     local task = box.select(space, idx_task, id)
     if task == nil then
@@ -708,6 +729,8 @@ queue.touch = function(space, id)
     return rettask(task)
 end
 
+-- queue.done(space, id, ...)
+--  marks task as done, replaces task's data
 queue.done = function(space, id, ...)
     local task = box.select(space, 0, id)
     if task == nil then
@@ -738,6 +761,8 @@ queue.done = function(space, id, ...)
     return rettask(task)
 end
 
+-- queue.bury(space, id)
+--  bury task that is taken
 queue.bury = function(space, id)
     local task = box.select(space, 0, id)
     if task == nil then
@@ -775,7 +800,8 @@ queue.bury = function(space, id)
     return rettask(task)
 end
 
-
+-- queue.dig(space, id)
+--  dig(unbury) task
 queue.dig = function(space, id)
     local task = box.select(space, 0, id)
     if task == nil then
@@ -804,12 +830,14 @@ queue.dig = function(space, id)
     return rettask(task)
 end
 
+queue.unbury = queue.dig
 
+-- queue.kick(space, tube, count)
 queue.kick = function(space, tube, count)
     local index = box.space[tonumber(space)].index[idx_tube]
 
     if count == nil then
-        error("wrong count")
+        count = 1
     end
     count = tonumber(count)
 
@@ -836,6 +864,9 @@ queue.kick = function(space, tube, count)
     return kicked
 end
 
+
+-- queue.release(space, id [, delay [, ttl ] ])
+--  marks task as ready (or delayed)
 queue.release = function(space, id, delay, ttl)
     local task = box.select(space, idx_task, id)
     if task == nil then
@@ -919,6 +950,8 @@ queue.release = function(space, id, delay, ttl)
 end
 
 
+-- queue.requeue(space, id)
+--  marks task as ready and push it at end of queue
 queue.requeue = function(space, id)
     local task = box.select(space, idx_task, id)
     if task == nil then
@@ -972,6 +1005,7 @@ end
 
 
 -- queue.meta(space, id)
+--  metainformation about task
 --  returns:
 --      1.  uuid:str
 --      2.  tube:str
@@ -986,7 +1020,6 @@ end
 --      11. cbury:num
 --      12. ctaken:num
 --      13. now:time64
-
 queue.meta = function(space, id)
     local task = box.select(space, 0, id)
     if task == nil then
@@ -1004,6 +1037,8 @@ queue.meta = function(space, id)
 end
 
 
+-- queue.peek(space, id)
+-- peek task
 queue.peek = function(space, id)
     local task = box.select(space, 0, id)
     if task == nil then
