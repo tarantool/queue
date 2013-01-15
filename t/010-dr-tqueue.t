@@ -71,6 +71,14 @@ $_->join for @f;
 ok 5 == grep({ $_ == $fh[0] } @fh), 'connection established once';
 ok $qs->tnt->ping, 'ping by sync client';
 
-my $task1 = $q->put;
-my $task2 = $q->put(-data => { 1 => 2 });
-my $task3 = $q->put(-data => [ 3, 4, 5 ]);
+for ('put', 'urgent') {
+    my $task1 = $q->$_;
+    is_deeply $task1->data, undef, "$_()";
+    like $task1->id, qr[^[0-9a-fA-F]{32}$], 'task1.id';
+    my $task2 = $q->$_(data => { 1 => 2 });
+    like $task2->id, qr[^[0-9a-fA-F]{32}$], 'task2.id';
+    is_deeply $task2->data, { 1 => 2 }, "$_(data => hashref)";
+    my $task3 = $q->$_(data => [ 3, 4, 'привет' ]);
+    like $task3->id, qr[^[0-9a-fA-F]{32}$], 'task3.id';
+    is_deeply $task3->data, [ 3, 4, 'привет' ], "$_(data => arrayref)";
+}

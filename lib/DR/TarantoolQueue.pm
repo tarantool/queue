@@ -5,6 +5,8 @@ use strict;
 use warnings;
 use Mouse;
 use Carp;
+use JSON::XS;
+require DR::TarantoolQueue::Task;
 
 =head1 NAME
 
@@ -37,6 +39,7 @@ has ttl     => (is => 'rw', isa => 'Num|Undef');
 has ttr     => (is => 'rw', isa => 'Num|Undef');
 has space   => (is => 'rw', isa => 'Str|Undef');
 has name    => (is => 'rw', isa => 'Str|Undef');
+with 'DR::TarantoolQueue::JSE';
 
 
 sub tnt {
@@ -69,16 +72,51 @@ sub tnt {
     return $self->{tnt};
 }
 
+
+sub _check_opts($@) {
+    my $h = shift;
+    my %can = map { ($_ => 1) } @_;
+
+    for (keys %$h) {
+        next if $can{$_};
+        croak 'unknown option: ' . $_;
+    }
+}
+
 sub _producer {
     my ($self, $method, $o) = @_;
+
+    _check_opts $o, qw(space name delay ttl ttr pri data);
 
     $o->{space} = $self->space unless defined $o->{space};
     croak 'space was not defined' unless defined $o->{space};
 
     $o->{name}  = $self->name unless defined $o->{name};
+    croak 'queue name was not defined' unless defined $o->{name};
 
     $o->{ttl} ||= $self->ttl || 0;
     $o->{ttr} ||= $self->ttr || 0;
+    $o->{delay} ||= 0;
+    $o->{pri} ||= 0;
+
+    
+
+    my $tuple = $self->tnt->call_lua(
+        "queue.$method" => [
+            $o->{space},
+            $o->{name},
+            $o->{delay},
+            $o->{ttl},
+            $o->{ttr},
+            $o->{pri},
+            $self->jse->encode($o->{data})
+        ]
+    );
+
+    DR::TarantoolQueue::Task->new(
+        id      => $tuple->raw(0),
+        rawdata => $tuple->raw(1)
+    );
 
 }
 
@@ -91,5 +129,7 @@ sub urgent {
     my ($self, %opts) = @_;
     return $self->_producer(urgent => \%opts);
 }
+
+
 
 __PACKAGE__->meta->make_immutable();
