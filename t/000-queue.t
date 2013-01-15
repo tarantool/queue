@@ -6,7 +6,7 @@ use utf8;
 use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
-use Test::More tests    => 71;
+use Test::More tests    => 70;
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
@@ -56,11 +56,11 @@ sub tnt {
                                 name => 'event'
                             },
                             {
-                                type => 'NUM',
+                                type => 'STR',
                                 name => 'ipri'
                             },
                             {
-                                type => 'NUM',
+                                type => 'STR',
                                 name => 'pri'
                             },
                             {
@@ -78,10 +78,6 @@ sub tnt {
                             {
                                 type => 'NUM64',
                                 name => 'ttr',
-                            },
-                            {
-                                type => 'NUM64',
-                                name => 'ready'
                             },
                             {
                                 type => 'NUM64',
@@ -276,8 +272,6 @@ for (1 .. 10) {
 $task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
 $task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
 
-is $task1_m->ready, 1, 'cready';
-
 is $task1_m->status, 'taken', 'task1 is taken';
 is $task2_m->status, 'ready', 'task2 is ready (by ttr)';
 
@@ -295,7 +289,7 @@ cmp_ok tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue')->ipri,
 
 $task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
 is $task1_m->status, 'ready', 'requeue sets status as ready';
-is $task1_m->ready, 2, 'requeue increases cready';
+is $task1_m->taken, 1, 'task has ctaken=1';
 
 $task1 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
 $task2 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;

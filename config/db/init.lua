@@ -77,11 +77,15 @@ local i_created        = 7
 local i_ttl            = 8
 local i_ttr            = 9
 
-local i_cready         = 10
-local i_cbury          = 11
-local i_ctaken         = 12
+local i_cbury          = 10
+local i_ctaken         = 11
+local i_task           = 12
 
-local i_task           = 13
+local max_pri          = 0xFF
+local min_pri          = 0
+local med_pri          = 0x7F
+local function pri_pack(pri)    return box.pack('b', pri)      end
+local function pri_unpack(pri)  return box.unpack('b', pri)    end
 
 -- indexes
 local idx_task         = 0
@@ -129,18 +133,18 @@ local function get_ipri(space, tube, inc)
         end
     end
 
-    local ipri = box.unpack('i', toptask[i_ipri])
+    local ipri = pri_unpack(toptask[i_ipri])
     if inc < 0 then
-        if ipri > -inc then
+        if ipri > min_pri - inc  then
             ipri = ipri + inc
         else
-            ipri = 0
+            ipri = min_pri
         end
     else
-        if ipri < 0xFFFFFFFF - inc then
+        if ipri < max_pri - inc then
             ipri = ipri + inc
         else
-            ipri = 0xFFFFFFFF
+            ipri = max_pri
         end
     end
 
@@ -208,22 +212,19 @@ local function process_tube(space, tube)
             -- delayed -> ready
             elseif task[i_status] == ST_DELAYED then
                 box.update(space, task[i_uuid],
-                    '=p=p+p',
+                    '=p=p',
 
                     i_status,
                     ST_READY,
 
                     i_event,
-                    created + ttl,
-
-                    i_cready,
-                    1
+                    created + ttl
                 )
                 queue.consumers[space][tube]:put(true, 0.1)
             -- taken -> ready
             elseif task[i_status] == ST_TAKEN then
                 box.update(space, task[i_uuid],
-                    '=p=p=p+p',
+                    '=p=p=p',
 
                     i_status,
                     ST_READY,
@@ -232,10 +233,7 @@ local function process_tube(space, tube)
                     0,
 
                     i_event,
-                    created + ttl,
-
-                    i_cready,
-                    1
+                    created + ttl
                 )
                 queue.consumers[space][tube]:put(true, 0.1)
             else
@@ -266,7 +264,7 @@ local function consumer_dead_tube(space, tube, cid)
             box.update(
                 space,
                 task[i_uuid],
-                '=p=p=p+p',
+                '=p=p=p',
 
                 i_status,
                 ST_READY,
@@ -275,10 +273,7 @@ local function consumer_dead_tube(space, tube, cid)
                 created + ttl,
 
                 i_cid,
-                0,
-
-                i_cready,
-                1
+                0
             )
 
 
@@ -419,8 +414,8 @@ if queue == nil then
 end
 
 queue.default = {}
-    queue.default.pri   = 0x7FFFFFFF
-    queue.default.ipri  = 0x7FFFFFFF
+    queue.default.pri   = med_pri
+    queue.default.ipri  = med_pri
     queue.default.ttl   = 3600 * 24 * 1
     queue.default.ttr   = 60
     queue.default.delay = 0
@@ -500,10 +495,10 @@ local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
 
     pri = tonumber(pri)
     pri = pri + queue.default.pri
-    if pri > 0xFFFFFFFF then
-        pri = 0xFFFFFFFF
-    elseif pri < 0 then
-        pri = 0
+    if pri > max_pri then
+        pri = max_pri
+    elseif pri < min_pri then
+        pri = min_pri
     end
 
 
@@ -516,13 +511,12 @@ local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
             tube,
             ST_DELAYED,
             box.pack('l', now + delay),
-            box.pack('i', ipri),
-            box.pack('i', pri),
+            pri_pack(ipri),
+            pri_pack(pri),
             box.pack('i', 0),
             box.pack('l', now),
             box.pack('l', ttl),
             box.pack('l', ttr),
-            box.pack('l', 0),
             box.pack('l', 0),
             box.pack('l', 0)
         }
@@ -532,13 +526,12 @@ local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
             tube,
             ST_READY,
             box.pack('l', now + ttl),
-            box.pack('i', ipri),
-            box.pack('i', pri),
+            pri_pack(ipri),
+            pri_pack(pri),
             box.pack('i', 0),
             box.pack('l', now),
             box.pack('l', ttl),
             box.pack('l', ttr),
-            box.pack('l', 1),
             box.pack('l', 0),
             box.pack('l', 0)
         }
@@ -898,7 +891,7 @@ queue.release = function(space, id, delay, ttl)
     else
         task = box.update(space,
             id,
-            '=p=p=p=p+p',
+            '=p=p=p=p',
 
             i_status,
             ST_READY,
@@ -910,10 +903,7 @@ queue.release = function(space, id, delay, ttl)
             ttl,
 
             i_cid,
-            0,
-            
-            i_cready,
-            1
+            0
         )
         if not queue.consumers[space][tube]:is_full() then
             queue.consumers[space][tube]:put(true)
@@ -954,7 +944,7 @@ queue.requeue = function(space, id)
 
     task = box.update(space,
         id,
-        '=p=p=p+p=p',
+        '=p=p=p=p',
 
         i_status,
         ST_READY,
@@ -965,11 +955,8 @@ queue.requeue = function(space, id)
         i_cid,
         0,
         
-        i_cready,
-        1,
-
         i_ipri,
-        ipri
+        pri_pack(ipri)
     )
     if not queue.consumers[space][tube]:is_full() then
         queue.consumers[space][tube]:put(true)
@@ -983,6 +970,23 @@ queue.requeue = function(space, id)
     return rettask(task)
 end
 
+
+-- queue.meta(space, id)
+--  returns:
+--      1.  uuid:str
+--      2.  tube:str
+--      3.  status:str
+--      4.  event:time64
+--      5.  ipri:num(str)
+--      6.  pri:num(str)
+--      7.  cid:num
+--      8.  created:time64
+--      9.  ttl:time64
+--      10. ttr:time64
+--      11. cbury:num
+--      12. ctaken:num
+--      13. now:time64
+
 queue.meta = function(space, id)
     local task = box.select(space, 0, id)
     if task == nil then
@@ -992,6 +996,8 @@ queue.meta = function(space, id)
     queue.stat[space][ task[i_tube] ]:inc('meta')
 
     task = task
+        :transform(i_pri, 1, tostring(pri_unpack(task[i_pri])))
+        :transform(i_ipri, 1, tostring(pri_unpack(task[i_ipri])))
         :transform(i_task, #task - i_task, tostring(box.time64()))
         :transform(i_status, 1, human_status[ task[i_status] ])
     return task
