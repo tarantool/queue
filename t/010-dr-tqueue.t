@@ -7,11 +7,12 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
+use constant PLAN => 73;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
     if ($? == 0) {
-        plan tests    => 70;
+        plan tests    => PLAN;
     } else {
         plan skip_all => 'tarantool_box not found';
     }
@@ -82,7 +83,6 @@ for ('put', 'urgent') {
     like $task3->id, qr[^[0-9a-fA-F]{32}$], 'task3.id';
     is_deeply $task3->data, [ 3, 4, 'привет' ], "$_(data => arrayref)";
 }
-
 
 
 my $task1_t = $q->take;

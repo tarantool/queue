@@ -124,15 +124,95 @@ sub _producer {
     );
 }
 
+=head1 METHODS
+
+=head2 new
+
+    my $q = DR::TarantoolQueue->new(host => 'abc.com', port => 123);
+
+=head3 Options
+
+=over
+
+=item host & port
+
+Host and port where tarantools started.
+
+=item coro (boolean)
+
+If true (default), the queue client will use tarantool's coro client.
+
+=item ttl
+
+Default B<ttl> (time to live) value.
+
+=item ttr
+
+Default B<ttr> (time to release) value.
+
+=item tube
+
+Default queue name.
+
+=item space
+
+Default tarantool's space.
+
+=back
+
+=cut
+
+
+=head1 Producer methods
+
+=head2 put
+
+    $q->put;
+    $q->put(data => { 1 => 2 });
+    $q->put(space => 1, tube => 'abc',
+            delay => 10, ttl => 3600,
+            ttr => 60, pri => 10, data => [ 3, 4, 5 ]);
+    $q->put(data => 'string');
+
+Puts task into queue (at end of queue).
+Returns L<task|DR::TarantoolQueue::Task> object.
+
+If 'B<space>' and (or) 'B<tube>' aren't defined the method
+will try to use them from L<queue|DR::TarantoolQueue/new> object.
+
+=cut
+
 sub put {
     my ($self, %opts) = @_;
     return $self->_producer(put => \%opts);
 }
 
+=head2 urgent
+
+The same as L<put|DR::TarantoolQueue/put> but puts task at begin of
+queue.
+
+=cut
+
 sub urgent {
     my ($self, %opts) = @_;
     return $self->_producer(urgent => \%opts);
 }
+
+
+=head1 Consumer methods
+
+=head2 take
+
+Takes task for processing.
+If timeout is defined and there is no task in queue in the time,
+the function returns B<undef>.
+
+    my $task = $q->take;
+    my $task = $q->take(timeout => 0.5);
+    my $task = $q->take(space => 1, tube => 'requests, timeout => 20);
+
+=cut
 
 sub take {
     my ($self, %o) = @_;
@@ -150,7 +230,7 @@ sub take {
             $o{timeout}
         ]
     );
-    return unless $tuple;
+    return undef unless $tuple;
     return DR::TarantoolQueue::Task->new(
         id      => $tuple->raw(0),
         rawdata => $tuple->raw(1),
@@ -159,6 +239,17 @@ sub take {
         queue   => $self,
     );
 }
+
+
+
+=head2 ack
+
+Task was processed (and will be deleted after the call).
+
+    $q->ack(task => $task);
+    $task->ack; # the same
+
+=cut
 
 sub ack {
     my ($self, %o) = @_;

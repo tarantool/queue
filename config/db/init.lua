@@ -296,11 +296,14 @@ local function consumer_dead(cid)
     end
 end
 
+
+
 if queue == nil then
     queue = {}
     queue.consumers = {}
     queue.workers = {}
     queue.stat = {}
+    queue.restart = {}
 
     setmetatable(queue.consumers, {
             __index = function(tbs, space)
@@ -309,6 +312,7 @@ if queue == nil then
                     __index = function(tbt, tube)
                         local channel = box.ipc.channel(1)
                         rawset(tbt, tube, channel)
+                        queue.restart_check(space, tube)
                         return channel
                     end
                 })
@@ -377,6 +381,8 @@ if queue == nil then
 
                         -- rawset have to be before start fiber
                         rawset(tbt, tube, v)
+                        
+                        queue.restart_check(space, tube)
 
                         for i = 1, FIBERS_PER_TUBE do
                             local fiber = box.fiber.create(
@@ -422,6 +428,72 @@ queue.default = {}
 
 
 
+queue.restart_check = function(space, tube)
+    if queue.restart[space] ~= nil and queue.restart[space][tube] then
+        return 'already started'
+    end
+
+    if queue.restart[space] == nil then
+        queue.restart[space] = {}
+    end
+
+    if queue.restart[space][tube] == nil then
+        queue.restart[space][tube] = true
+    end
+
+
+    local fiber = box.fiber.create(
+        function()
+            box.fiber.detach()
+            local wakeup = false
+            local index = box.space[tonumber(space)].index[idx_tube]
+            for task in index:iterator(box.index.EQ, tube, ST_TAKEN) do
+                local now = box.time64()
+                local event = box.unpack('l', task[i_event])
+                local ttr = box.unpack('l', task[i_ttr])
+                local ttl = box.unpack('l', task[i_ttl])
+                local created = box.unpack('l', task[i_created])
+
+
+                -- find task that is taken before tarantool
+                if event - ttr <= now - to_time64(box.info.uptime)
+                    or not box.session.exists(box.unpack('i', task[i_cid]))
+                then
+                    print(
+                        'task id=', task[i_uuid],
+                        ' (space=', space, ', tube=', tube, ') ',
+                        'will be ready by restarting tarantool'
+                    )
+                    queue.stat[space][tube]:inc('ready_by_restart')
+                    box.update(
+                        space,
+                        task[i_tube],
+                        '=p=p=p',
+                        i_status,
+                        ST_READY,
+
+                        i_event,
+                        created + ttl,
+
+                        i_cid,
+                        0
+                    )
+                    wakeup = true
+                end
+            end
+            if wakeup then
+                if not queue.consumers[space][tube]:is_full() then
+                    queue.consumers[space][tube]:put(true)
+                end
+                if not queue.workers[space][tube].ch:is_full() then
+                    queue.workers[space][tube].ch:put(true)
+                end
+            end
+        end
+    )
+    box.fiber.resume(fiber)
+    return 'starting'
+end
 
 -- queue.statistic
 -- returns statistic about all queues
@@ -469,7 +541,7 @@ queue.statistic = function()
 end
 
 
-local function put_push(space, tube, ipri, delay, ttl, ttr, pri, ...)
+local function put_task(space, tube, ipri, delay, ttl, ttr, pri, ...)
 
     local utask = { ... }
 
@@ -566,7 +638,7 @@ end
 --      6. ... - task data
 queue.put = function(space, tube, ...)
     queue.stat[space][tube]:inc('put')
-    return put_push(space, tube, queue.default.ipri, ...)
+    return put_task(space, tube, queue.default.ipri, ...)
 end
 
 
@@ -576,13 +648,13 @@ queue.urgent = function(space, tube, delayed, ...)
     delayed = tonumber(delayed)
     queue.stat[space][tube]:inc('urgent')
 
-    -- TODO: may decrease ipri before put_push
+    -- TODO: may decrease ipri before put_task
     if delayed > 0 then
-        return put_push(space, tube, queue.default.ipri, delayed, ...)
+        return put_task(space, tube, queue.default.ipri, delayed, ...)
     end
 
     local ipri = get_ipri(space, tube, -1)
-    return put_push(space, tube, ipri, delayed, ...)
+    return put_task(space, tube, ipri, delayed, ...)
 end
 
 -- queue.take(space, tube, timeout)
@@ -1049,19 +1121,5 @@ queue.peek = function(space, id)
     return rettask(task)
 end
 
-
-
-box.session.on_disconnect(
-    function()
-        local cid = box.session.id()
-        box.fiber.resume(
-            box.fiber.create(
-                function()
-                    box.fiber.detach()
-                    consumer_dead(cid)
-                end
-            )
-        )
-    end
-)
+box.session.on_disconnect( function() consumer_dead(box.session.id()) end )
 

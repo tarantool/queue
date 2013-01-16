@@ -7,11 +7,12 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
+use constant PLAN => 73;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
     if ($? == 0) {
-        plan tests    => 70;
+        plan tests    => PLAN;
     } else {
         plan skip_all => 'tarantool_box not found';
     }
@@ -359,6 +360,20 @@ is $task2_m->status, 'ready', 'task2.status';
 
 $task1 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
 $task2 = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
+
+# test restart function
+is tnt->call_lua('queue.restart_check', [ $sno, 'tube_name' ])->raw(0),
+    'already started',
+    'call restart function';
+tnt->call_lua('box.dostring', [ 'queue.restart = {}' ]);
+is tnt->call_lua('queue.restart_check', [ $sno, 'tube_name' ])->raw(0),
+    'starting',
+    'call restart function';
+is tnt->call_lua('queue.restart_check', [ $sno, 'tube_name' ])->raw(0),
+    'already started',
+    'call restart function';
+
+
 isnt $task1->[0], $task2->[0], '2 tasks were taken';
 $task1_t = tnt->call_lua('queue.bury', [ $sno, $task1->[0] ])->raw;
 $task2_t = tnt->call_lua('queue.bury', [ $sno, $task2->[0] ])->raw;
@@ -379,6 +394,9 @@ $task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
 $task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
 is $task1_m->status, 'ready', 'task1.status';
 is $task2_m->status, 'ready', 'task2.status';
+
+
+
 
 END {
     note $t->log if $ENV{DEBUG};
