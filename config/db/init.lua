@@ -533,8 +533,6 @@ end
 
 local function put_task(space, tube, ipri, delay, ttl, ttr, pri, ...)
 
-    local utask = { ... }
-
     ttl = tonumber(ttl)
     if ttl <= 0 then
         ttl = queue.default.ttl
@@ -568,7 +566,7 @@ local function put_task(space, tube, ipri, delay, ttl, ttr, pri, ...)
     local now = box.time64()
 
     if delay > 0 then
-        task = {
+        task = box.insert(space,
             box.uuid_hex(),
             tube,
             ST_DELAYED,
@@ -580,10 +578,11 @@ local function put_task(space, tube, ipri, delay, ttl, ttr, pri, ...)
             box.pack('l', ttl),
             box.pack('l', ttr),
             box.pack('l', 0),
-            box.pack('l', 0)
-        }
+            box.pack('l', 0),
+            ...
+        )
     else
-        task = {
+        task = box.insert(space,
             box.uuid_hex(),
             tube,
             ST_READY,
@@ -595,15 +594,11 @@ local function put_task(space, tube, ipri, delay, ttl, ttr, pri, ...)
             box.pack('l', ttl),
             box.pack('l', ttr),
             box.pack('l', 0),
-            box.pack('l', 0)
-        }
+            box.pack('l', 0),
+            ...
+        )
     end
 
-    for i = 1, #utask do
-        table.insert(task, utask[i])
-    end
-
-    task = box.insert(space, unpack(task))
 
     if delay == 0 and not queue.consumers[space][tube]:is_full() then
         queue.consumers[space][tube]:put(true)

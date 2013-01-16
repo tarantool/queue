@@ -98,3 +98,10 @@ isnt $task1_t->id, $task3_t->id, "task1 and task3 aren't the same";
 isa_ok $task1_t->ack => 'DR::TarantoolQueue::Task', 'task1.ack';
 isa_ok $q->ack(id => $task2_t->id), 'DR::TarantoolQueue::Task', 'task2.ack';
 
+my $meta = $task3_t->get_meta;
+isa_ok $meta => 'HASH', 'task3.meta.meta';
+is $meta->{status}, 'taken', 'task3.meta.status';
+is $meta->{ctaken}, 1, 'task3.meta.ctaken';
+is $meta->{cbury}, 0, 'task3.meta.cbury';
+is $meta->{tube}, 'test_queue', 'task3.meta.tube';
+is $meta->{status}, $task3_t->status, 'task3.status';

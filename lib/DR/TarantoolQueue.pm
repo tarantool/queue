@@ -231,7 +231,6 @@ sub take {
 }
 
 
-
 =head2 ack
 
 Task was processed (and will be deleted after the call).
@@ -249,15 +248,13 @@ for my $m (qw(ack requeue bury dig unbury delete)) {
         _check_opts \%o, qw(task id space);
         croak 'task was not defined' unless $o{task} or $o{id};
 
-        my ($id, $space, $tube);
+        my ($id, $space);
         if ($o{task}) {
-            ($id, $space, $tube) = ($o{task}->id,
-                $o{task}->space, $o{task}->tube);
+            ($id, $space) = ($o{task}->id, $o{task}->space);
         } else {
-            ($id, $space, $tube) = @o{'id', 'space', 'tube'};
+            ($id, $space) = @o{'id', 'space'};
             $space = $self->space unless defined $o{space};
             croak 'space is not defined' unless defined $space; 
-            $tube = $self->tube unless defined $tube;
         }
 
         my $tuple = $self->tnt->call_lua( "queue.$m" => [ $space, $id ] );
@@ -265,8 +262,56 @@ for my $m (qw(ack requeue bury dig unbury delete)) {
     }
 }
 
-# sub meta {
+=head2 get_meta
 
-# }
+Task was processed (and will be deleted after the call).
+
+    my $m = $q->get_meta(task => $task);
+    my $m = $q->get_meta(id => $task->id);
+
+=cut
+
+sub get_meta {
+    my ($self, %o) = @_;
+    _check_opts \%o, qw(task id space);
+    croak 'task was not defined' unless $o{task} or $o{id};
+
+    my ($id, $space, $tube);
+    if ($o{task}) {
+        ($id, $space, $tube) = ($o{task}->id,
+            $o{task}->space, $o{task}->tube);
+    } else {
+        ($id, $space, $tube) = @o{'id', 'space', 'tube'};
+        $space = $self->space unless defined $o{space};
+        croak 'space is not defined' unless defined $space; 
+        $tube = $self->tube unless defined $tube;
+    }
+
+
+    my $fields = [
+        {   name => 'id',       type => 'STR'       },
+        {   name => 'tube',     type => 'STR'       },
+        {   name => 'status',   type => 'STR'       },
+        {   name => 'event',    type => 'NUM64'     },
+        {   name => 'ipri',     type => 'STR',      },
+        {   name => 'pri',      type => 'STR',      },
+        {   name => 'cid',      type => 'NUM',      },
+        {   name => 'created',  type => 'NUM64',    },
+        {   name => 'ttl',      type => 'NUM64'     },
+        {   name => 'ttr',      type => 'NUM64'     },
+        {   name => 'cbury',    type => 'NUM'       },
+        {   name => 'ctaken',   type => 'NUM'       },
+        {   name => 'now',      type => 'NUM64'     },
+    ];
+    my $tuple = $self->tnt->call_lua(
+        "queue.meta" => [ $space, $id ], fields => $fields
+    )->raw;
+
+
+    return { map { ( $fields->[$_]{name}, $tuple->[$_] ) } 0 .. $#$fields };
+
+}
+
+
 
 __PACKAGE__->meta->make_immutable();
