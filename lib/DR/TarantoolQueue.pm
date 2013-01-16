@@ -115,13 +115,7 @@ sub _producer {
         ]
     );
 
-    return DR::TarantoolQueue::Task->new(
-        id      => $tuple->raw(0),
-        rawdata => $tuple->raw(1),
-        space   => $o->{space},
-        tube    => $o->{tube},
-        queue   => $self,
-    );
+    return DR::TarantoolQueue::Task->tuple($tuple, $o->{space}, $self);
 }
 
 =head1 METHODS
@@ -222,7 +216,8 @@ sub take {
     $o{tube} = $self->tube unless defined $o{tube};
     croak 'tube was not defined' unless defined $o{tube};
     $o{timeout} ||= 0;
-    
+   
+
     my $tuple = $self->tnt->call_lua(
         'queue.take' => [
             $o{space},
@@ -230,14 +225,9 @@ sub take {
             $o{timeout}
         ]
     );
-    return undef unless $tuple;
-    return DR::TarantoolQueue::Task->new(
-        id      => $tuple->raw(0),
-        rawdata => $tuple->raw(1),
-        space   => $o{space},
-        tube    => $o{tube},
-        queue   => $self,
-    );
+
+    
+    return DR::TarantoolQueue::Task->tuple($tuple, $o{space}, $self);
 }
 
 
@@ -251,24 +241,32 @@ Task was processed (and will be deleted after the call).
 
 =cut
 
-sub ack {
-    my ($self, %o) = @_;
-    _check_opts \%o, qw(task);
-    croak 'task was not defined' unless $o{task};
-    my $tuple = $self->tnt->call_lua(
-        'queue.ack' => [
-            $o{task}->space,
-            $o{task}->id,
-        ]
-    );
-    return DR::TarantoolQueue::Task->new(
-        id      => $tuple->raw(0),
-        rawdata => $tuple->raw(1),
-        space   => $o{task}->space,
-        tube    => $o{task}->tube,
-        queue   => $self,
-    );
+for my $m (qw(ack requeue bury dig unbury delete)) {
+    no strict 'refs';
+    next if *{ __PACKAGE__ . "::$m" }{CODE};
+    *{ __PACKAGE__ . "::$m" } = sub {
+        my ($self, %o) = @_;
+        _check_opts \%o, qw(task id space);
+        croak 'task was not defined' unless $o{task} or $o{id};
+
+        my ($id, $space, $tube);
+        if ($o{task}) {
+            ($id, $space, $tube) = ($o{task}->id,
+                $o{task}->space, $o{task}->tube);
+        } else {
+            ($id, $space, $tube) = @o{'id', 'space', 'tube'};
+            $space = $self->space unless defined $o{space};
+            croak 'space is not defined' unless defined $space; 
+            $tube = $self->tube unless defined $tube;
+        }
+
+        my $tuple = $self->tnt->call_lua( "queue.$m" => [ $space, $id ] );
+        return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
+    }
 }
 
+# sub meta {
+
+# }
 
 __PACKAGE__->meta->make_immutable();

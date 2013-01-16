@@ -140,7 +140,9 @@ my $task1 = tnt->call_lua('queue.put',
 is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'ready',
     'task1 is ready';
 
-is_deeply $task1, [ $task1->[0], 'task', 1 .. 10 ], 'task 1';
+is_deeply $task1, [ $task1->[0], 'tube_name', 'ready', 'task', 1 .. 10 ],
+    'task 1';
+
 
 my $started = time;
 my $task2 = tnt->call_lua('queue.put',
@@ -161,15 +163,18 @@ is tnt->call_lua('queue.meta', [ $sno, $task2->[0] ])->raw(2), 'delayed',
 is_deeply tnt->call_lua('queue.peek', [ $sno, $task2->[0] ])->raw, $task2,
     'task2.get';
 
-is_deeply $task2, [ $task2->[0], 'task', 10 .. 20 ], 'task 2';
+is_deeply $task2, [ $task2->[0], 'tube_name',
+    'delayed', 'task', 10 .. 20 ], 'task 2';
 
 my $task1_t = tnt->call_lua('queue.take', [ $sno, 'tube_name', 5 ])->raw;
+$task1->[2] = 'taken';
 is_deeply $task1_t, $task1, 'task1 taken';
 is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'taken',
     'task1 is taken';
 
 
 my $task2_t = eval {tnt->call_lua('queue.take', [ $sno, 'tube_name', 5 ])->raw};
+$task2->[2] = 'taken';
 is_deeply $task2_t, $task2, 'task2 taken';
 cmp_ok time - $started, '>=', .5, 'delay more than 0.5 second';
 cmp_ok time - $started, '<=', .7, 'delay less than 0.7 second';
@@ -189,14 +194,17 @@ $task_ack = eval { tnt->call_lua('queue.ack', [ $sno, $task2->[0] ]) };
 like $@, qr{task not found}i, 'error message';
 is $task_ack, undef, 'repeat ack';
 
+$task1->[2] = 'ready';
 is_deeply  tnt->call_lua('queue.release', [ $sno, $task1->[0] ])->raw, $task1,
     'task1 release';
 is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'ready',
     'task1 is ready';
 
 $task1_t = tnt->call_lua('queue.take', [ $sno, 'tube_name', 5 ])->raw;
+$task1->[2] = 'taken';
 is_deeply $task1_t, $task1, 'repeatly take task1';
 $started = time;
+$task1->[2] = 'delayed';
 is_deeply  tnt->call_lua('queue.release', [ $sno, $task1->[0], .5 ])->raw,
     $task1, 'task1 release (delayed)';
 is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'delayed',
@@ -207,6 +215,7 @@ cmp_ok time - $started, '<=', .7, 'take took less than 0.7 second';
 
 is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'taken',
     'task1 is run';
+$task1->[2] = 'taken';
 is_deeply $task1_t, $task1, 'task1 is deeply';
 
 is_deeply tnt->call_lua('queue.ack', [ $sno, $task1->[0]])->raw,
@@ -271,6 +280,7 @@ $task2_t = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
 $task1_t = tnt->call_lua('queue.take', [ $sno, 'tube_name' ])->raw;
 isnt $task1->[0], $task2->[0], "task1 and task2 aren't the same";
 
+$task1->[2] = $task2->[2] = 'taken';
 is_deeply $task1_t, $task1, 'task1 was fetched as urgent';
 is_deeply $task2_t, $task2, 'task2 was fetched as usual';
 
@@ -290,6 +300,7 @@ is scalar eval { tnt->call_lua('queue.peek', [ $sno, $task3->[0] ]) }, undef,
     'task3 was deleted by ttl';
 like $@, qr{Task not found}, 'error string';
 
+$task1->[2] = 'ready';
 is_deeply tnt->call_lua('queue.requeue', [ $sno, $task1->[0] ])->raw,
     $task1, 'task1.requeue';
 
@@ -325,7 +336,7 @@ $task1_t = tnt->call_lua('queue.done', [ $sno, $task1->[0], 'abc' ])->raw;
 
 is_deeply
     $task1_t,
-    [ $task1->[0], 'abc' ],
+    [ $task1->[0], 'tube_name', 'done', 'abc' ],
     'task1.done';
 
 $task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
@@ -345,6 +356,7 @@ is $stat{"space$sno.tube_name.tasks.done"}, 1, 'cnt tasks.done';
 
 
 $task2_t = tnt->call_lua('queue.bury', [ $sno, $task2->[0] ])->raw;
+$task2->[2] = 'buried';
 is_deeply $task2_t, $task2, 'task2.bury';
 $task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
 is $task2_m->status, 'buried', 'task2.status';
@@ -353,6 +365,7 @@ is scalar eval { tnt->call_lua('queue.dig', [ $sno, $task1->[0] ])}, undef,
     'wrong task.dig';
 
 $task2_t = tnt->call_lua('queue.dig', [ $sno, $task2->[0] ])->raw;
+$task2->[2] = 'ready';
 is_deeply $task2_t, $task2, 'task2.dig';
 $task2_m = tnt->call_lua('queue.meta', [ $sno, $task2->[0] ], 'queue');
 is $task2_m->status, 'ready', 'task2.status';

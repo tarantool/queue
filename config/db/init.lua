@@ -163,20 +163,10 @@ local function rettask(task)
     if task == nil then
         return
     end
-    -- TODO: use tuple:transform here
-    local tuple = {}
-    if type(task) == 'table' then
-        table.insert(tuple, task[i_uuid + 1])
-        for i = i_task + 1, #task do
-            table.insert(tuple, task[i])
-        end
-    else
-        table.insert(tuple, task[i_uuid])
-        for i = i_task, #task - 1 do
-            table.insert(tuple, task[i])
-        end
-    end
-    return tuple
+
+    return task
+        :transform(i_event, i_task - i_event)
+        :transform(i_status, 1, human_status[ task[i_status] ])
 end
 
 

@@ -96,4 +96,5 @@ isnt $task1_t->id, $task2_t->id, "task1 and task2 aren't the same";
 isnt $task1_t->id, $task3_t->id, "task1 and task3 aren't the same";
 
 isa_ok $task1_t->ack => 'DR::TarantoolQueue::Task', 'task1.ack';
+isa_ok $q->ack(id => $task2_t->id), 'DR::TarantoolQueue::Task', 'task2.ack';
 

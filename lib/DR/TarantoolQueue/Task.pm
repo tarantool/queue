@@ -7,6 +7,7 @@ use JSON::XS ();
 use Carp;
 
 has space   => (is => 'ro', isa => 'Str', required => 1);
+has status  => (is => 'ro', isa => 'Str', required => 1);
 has tube    => (is => 'ro', isa => 'Str', required => 1);
 has id      => (is => 'ro', isa => 'Str', required => 1);
 has rawdata => (is => 'ro', isa => 'Str', required => 1);
@@ -28,10 +29,32 @@ sub _build_data {
 }
 
 
-sub ack {
-    my ($self) = @_;
-    croak "Can't find queue for task" unless $self->queue;
-    return $self->queue->ack(task => $self);
+for my $m (qw(ack requeue bury dig unbury delete meta)) {
+    no strict 'refs';
+    next if *{ __PACKAGE__ . "::$m" }{CODE};
+    *{ __PACKAGE__ . "::$m" } = sub {
+        my ($self) = @_;
+        croak "Can't find queue for task" unless $self->queue;
+        return $self->queue->$m(task => $self);
+    }
 }
+
+
+sub tuple {
+    my ($class, $tuple, $space, $queue) = @_;
+    return undef unless $tuple;
+    my $raw = $tuple->raw;
+    return $class->new(
+        id      => $raw->[0],
+        tube    => $raw->[1],
+        status  => $raw->[2],
+        rawdata => $raw->[3],
+        space   => $space,
+        queue   => $queue,
+    );
+}
+
+
+
 
 __PACKAGE__->meta->make_immutable();
