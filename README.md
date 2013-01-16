@@ -1,14 +1,15 @@
-# Описание API очередей
+# Queue API description
 
-Очереди приоритетные (приоритет меняется от 0 до 255, дефолтное значение
-приоритета - 127, соответственно менять можно в положительную и в отрицательную
-стороны на значение 0..127).
-В одном тарантул-спейсе может храниться произвольное количество очередей.
+Tarantool/Queues support task priority. Priority value lays in the range [0, 255],
+with default value being 127. A higher value means higher priority, lower value -
+lower priority.
+A single properly configured Tarantool/Box space can store any number of queues.
 
-На каждую очередь при первом к ней обращении на стороне сервера запускается
-один или несколько *fiber*'ов.
+Each queue has one (currently) associated *fiber* taking care of it. The fiber
+is started upon first access to the queue. The job of the fiber is to monitor
+orphaned tasks, as well as prune and clean the queue from obsolete tasks.
 
-Конфиг спейса для тарантула выглядит следующим образом:
+To configure a space supporting queues, use the following parameters:
 
 ```cfg
 space = [
@@ -30,7 +31,7 @@ space = [
                 unique = 0,
                 key_field = [
                     {
-                        fieldno = 1,    # tube
+                        fieldno = 1,    # queue, aka tube
                         type = "STR"
                     },
                     {
@@ -62,44 +63,44 @@ space = [
 ]
 ```
 
-Для обеспечения работы множества консюмеров на одном сокете (если такое
-требуется) необходимо указать большой размер параметра `readahead` в конфиге
-тарантула. Значение из расчета:
+It may also be desirable to tune server `readahead` configuration variable
+if many consumers re-use the same socket for getting and acknowledging tasks.
+
+The recomended value can be calculated as:
 
 ```
-  количество консюмеров * (256 + максимальный размер задачи)
+  consumers-per-socket * (256 + largest task size)
 ```
 
-Таким образом если максимальный размер задачи составляет 256 байт, а количество
-консюмеров на одном сокете - десять, то размер `readahead` должен быть не менее
-51200 байт.
+For example, if the largest task size is 256 bytes, and average nubmer of consumers
+per socket is 10, the recommended `readahead` value must be at least 51 200 bytes.
 
-## Условные названия и обозначения
+## Terminology
 
-* *Консюмер* - процесс, выполняющий задачи
-* *Продюсер* - процесс, ставящий задачи в очередь
+* *Consumer* - a process, dequeueing and executing tasks
+* *Producer* - a process enqueueing new tasks 
 
-### Параметры функций
+### Arguments of queue API methods
 
-* `space` (С,Ч) номер спейса. Необходимо придерживаться единообразия
-в использовании строк или чисел в этом поле во избежание получения
-"двойной статистики".
-* `tube` (С) - имя очереди.
-* `delay` (С,Ч) - задержка до выполнения задачи. В секундах.
-* `ttl` (C,Ч) - время жизни задачи. В секундах. Если одновременно с этим
-полем указано ненулевое `delay`, то `ttl` будет увеличено на величину `delay`.
-* `ttr` (С,Ч) - максимальное время выполнения для задачи.
-* `pri` (С,Ч) - приоритет (`-127 .. +127`).
-* `id` (С) - идентификатор задачи.
-* `timeout` (С,Ч) - таймаут для операции. В секундах.
+* `space` (number) space id. To avoid confusion and broken statistics, 
+ it's necessary to consistently use numbers to identify spaces,
+* `tube` (string) - queue name,
+* `delay` (number) - a delay between the moment a task is queued and is executed in seconds
+* `ttl` (number) - task time to live in seconds. If `delay` is given along with `ttl`, 
+ the effective task time to live is increased by the amount of `delay`,
+* `ttr` (number) - task time to run, the maximal time given allowed to execute a task,
+* `pri` (number) - task priority [0..255],
+* `id` (string) - task id,
+* `timeout` (number) - timeout in seconds for the Queue API method.
 
-### Статусы задач
+### Task states
 
-* `ready` - задача готова к исполнению
-* `delayed` - задача ожидает пока истечет время задержки до выполнения
-* `taken` - задача исполняется
-* `done` - задача выполнена (но не удалена, поскольку вызван метод `done`)
-* `buried` - задача исключена из списка выполняемых
+* `ready` - a task is ready for execution
+* `delayed` - a task is awaiting task `delay` to expire, after which it will become `ready`
+* `taken` - a task is taken by a consumer and is being executed
+* `done` - a task is complete (but not deleted, since the consumer called `done` rather than `ack`)
+* `buried` - a task is neither ready nor taken nor complete, it's excluded (perhaps temporarily)
+ from the list of tasks for execution, but not deleted.
 
 
 ### Формат задачи
@@ -116,7 +117,7 @@ space = [
 ## API
 
 
-### Продюсер
+### Producer
 
 #### queue.put(space, tube, delay, ttl, ttr, pri, ...)
 
@@ -129,7 +130,7 @@ space = [
 для немедленного выполнения. В случае если указан ненулевой `delay`, то данный
 метод полностью эквивалентен `put`.
 
-### Консюмер
+### Consumer
 
 #### queue.take(space, tube, timeout)
 
@@ -172,7 +173,7 @@ space = [
 Помечает задачу как выполненную (`done`), заменяет задаче данные на указанные.
 
 
-### Общие методы
+### Common functions
 
 #### queue.dig(space, id)
 
@@ -215,7 +216,7 @@ space = [
 
 Возвращает задачу по ее идентификатору.
 
-#### queue.statistic()
+#### queue.statistics()
 
 Возвращает статистику накопленную с момента старта очереди.
 Статистика возвращается только по тем очередям в которых были хоть какие-то
