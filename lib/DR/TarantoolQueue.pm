@@ -31,6 +31,11 @@ DR::TarantoolQueue - client for tarantool's queue
     my $task = $queue->put(data => [ 1, 2, 3 ]);
 
     printf "task.id = %s\n", $task->id;
+
+=head2 DESCRIPTION
+
+The module contains sync (coro) and async driver fro tarantool queue.
+
 =cut
 
 has host    => (is => 'ro', isa => 'Str',   required => 1);
@@ -313,5 +318,16 @@ sub get_meta {
 }
 
 
+
+=head1 COPYRIGHT AND LICENCE
+
+ Copyright (C) 2012 by Dmitry E. Oboukhov <unera@debian.org>
+ Copyright (C) 2012 by Roman V. Nikolaev <rshadow@rambler.ru>
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.8 or,
+at your option, any later version of Perl 5 you may have available.
+
+=cut
 
 __PACKAGE__->meta->make_immutable();

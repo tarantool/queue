@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 73;
+use constant PLAN => 39;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
