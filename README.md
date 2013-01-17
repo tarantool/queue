@@ -1,13 +1,20 @@
 # Queue API description
 
-Tarantool/Queues support task priority. Priority value lays in the range [0, 255],
-with default value being 127. A higher value means higher priority, lower value -
-lower priority.
-A single properly configured Tarantool/Box space can store any number of queues.
+A single Tarantool instance can serve any number of queues, along
+with any other database work necessary.
 
-Each queue has one (currently) associated *fiber* taking care of it. The fiber
-is started upon first access to the queue. The job of the fiber is to monitor
-orphaned tasks, as well as prune and clean the queue from obsolete tasks.
+A single properly configured Tarantool/Box space can store any
+number of queues. Multiple spaces can be used as well - for
+partitioning or logical separation reasons.
+
+Queues support task priority. Priority value lays in the range [0,
+255], with default value being 127. A higher value means higher
+priority, lower value - lower priority.
+
+Each queue has one (currently) associated *fiber* taking care of
+it. The fiber is started upon first access to the queue. The job
+of the fiber is to monitor orphaned tasks, as well as prune and
+clean the queue from obsolete tasks.
 
 To configure a space supporting queues, use the following parameters:
 
@@ -63,117 +70,132 @@ space = [
 ]
 ```
 
-It may also be desirable to tune server `readahead` configuration variable
-if many consumers re-use the same socket for getting and acknowledging tasks.
+It may also be desirable to tune server `readahead` configuration
+variable if many consumers re-use the same socket for getting and
+acknowledging tasks.
 
-The recomended value can be calculated as:
+The recommended value can be calculated as:
 
 ```
   consumers-per-socket * (256 + largest task size)
 ```
 
-For example, if the largest task size is 256 bytes, and average nubmer of consumers
-per socket is 10, the recommended `readahead` value must be at least 51 200 bytes.
+For example, if the largest task size is 256 bytes, and average
+number of consumers per socket is 10, the recommended `readahead`
+value must be at least 51 200 bytes.
 
 ## Terminology
 
-* *Consumer* - a process, dequeueing and executing tasks
-* *Producer* - a process enqueueing new tasks 
+* *Consumer* - a process, taking and executing tasks
+* *Producer* - a process adding new tasks 
 
 ### Arguments of queue API methods
 
 * `space` (number) space id. To avoid confusion and broken statistics, 
  it's necessary to consistently use numbers to identify spaces,
 * `tube` (string) - queue name,
-* `delay` (number) - a delay between the moment a task is queued and is executed in seconds
-* `ttl` (number) - task time to live in seconds. If `delay` is given along with `ttl`, 
- the effective task time to live is increased by the amount of `delay`,
-* `ttr` (number) - task time to run, the maximal time given allowed to execute a task,
+* `delay` (number) - a delay between the moment a task is queued
+  and is executed, in seconds
+* `ttl` (number) - task time to live, in seconds. If `delay` is
+  given along with `ttl`, the effective task time to live is
+  increased by the amount of `delay`,
+* `ttr` (number) - task time to run, the maximal time allotted 
+  to a consumer to execute a task, in seconds,
 * `pri` (number) - task priority [0..255],
 * `id` (string) - task id,
 * `timeout` (number) - timeout in seconds for the Queue API method.
 
 ### Task states
 
-* `ready` - a task is ready for execution
-* `delayed` - a task is awaiting task `delay` to expire, after which it will become `ready`
-* `taken` - a task is taken by a consumer and is being executed
-* `done` - a task is complete (but not deleted, since the consumer called `done` rather than `ack`)
-* `buried` - a task is neither ready nor taken nor complete, it's excluded (perhaps temporarily)
- from the list of tasks for execution, but not deleted.
+* `ready` - a task is ready for execution,
+* `delayed` - a task is awaiting task `delay` to expire, after
+  which it will become `ready`,
+* `taken` - a task is taken by a consumer and is being executed,
+* `done` - a task is complete (but not deleted, since the consumer
+  called `done` rather than `ack`),
+* `buried` - a task is neither ready nor taken nor complete, it's
+  excluded (perhaps temporarily) from the list of tasks for
+  execution, but not deleted.
 
+### The format of task tuple
 
-### Формат задачи
+Queue API methods, such as `put`, `take`, return a task.
+The task consists of the following fields:
 
-Многие методы, как `put`, `take` возвращают задачу. Задача возвращается в
-следующем виде:
-
-1. `id` (С) - идентификатор задачи
-1. `tube` (С) - название очереди
-1. `status` (С) - статус задачи
-1. далее идут данные связанные с задачей (переданные в `put`/`urgent`/`done`)
-
+1. `id` (string) - task identifier
+1. `tube` (string) - queue identifier 
+1. `status` (string) - task status
+1. task data (all fields passed into `put`/`urgent` when
+   the task was created)
 
 ## API
-
 
 ### Producer
 
 #### queue.put(space, tube, delay, ttl, ttr, pri, ...)
 
-Метод размещает задачу в очереди. Возвращает итоговую задачу.
-Данные могут не использоваться.
+Enqueue a task. Returns a tuple, representing the resulting
+task. The optional list of fields with task data can be empty.
 
 #### queue.urgent(space, tube, delay, ttl, ttr, pri, ...)
 
-Метод размещает задачу в очереди. Отличается от `put` тем что размещает задачу
-для немедленного выполнения. В случае если указан ненулевой `delay`, то данный
-метод полностью эквивалентен `put`.
+Enqueue a task. The task will get the highest priority.
+If `delay` is not zero, the method is equivalent to `put`.
 
 ### Consumer
 
 #### queue.take(space, tube, timeout)
 
-Метод ожидает появление задачи в очереди (если таймаут не указан, то ожидает
-до бесконечности). При появлении задачи она помечается как `taken` и
-возвращается консюмеру. Все время, пока консюмер выполняет задачу он не должен
-разрывать соединение, поскольку в ответ на разрыв соединения задаче будет
-возвращен статус `ready` (готова к исполнению).
+Wait for a task to appear in the queue, and, as soon as there is
+a task, mark it as `taken` and return to the consumer. If there is
+a `timeout`, and the task doesn't appear until the timeout
+expires, returns nil. If timeout is not given, waits indefinitely.
+
+All the time while the consumer is working on a task, it must keep
+the connection to the server open. If a connection is closed while
+the consumer is still working on a task, it's put back on the
+`ready` list.
 
 #### queue.ack(space, id)
 
-Информирует очередь о том что задача выполнена. Может выбрасывать исключения
-в случаях:
+Confirm completion of a task. This method verifies that:
 
-* задача не помечена как выполняющаяся (`taken`)
-* задачу брал другой консюмер (только тот консюмер что брал задачу на
-выполнение может выполнять метод `ack` для нее)
+* the task is `taken` and 
+* the consumer that is confirming the task is the one which took it
 
-Вызов данного метода приводит к удалению задачи из очереди.
+Consumer identity is established using the session identifier. In
+other words, the task must be confirmed by the same connection 
+which took it. If verification fails, the method returns an
+error.
+
+On success, deletes the task from the queue.
 
 #### queue.release(space, id [, delay [, ttl ] ])
 
-Возвращает задачу обратно в очередь неисполненной. Можно указать интервал
-на который надо отложить повторное выполнение, а так же новый `ttl`.
+Return a task back to the queue: the task is not executed. 
+Additionally, a new time to live and re-execution delay can be
+provided.
 
 #### queue.requeue(space, id)
 
-Возвращает задачу обратно в очередь неисполненной. При этом кладет задачу
-в конец очереди с тем чтобы повторно она выполнялась только после тех задач
-что уже накопились в очереди.
+Return a task to the queue, the task is not executed. Puts
+the task to the end of the queue, so that it's executed only
+after all existing tasks in the queue are executed.
 
 #### queue.bury(space, id)
 
-Помечает задачу как исключенную из списка выполняемых (например после серии
-ошибок по выполнению данной задачи).
-
+Mark a task as `buried`. This special status excludes 
+the task from the active list, until it's `dug up`.
+Useful when several attempts to execute a task lead to a failure.
+Buried tasks can be monitored by the queue owner, and treated
+specially.
 
 #### queue.done(space, id, ...)
 
-Помечает задачу как выполненную (`done`), заменяет задаче данные на указанные.
+Marks a task as complete (`done`), but doesn't delete it. 
+Replaces task data with the supplied fields.
 
-
-### Common functions
+### Common functions (neither producer nor consumer specifically).
 
 #### queue.dig(space, id)
 
