@@ -29,7 +29,7 @@ sub _build_data {
 }
 
 
-for my $m (qw(ack requeue bury dig unbury delete get_meta)) {
+for my $m (qw(ack requeue bury dig unbury delete get_meta peek)) {
     no strict 'refs';
     next if *{ __PACKAGE__ . "::$m" }{CODE};
     *{ __PACKAGE__ . "::$m" } = sub {

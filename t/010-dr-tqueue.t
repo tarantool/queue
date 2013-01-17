@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 39;
+use constant PLAN => 44;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -105,3 +105,16 @@ is $meta->{ctaken}, 1, 'task3.meta.ctaken';
 is $meta->{cbury}, 0, 'task3.meta.cbury';
 is $meta->{tube}, 'test_queue', 'task3.meta.tube';
 is $meta->{status}, $task3_t->status, 'task3.status';
+
+my $stat = $q->statistics;
+isa_ok $stat => 'HASH', 'statistics';
+my $stat2 = $q->statistics(space => 0, tube => undef);
+is_deeply $stat, $stat2, 'stats are the same';
+$stat2 = $q->statistics(tube => 'test_queue' );
+is_deeply $stat2, $stat, 'stats are the same';
+
+$stat2 = $q->statistics(space => 123);
+is_deeply $stat2, {}, 'empty stat';
+$stat2 = $q->statistics(tube => 'abc' );
+is_deeply $stat2, {}, 'empty stat';
+

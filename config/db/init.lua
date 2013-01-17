@@ -485,44 +485,76 @@ queue.restart_check = function(space, tube)
     return 'starting'
 end
 
+
+local function put_statistics(stat, space, tube)
+    if space == nil then
+        return
+    end
+    if tube == nil then
+        return
+    end
+
+    local st = rawget(queue.stat, space)
+    if st == nil then
+        return
+    end
+
+    st = rawget(st, tube)
+    if st == nil then
+        return
+    end
+    for name, value in pairs(st) do
+        if type(value) ~= 'function' then
+
+            table.insert(stat,
+                'space' .. tostring(space) .. '.' .. tostring(tube)
+                    .. '.' .. tostring(name)
+            )
+            table.insert(stat, tostring(value))
+        end
+
+    end
+    table.insert(stat,
+                'space' .. tostring(space) .. '.' .. tostring(tube)
+                    .. '.tasks.total'
+    )
+    table.insert(stat,
+        tostring(box.space[tonumber(space)].index[idx_tube]:count(tube))
+    )
+
+    for i, s in pairs(all_statuses) do
+        table.insert(stat,
+                    'space' .. tostring(space) .. '.' .. tostring(tube)
+                        .. '.tasks.' .. human_status[s]
+        )
+        table.insert(stat,
+            tostring(
+                box.space[tonumber(space)]
+                    .index[idx_tube]:count(tube, s)
+            )
+        )
+    end
+end
+
 -- queue.statistics
 -- returns statistics about all queues
-queue.statistics = function()
+queue.statistics = function( space, tube )
 
     local stat = {}
 
-    for space, spt in pairs(queue.stat) do
-        for tube, st in pairs(spt) do
-            for name, value in pairs(st) do
-                if type(value) ~= 'function' then
-
-                    table.insert(stat,
-                        'space' .. tostring(space) .. '.' .. tostring(tube)
-                            .. '.' .. tostring(name)
-                    )
-                    table.insert(stat, tostring(value))
-                end
-
+    if space ~= nil and tube ~= nil then
+        put_statistics(stat, space, tube)
+    elseif space ~= nil then
+        local spt = rawget(queue.stat, space)
+        if spt ~= nil then
+            for tube, st in pairs(spt) do
+                put_statistics(stat, space, tube)
             end
-            table.insert(stat,
-                        'space' .. tostring(space) .. '.' .. tostring(tube)
-                            .. '.tasks.total'
-            )
-            table.insert(stat,
-                tostring(box.space[tonumber(space)].index[idx_tube]:count(tube))
-            )
-
-            for i, s in pairs(all_statuses) do
-                table.insert(stat,
-                            'space' .. tostring(space) .. '.' .. tostring(tube)
-                                .. '.tasks.' .. human_status[s]
-                )
-                table.insert(stat,
-                    tostring(
-                        box.space[tonumber(space)]
-                            .index[idx_tube]:count(tube, s)
-                    )
-                )
+        end
+    else
+        for space, spt in pairs(queue.stat) do
+            for tube, st in pairs(spt) do
+                put_statistics(stat, space, tube)
             end
         end
     end
