@@ -15,10 +15,12 @@ override_dh_install:
 	echo >> queue.cfg
 	echo script_dir = /usr/lib/dr-tarantool-queue/ >> queue.cfg
 	dh_install
+	make tardist
 
 override_dh_clean:
 	rm -f queue.cfg
 	dh_clean
+	rm -f DR-TarantoolQueue-?.??.tar.gz
 
 tarball: clean
 	test $(vdeb) = $(vmod)
