@@ -19,8 +19,8 @@ override_dh_install:
 
 override_dh_clean:
 	rm -f queue.cfg
-	dh_clean
 	rm -f DR-TarantoolQueue-?.??.tar.gz
+	dh_clean
 
 tarball: clean
 	test $(vdeb) = $(vmod)
