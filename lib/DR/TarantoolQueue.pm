@@ -34,7 +34,7 @@ DR::TarantoolQueue - client for tarantool's queue
 
 =head2 DESCRIPTION
 
-The module contains sync (coro) and async driver fro tarantool queue.
+The module contains sync and async (coro) driver for tarantool queue.
 
 =cut
 
@@ -578,7 +578,6 @@ sub done {
         [ $space, $id, $self->jse->encode($o{data}) ]
     );
     return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
-
 }
 
 

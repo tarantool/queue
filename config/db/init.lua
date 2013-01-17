@@ -1,5 +1,18 @@
 -- vim: set ft=lua et :
 
+--  The library is free software; you can redistribute it and/or modify it
+--  under the terms of either:
+
+--  a) the GNU General Public License as published by the Free Software
+--  Foundation; either version 1, or (at your option)
+--  any later version (http://dev.perl.org/licenses/gpl1.html)
+
+--  b) the "Artistic License" (http://dev.perl.org/licenses/artistic.html)
+
+-- This library is free software; you can redistribute it and/or modify
+-- it under the same terms as Perl itself (Artistic or GPL-1+).
+
+
 -- queue in tarantool
 
 -- tarantool config example:

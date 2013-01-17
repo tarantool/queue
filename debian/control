@@ -1,0 +1,39 @@
+Source: dr-tarantool-queue
+Priority: optional
+Maintainer: Dmitry E. Oboukhov <unera@debian.org>
+Build-Depends: debhelper (>= 8)
+Build-Depends-Indep: libcoro-perl,
+ libdr-tarantool-perl,
+ libjson-xs-perl,
+ libmouse-perl,
+ libcoro-perl,
+ perl,
+ tarantool (>= 1.4.8+20130110-1)
+Standards-Version: 3.9.3
+
+Package: libdr-tarantoolqueue-perl
+Section: perl
+Architecture: all
+Suggests: dr-tarantool-queue
+Depends: ${misc:Depends}, ${perl:Depends},
+ libcoro-perl,
+ libdr-tarantool-perl,
+ libjson-xs-perl,
+ libmouse-perl,
+ libcoro-perl,
+ perl-base
+Homepage: http://search.cpan.org/dist/DR-TarantoolQueue/
+Description: client for tarantool's queue
+ The module contains sync and async (coro) driver for tarantool queue.
+
+Package: dr-tarantool-queue
+Architecture: all
+Section: database
+Suggests: libdr-tarantoolqueue-perl
+Depends: ${misc:Depends}, ${perl:Depends},
+ tarantool (>= 1.4.8+20130110-1)
+Homepage: https://github.com/mailru/tarantool-queue/
+Description: queue components for tarantool
+ The package contains init.lua and tarantool.cfg to build queue daemon
+ using tarantool.
+ 
