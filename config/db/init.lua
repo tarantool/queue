@@ -485,9 +485,9 @@ queue.restart_check = function(space, tube)
     return 'starting'
 end
 
--- queue.statistic
--- returns statistic about all queues
-queue.statistic = function()
+-- queue.statistics
+-- returns statistics about all queues
+queue.statistics = function()
 
     local stat = {}
 
@@ -561,6 +561,7 @@ local function put_task(space, tube, ipri, delay, ttl, ttr, pri, ...)
         pri = min_pri
     end
 
+    pri = max_pri - (pri - min_pri)
 
     local task
     local now = box.time64()

@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 73;
+use constant PLAN => 76;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -342,7 +342,7 @@ is_deeply
 $task1_m = tnt->call_lua('queue.meta', [ $sno, $task1->[0] ], 'queue');
 is $task1_m->status, 'done', 'task1.status';
 
-my %stat = @{ tnt->call_lua('queue.statistic', [])->raw };
+my %stat = @{ tnt->call_lua('queue.statistics', [])->raw };
 
 is $stat{"space$sno.tube_name.ready_by_disconnect"}, 2,
     'cnt ready_by_disconnect';
@@ -409,6 +409,23 @@ is $task1_m->status, 'ready', 'task1.status';
 is $task2_m->status, 'ready', 'task2.status';
 
 
+$task1 = tnt->call_lua('queue.put', [ $sno, 'pri', 0, 10, 10, 30, 'pri=30'])
+    ->raw;
+$task2 = tnt->call_lua('queue.put', [ $sno, 'pri', 0, 10, 10, 10, 'pri=10'])
+    ->raw;
+$task3 = tnt->call_lua('queue.put', [ $sno, 'pri', 0, 10, 10, 20, 'pri=20'])
+    ->raw;
+
+
+$task1->[2] = $task2->[2] = $task3->[2] = 'taken';
+
+   $task1_t = tnt->call_lua('queue.take', [ $sno, 'pri' ])->raw;
+my $task3_t = tnt->call_lua('queue.take', [ $sno, 'pri' ])->raw;
+   $task2_t = tnt->call_lua('queue.take', [ $sno, 'pri' ])->raw;
+
+is_deeply $task1_t, $task1, 'task1 (pri)';
+is_deeply $task2_t, $task2, 'task2 (pri)';
+is_deeply $task3_t, $task3, 'task3 (pri)';
 
 
 END {
