@@ -135,7 +135,7 @@ The task consists of the following fields:
 #### queue.put(space, tube, delay, ttl, ttr, pri, ...)
 
 Enqueue a task. Returns a tuple, representing the new task.
-The list of fields with task data is optional.
+The list of fields with task data ('...')is optional.
 
 #### queue.urgent(space, tube, delay, ttl, ttr, pri, ...)
 
@@ -151,8 +151,8 @@ take the highest-priority task.
 Otherwise, wait for a `ready` task to appear in the queue, and, as
 soon as it appears, mark it as `taken` and return to the consumer.
 If there is a `timeout`, and the task doesn't appear until the
-timeout expires, returns nil. If timeout is not given, waits
-indefinitely.
+timeout expires, return 'nil'. If timeout is not given, wait
+indefinitely until a task appears.
 
 All the time while the consumer is working on a task, it must keep
 the connection to the server open. If a connection disappears while
@@ -165,14 +165,14 @@ Confirm completion of a task. Before marking a task as complete,
 this function verifies that:
 
 * the task is `taken` and
-* the consumer that is confirming the task is the one which took it
+* the consumer that is confirming the task is the one which took it.
 
 Consumer identity is established using a session identifier. In
 other words, the task must be confirmed by the same connection
 which took it. If verification fails, the function returns an
 error.
 
-On success, deletes the task from the queue.
+On success, delete the task from the queue.
 
 #### queue.release(space, id [, delay [, ttl ] ])
 
@@ -196,15 +196,15 @@ owner, and treated specially.
 
 #### queue.done(space, id, ...)
 
-Mark a task as complete (`done`), but doesn't delete it.
-Replaces task data with the supplied fields.
+Mark a task as complete (`done`), but don't delete it.
+Replaces task data with the supplied fields ('...').
 
 ### Common functions (neither producer nor consumer).
 
 #### queue.dig(space, id)
 
-'Dig up' a buried task. Checks, that the task is buried.
-The task status is changed to `ready`.
+'Dig up' a buried task, after checking that the task
+is buried. The task status is changed to `ready`.
 
 #### queue.kick(space, tube [, count] )
 
@@ -251,15 +251,15 @@ fields:
 1. `tube` (string) - queue identifier
 1. `status` (string) - task status
 1. task data (all fields passed into `put`/`urgent` when
-   the task was created)
+   the task was created).
 
 #### queue.statistics()
 
-Return queue module statistics, since server start.
+Return queue module statistics accumulated since server start.
 The statistics is broken down by queue id. Only queues on which
 there was some activity are included in the output.
 
 The format of the statistics is a sequence of rows, where each
 odd row is the name of a statistical parameter, and the
-next even row is its value.
+next even row is the value.
 
