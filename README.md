@@ -87,11 +87,11 @@ value must be at least 51 200 bytes.
 ## Terminology
 
 * *Consumer* - a process, taking and executing tasks
-* *Producer* - a process adding new tasks 
+* *Producer* - a process adding new tasks
 
 ### Arguments of queue API functions
 
-* `space` (number) space id. To avoid confusion and broken statistics, 
+* `space` (number) space id. To avoid confusion and broken statistics,
   it's necessary to consistently use numbers to identify spaces,
 * `tube` (string) - queue name,
 * `delay` (number) - a delay between the moment a task is queued
@@ -99,7 +99,7 @@ value must be at least 51 200 bytes.
 * `ttl` (number) - task time to live, in seconds. If `delay` is
   given along with `ttl`, the effective task time to live is
   increased by the amount of `delay`,
-* `ttr` (number) - task time to run, the maximal time allotted 
+* `ttr` (number) - task time to run, the maximal time allotted
   to a consumer to execute a task, in seconds,
 * `pri` (number) - task priority [0..255],
 * `id` (string) - task id,
@@ -123,7 +123,7 @@ Queue API functions, such as `put`, `take`, return a task.
 The task consists of the following fields:
 
 1. `id` (string) - task identifier
-1. `tube` (string) - queue identifier 
+1. `tube` (string) - queue identifier
 1. `status` (string) - task status
 1. task data (all fields passed into `put`/`urgent` when
    the task was created)
@@ -146,8 +146,8 @@ If `delay` is not zero, the function is equivalent to `put`.
 
 #### queue.take(space, tube, timeout)
 
-If there are tasks in the queue `ready` for execution, 
-take the highest-priority task. 
+If there are tasks in the queue `ready` for execution,
+take the highest-priority task.
 Otherwise, wait for a `ready` task to appear in the queue, and, as
 soon as it appears, mark it as `taken` and return to the consumer.
 If there is a `timeout`, and the task doesn't appear until the
@@ -164,11 +164,11 @@ the consumer is still working on a task, the task is put back on the
 Confirm completion of a task. Before marking a task as complete,
 this function verifies that:
 
-* the task is `taken` and 
+* the task is `taken` and
 * the consumer that is confirming the task is the one which took it
 
 Consumer identity is established using a session identifier. In
-other words, the task must be confirmed by the same connection 
+other words, the task must be confirmed by the same connection
 which took it. If verification fails, the function returns an
 error.
 
@@ -176,7 +176,7 @@ On success, deletes the task from the queue.
 
 #### queue.release(space, id [, delay [, ttl ] ])
 
-Return a task back to the queue: the task is not executed. 
+Return a task back to the queue: the task is not executed.
 Additionally, a new time to live and re-execution delay can be
 provided.
 
@@ -188,7 +188,7 @@ after all existing tasks in the queue are executed.
 
 #### queue.bury(space, id)
 
-Mark a task as `buried`. This special status excludes 
+Mark a task as `buried`. This special status excludes
 the task from the active list, until it's `dug up`.
 This function is useful when several attempts to execute a task
 lead to a failure. Buried tasks can be monitored by the queue
@@ -196,20 +196,20 @@ owner, and treated specially.
 
 #### queue.done(space, id, ...)
 
-Mark a task as complete (`done`), but doesn't delete it. 
+Mark a task as complete (`done`), but doesn't delete it.
 Replaces task data with the supplied fields.
 
 ### Common functions (neither producer nor consumer).
 
 #### queue.dig(space, id)
 
-'Dig up' a buried task. Checks, that the task is buried. 
+'Dig up' a buried task. Checks, that the task is buried.
 The task status is changed to `ready`.
 
 #### queue.kick(space, tube [, count] )
 
 'Dig up' `count` tasks in a queue. If `count` is not given,
-digs up just one buried task. 
+digs up just one buried task.
 
 #### queue.unbury(space, id)
 
@@ -248,7 +248,7 @@ Return a task by task id. Returned tuple has the following
 fields:
 
 1. `id` (string) - task identifier
-1. `tube` (string) - queue identifier 
+1. `tube` (string) - queue identifier
 1. `status` (string) - task status
 1. task data (all fields passed into `put`/`urgent` when
    the task was created)
