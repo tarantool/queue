@@ -1,0 +1,14 @@
+benchmark/channel.pl
+benchmark/init.lua
+benchmark/ping.pl
+benchmark/queue.pl
+config/db/init.lua
+config/db/tarantool.cfg
+lib/DR/TarantoolQueue/JSE.pm
+lib/DR/TarantoolQueue.pm
+lib/DR/TarantoolQueue/Task.pm
+Makefile.PL
+MANIFEST
+README.md
+t/000-queue.t
+t/010-dr-tqueue.t
