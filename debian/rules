@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+
+vdeb = $(shell dpkg-parsechangelog \
+	| grep ^Version|awk '{print $$2}'|sed 's/-[[:digit:]]\+$$//')
+vmod = $(shell grep '^our[[:space:]]\+$$VERSION' lib/DR/TarantoolQueue.pm \
+        |head -n 1 |awk '{print $$4}'|sed "s/[';']//g" )
+pkt = $(shell dpkg-parsechangelog|grep ^Source|awk '{print $$2}')
+
+
+%:
+	dh $@
+
+override_dh_install:
+	install -m 0644 config/db/tarantool.cfg queue.cfg
+	echo >> queue.cfg
+	echo script_dir = /usr/lib/dr-tarantool-queue/ >> queue.cfg
+	dh_install
+
+override_dh_clean:
+	rm -f queue.cfg
+	dh_clean
+
+tarball: clean
+	test $(vdeb) = $(vmod)
+	test -d ../$(pkt)-$(vdeb)
+	cd .. && tar --exclude=debian --exclude=.git \
+		-czvf $(pkt)_$(vdeb).orig.tar.gz \
+		$(pkt)-$(vdeb)

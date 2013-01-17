@@ -1,0 +1,5 @@
+dr-tarantool-queue (0.02-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Fri, 18 Jan 2013 01:52:32 +0400

@@ -34,7 +34,7 @@ DR::TarantoolQueue - client for tarantool's queue
 
 =head2 DESCRIPTION
 
-The module contains sync (coro) and async driver fro tarantool queue.
+The module contains sync and async (coro) driver for tarantool queue.
 
 =cut
 
@@ -515,6 +515,69 @@ for my $m (qw(ack requeue bury dig unbury delete peek)) {
         my $tuple = $self->tnt->call_lua( "queue.$m" => [ $space, $id ] );
         return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
     }
+}
+
+
+=head2 release
+
+    $q->release(task => $task);
+    $task->release; # the same
+
+    $q->release(id => $task->id, space => $task->space);
+    $q->release(task => $task, delay => 10); # delay the task 
+    $q->release(task => $task, ttl => 3600); # append task's ttl
+
+Return a task back to the queue: the task is not executed.
+Additionally, a new time to live and re-execution delay can be provided.
+
+=cut
+
+sub release {
+    my ($self, %o) = @_;
+    _check_opts \%o, qw(task id space ttl delay);
+    $o{delay} ||= 0;
+    my ($id, $space);
+    if ($o{task}) {
+        ($id, $space) = ($o{task}->id, $o{task}->space);
+    } else {
+        ($id, $space) = @o{'id', 'space'};
+        $space = $self->space unless defined $o{space};
+        croak 'space is not defined' unless defined $space; 
+    }
+    my $tuple = $self->tnt->call_lua('queue.release' => 
+        [ $space, $id, $o{delay}, $o{ttl} || () ]
+    );
+    return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
+}
+
+
+
+=head2 done
+
+    $q->done(task => $task, data => { result => '123' });
+    $task->done(data => { result => '123' }); # the same
+    $q->done(id => $task->id, space => $task->space);
+
+Mark a task as complete (done), but don't delete it. Replaces task
+data with the supplied B<data>.
+
+=cut
+
+sub done {
+    my ($self, %o) = @_;
+    _check_opts \%o, qw(task id space data);
+    my ($id, $space);
+    if ($o{task}) {
+        ($id, $space) = ($o{task}->id, $o{task}->space);
+    } else {
+        ($id, $space) = @o{'id', 'space'};
+        $space = $self->space unless defined $o{space};
+        croak 'space is not defined' unless defined $space; 
+    }
+    my $tuple = $self->tnt->call_lua('queue.done' => 
+        [ $space, $id, $self->jse->encode($o{data}) ]
+    );
+    return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
 }
 
 

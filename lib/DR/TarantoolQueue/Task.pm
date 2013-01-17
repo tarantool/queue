@@ -55,6 +55,16 @@ sub tuple {
 }
 
 
+sub done {
+    my ($self, $data) = @_;
+    $data = $self->data unless @_ > 1;
+    $self->queue->done(task => $self, data => $data);
+}
+
+sub release {
+    my ($self, %o) = @_;
+    $self->queue->release(task => $self, delay => $o{delay}, ttl => $o{ttl});
+}
 
 
 __PACKAGE__->meta->make_immutable();

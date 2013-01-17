@@ -1,5 +1,18 @@
 -- vim: set ft=lua et :
 
+--  The library is free software; you can redistribute it and/or modify it
+--  under the terms of either:
+
+--  a) the GNU General Public License as published by the Free Software
+--  Foundation; either version 1, or (at your option)
+--  any later version (http://dev.perl.org/licenses/gpl1.html)
+
+--  b) the "Artistic License" (http://dev.perl.org/licenses/artistic.html)
+
+-- This library is free software; you can redistribute it and/or modify
+-- it under the same terms as Perl itself (Artistic or GPL-1+).
+
+
 -- queue in tarantool
 
 -- tarantool config example:
@@ -972,11 +985,18 @@ queue.release = function(space, id, delay, ttl)
     local tube = task[i_tube]
 
     local now = box.time64()
+    local created = box.unpack('l', task[i_created])
 
     if ttl == nil then
         ttl = box.unpack('l', task[i_ttl])
     else
-        ttl = to_time64(tonumber(ttl))
+        ttl = tonumber(ttl)
+        if ttl > 0 then
+            ttl = to_time64(tonumber(ttl))
+            ttl = now - created + ttl
+        else
+            ttl = box.unpack('l', task[i_ttl])
+        end
     end
 
     if delay == nil then
@@ -988,8 +1008,6 @@ queue.release = function(space, id, delay, ttl)
         end
         ttl = ttl + delay
     end
-
-    local created = box.unpack('l', task[i_created])
 
 
     if delay > 0 then

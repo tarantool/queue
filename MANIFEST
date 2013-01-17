@@ -4,6 +4,14 @@ benchmark/ping.pl
 benchmark/queue.pl
 config/db/init.lua
 config/db/tarantool.cfg
+debian/changelog
+debian/compat
+debian/control
+debian/copyright
+debian/libdr-tarantoolqueue-perl.docs
+debian/rules
+debian/source/format
+debian/watch
 lib/DR/TarantoolQueue/JSE.pm
 lib/DR/TarantoolQueue.pm
 lib/DR/TarantoolQueue/Task.pm
