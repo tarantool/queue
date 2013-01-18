@@ -1,2 +1,2 @@
-config/db/init.lua /usr/lib/dr-tarantool-queue/
+init.lua        /usr/lib/dr-tarantool-queue/
 queue.cfg	/etc/tarantool/instances.available/
