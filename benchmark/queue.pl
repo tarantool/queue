@@ -20,8 +20,8 @@ use Data::Dumper;
 use Coro::AnyEvent;
 
 my $t = DR::Tarantool::StartTest->run(
-    cfg         => catfile(cwd, 'config/db/tarantool.cfg'),
-    script_dir  => catfile(cwd, 'config/db')
+    cfg         => catfile(cwd, 'tarantool.cfg'),
+    script_dir  => catfile(cwd)
 );
 
 sub tnt {

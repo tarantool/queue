@@ -11,7 +11,7 @@ pkt = $(shell dpkg-parsechangelog|grep ^Source|awk '{print $$2}')
 	dh $@
 
 override_dh_install:
-	install -m 0644 config/db/tarantool.cfg queue.cfg
+	install -m 0644 tarantool.cfg queue.cfg
 	echo >> queue.cfg
 	echo script_dir = /usr/lib/dr-tarantool-queue/ >> queue.cfg
 	dh_install
@@ -28,3 +28,6 @@ tarball: clean
 	cd .. && tar --exclude=debian --exclude=.git \
 		-czvf $(pkt)_$(vdeb).orig.tar.gz \
 		$(pkt)-$(vdeb)
+
+manifest: clean
+	find -type f|grep -v '\.git'|sed 's/^..//'|sort -u > MANIFEST

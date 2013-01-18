@@ -40,8 +40,8 @@ BEGIN {
     use_ok 'DR::TarantoolQueue';
 }
 my $t = DR::Tarantool::StartTest->run(
-    cfg         => catfile(cwd, 'config/db/tarantool.cfg'),
-    script_dir  => catfile(cwd, 'config/db')
+    cfg         => catfile(cwd, 'tarantool.cfg'),
+    script_dir  => catfile(cwd)
 );
 
 

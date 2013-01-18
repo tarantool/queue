@@ -18,14 +18,13 @@ use Time::HiRes 'time';
 use Data::Dumper;
 
 my $t = DR::Tarantool::StartTest->run(
-    cfg         => catfile(cwd, 'config/db/tarantool.cfg'),
+    cfg         => catfile(cwd, 'tarantool.cfg'),
     script_dir  => catfile(cwd, 'benchmark')
 );
 
 sub tnt {
     our $tnt;
     unless(defined $tnt) {
-        print "Коннектимся\n";
         $tnt = coro_tarantool
             host => 'localhost',
             port => $t->primary_port,

@@ -2,16 +2,18 @@ benchmark/channel.pl
 benchmark/init.lua
 benchmark/ping.pl
 benchmark/queue.pl
-config/db/init.lua
-config/db/tarantool.cfg
 debian/changelog
 debian/compat
 debian/control
 debian/copyright
+debian/dr-tarantool-queue.dirs
+debian/dr-tarantool-queue.install
 debian/libdr-tarantoolqueue-perl.docs
+debian/libdr-tarantoolqueue-perl.install
 debian/rules
 debian/source/format
 debian/watch
+init.lua
 lib/DR/TarantoolQueue/JSE.pm
 lib/DR/TarantoolQueue.pm
 lib/DR/TarantoolQueue/Task.pm
@@ -20,3 +22,4 @@ MANIFEST
 README.md
 t/000-queue.t
 t/010-dr-tqueue.t
+tarantool.cfg
