@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 44;
+use constant PLAN => 60;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -113,8 +113,49 @@ is_deeply $stat, $stat2, 'stats are the same';
 $stat2 = $q->statistics(tube => 'test_queue' );
 is_deeply $stat2, $stat, 'stats are the same';
 
+
 $stat2 = $q->statistics(space => 123);
 is_deeply $stat2, {}, 'empty stat';
 $stat2 = $q->statistics(tube => 'abc' );
 is_deeply $stat2, {}, 'empty stat';
 
+
+
+
+my $task1 = $q->take;
+isa_ok $task1 => 'DR::TarantoolQueue::Task';
+my $task2 = $q->take;
+isa_ok $task2 => 'DR::TarantoolQueue::Task';
+my $task3 = $q->take;
+isa_ok $task3 => 'DR::TarantoolQueue::Task';
+
+$meta = $task2->get_meta;
+
+$task1_t = $task1->release(delay => 10);
+isa_ok $task1_t => 'DR::TarantoolQueue::Task';
+$task2_t = $task2->release(delay => 20, ttl => 30);
+isa_ok $task1_t => 'DR::TarantoolQueue::Task';
+$task3_t = $task3->release;
+isa_ok $task1_t => 'DR::TarantoolQueue::Task';
+
+is $task1_t->status, 'delayed', 'task1 released as delayed';
+is $task2_t->status, 'delayed', 'task2 released as delayed';
+is $task3_t->status, 'ready', 'task3 released as ready';
+
+cmp_ok $task2->get_meta->{ttl}, '<', $meta->{ttl}, 'release updated ttl';
+cmp_ok $task2->get_meta->{ttl}, '>=', (30+20) * 1_000_000,
+    'ttl is more than 50s';
+cmp_ok $task2->get_meta->{ttl}, '<', (30+30) * 1_000_000,
+    'ttl is less than 60s';
+
+
+$task1 = $q->take;
+isa_ok $task1 => 'DR::TarantoolQueue::Task';
+$task1_t = $task1->done(data => 'abc');
+isa_ok $task1_t => 'DR::TarantoolQueue::Task';
+is $task1_t->status, 'done', 'task is done';
+is $task1_t->data, 'abc', 'task.data';
+
+END {
+    note $t->log if $ENV{DEBUG};
+}

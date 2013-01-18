@@ -992,12 +992,13 @@ queue.release = function(space, id, delay, ttl)
     else
         ttl = tonumber(ttl)
         if ttl > 0 then
-            ttl = to_time64(tonumber(ttl))
-            ttl = now - created + ttl
+            ttl = to_time64(ttl)
+            ttl = ttl + now - created
         else
             ttl = box.unpack('l', task[i_ttl])
         end
     end
+    
 
     if delay == nil then
         delay = 0
@@ -1051,7 +1052,8 @@ queue.release = function(space, id, delay, ttl)
     if not queue.workers[space][tube].ch:is_full() then
         queue.workers[space][tube].ch:put(true)
     end
-    
+   
+
     queue.stat[space][ task[i_tube] ]:inc('release')
 
     return rettask(task)

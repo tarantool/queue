@@ -13,7 +13,7 @@ has id      => (is => 'ro', isa => 'Str', required => 1);
 has rawdata => (is => 'ro', isa => 'Str', required => 1);
 has data    => (
     is          => 'ro',
-    isa         => 'HashRef|ArrayRef|Undef',
+    isa         => 'HashRef|ArrayRef|Str|Undef',
     lazy        => 1,
     builder     => '_build_data'
 );
@@ -22,6 +22,8 @@ has queue   => (is => 'ro', isa => 'Object|Undef', weak_ref => 1);
 
 with 'DR::TarantoolQueue::JSE';
 
+
+$Carp::Internal{ (__PACKAGE__) }++;
 
 sub _build_data {
     my ($self) = @_;
@@ -56,14 +58,14 @@ sub tuple {
 
 
 sub done {
-    my ($self, $data) = @_;
-    $data = $self->data unless @_ > 1;
-    $self->queue->done(task => $self, data => $data);
+    my ($self, %o) = @_;
+    $o{data} = $self->data unless exists $o{data};
+    $self->queue->done(task => $self, %o);
 }
 
 sub release {
     my ($self, %o) = @_;
-    $self->queue->release(task => $self, delay => $o{delay}, ttl => $o{ttl});
+    $self->queue->release(task => $self, %o);
 }
 
 
