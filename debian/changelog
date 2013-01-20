@@ -1,4 +1,4 @@
-dr-tarantool-queue (0.04-2) nowtaxi; urgency=low
+dr-tarantool-queue (0.04-1) nowtaxi; urgency=low
 
   * queue.relese don't prolong TTL by default.
 
