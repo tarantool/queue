@@ -66,7 +66,7 @@ sub tnt {
     return $self->{tnt} if $self->{tnt};
     if ($self->{tnt_waiter}) {
         push @{ $self->{tnt_waiter} } => $Coro::current;
-        Coro::schedule;
+        Coro::schedule();
         return $self->{tnt};
     }
     $self->{tnt_waiter} = [];

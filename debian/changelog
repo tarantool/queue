@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.03-1) nowtaxi; urgency=low
+
+  * Add some absent 'use' directives.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Sun, 20 Jan 2013 23:35:32 +0400
+
 dr-tarantool-queue (0.02-1) nowtaxi; urgency=low
 
   * Initial Release.

@@ -32,12 +32,12 @@ BEGIN {
     binmode $builder->failure_output, ":utf8";
     binmode $builder->todo_output,    ":utf8";
 
+    use_ok 'DR::TarantoolQueue';
     use_ok 'Coro';
     use_ok 'DR::Tarantool', ':all';
     use_ok 'DR::Tarantool::StartTest';
     use_ok 'Time::HiRes', 'time';
     use_ok 'Coro::AnyEvent';
-    use_ok 'DR::TarantoolQueue';
 }
 my $t = DR::Tarantool::StartTest->run(
     cfg         => catfile(cwd, 'tarantool.cfg'),
