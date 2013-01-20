@@ -17,30 +17,23 @@ use DR::Tarantool::StartTest;
 use Time::HiRes 'time';
 use Data::Dumper;
 use Coro::AnyEvent;
+use DR::TarantoolQueue;
 
 my $t = DR::Tarantool::StartTest->run(
     cfg         => catfile(cwd, 'tarantool.cfg'),
     script_dir  => catfile(cwd)
 );
 
-sub tnt {
-    our $tnt;
-    unless(defined $tnt) {
-        $tnt = coro_tarantool
-            host => 'localhost',
-            port => $t->primary_port,
-            spaces => {}
-        ;
-    }
-    return $tnt;
-};
+my $q = DR::TarantoolQueue->new(
+    host    => '127.0.0.1',
+    port    => $t->primary_port,
+    space   => 0,
+    tube    => 'test_tube'
+);
 
-tnt->ping;
+use constant ITERATIONS => 1000;
 
-my $done = 0;
-my $total_time = 0;
-my $total_put = 0;
-my $total_take_ack = 0;
+my ($done, $total_put, $total_take_ack, $total_time) = (0) x 4;
 my $process = 1;
 
 $SIG{INT} = $SIG{TERM} = sub {
@@ -49,51 +42,36 @@ $SIG{INT} = $SIG{TERM} = sub {
     $process = 0;
 };
 
-
-use constant ITERATIONS => 1000;
-
-
 while($process) {
 
-    my $put_time = 0;
-    my $take_ack_time = 0;
-    my $start_time = time;
     my (@f, %t);
-    for (my $i = 0; $i < ITERATIONS; $i++) {
+    my $started = time;
+    for (1 .. ITERATIONS) {
         push @f => async {
-            my $tuple = tnt->call_lua('queue.put',
-                [ 0, 'tube', 0, 10, 5, 1, 'task body' ]);
-            $t{ $tuple->raw(0) }++;
+            my $task = $q->put(data => { num => rand });
+            $t{ $task->id }++;
         };
     }
 
-    $_->join for @f;
-    @f = ();
-    $put_time = time - $start_time;
-    $start_time = time;
+    $_->join for @f; @f = ();
+    my $put_time = time - $started;
 
-    for (my $i = 0; $i < ITERATIONS; $i++) {
+    $started = time;
+    for (1 .. ITERATIONS) {
         push @f => async {
-            my $tuple = tnt->call_lua('queue.take', [ 0, 'tube', 3 ]);
-            $t{ $tuple->raw(0) }++ if $tuple;
-
-            tnt->call_lua('queue.ack', [ 0, $tuple->raw(0) ]);
-        };
-
+            my $task = $q->take;
+            $task->ack;
+            $t{ $task->id }++;
+        }
     }
-
-    $_->join for @f;
-    @f = ();
-
-    $take_ack_time = time - $start_time;
-
-    my $done_time = $take_ack_time  + $put_time;
-    $total_time += $done_time;
-    $done += ITERATIONS;
+    $_->join for @f; @f = ();
+    my $take_ack_time = time - $started;
 
     $total_put += $put_time;
     $total_take_ack += $take_ack_time;
-
+    $total_time += $put_time + $take_ack_time;
+    $done += ITERATIONS;
+    
     if (scalar keys %t != ITERATIONS) {
         print "Wrong results count\n";
         last;
@@ -116,7 +94,4 @@ while($process) {
         $done / $total_take_ack,
         $total_take_ack / $done,
     ;
-
 }
-
-warn $t->log if $ENV{DEBUG};
