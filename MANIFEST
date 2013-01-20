@@ -1,6 +1,8 @@
 benchmark/channel.pl
 benchmark/init.lua
 benchmark/ping.pl
+benchmark/pqueue-mix.pl
+benchmark/pqueue.pl
 benchmark/queue.pl
 debian/changelog
 debian/compat
