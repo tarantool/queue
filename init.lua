@@ -987,19 +987,6 @@ queue.release = function(space, id, delay, ttl)
     local now = box.time64()
     local created = box.unpack('l', task[i_created])
 
-    if ttl == nil then
-        ttl = box.unpack('l', task[i_ttl])
-    else
-        ttl = tonumber(ttl)
-        if ttl > 0 then
-            ttl = to_time64(ttl)
-            ttl = ttl + now - created
-        else
-            ttl = box.unpack('l', task[i_ttl])
-        end
-    end
-    
-
     if delay == nil then
         delay = 0
     else
@@ -1007,11 +994,32 @@ queue.release = function(space, id, delay, ttl)
         if delay <= 0 then
             delay = 0
         end
-        ttl = ttl + delay
     end
+    
+    if ttl == nil then
+        ttl = box.unpack('l', task[i_ttl])
+    else
+        ttl = tonumber(ttl)
+        if ttl > 0 then
+            ttl = to_time64(ttl)
+            ttl = ttl + now - created
+            if delay > 0 then
+                ttl = ttl + delay
+            end
+        else
+            ttl = box.unpack('l', task[i_ttl])
+        end
+    end
+    
+
 
 
     if delay > 0 then
+        local event = now + delay
+        if event > created + ttl then
+            event = created + ttl
+        end
+
         task = box.update(space,
             id,
             '=p=p=p=p',
@@ -1020,7 +1028,7 @@ queue.release = function(space, id, delay, ttl)
             ST_DELAYED,
 
             i_event,
-            now + delay,
+            event,
 
             i_ttl,
             ttl,

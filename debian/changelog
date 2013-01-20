@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.04-2) nowtaxi; urgency=low
+
+  * queue.relese don't prolong TTL by default.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Sun, 20 Jan 2013 23:52:02 +0400
+
 dr-tarantool-queue (0.03-1) nowtaxi; urgency=low
 
   * Add some absent 'use' directives.

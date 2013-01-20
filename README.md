@@ -179,6 +179,8 @@ On success, delete the task from the queue.
 Return a task back to the queue: the task is not executed.
 Additionally, a new time to live and re-execution delay can be
 provided.
+If `ttl` is not defined (or zero) the method won't prolong ttl.
+
 
 #### queue.requeue(space, id)
 
