@@ -749,6 +749,8 @@ queue.take = function(space, tube, timeout)
                 queue.stat[space][tube]:inc('take_timeout')
                 return
             end
+        else
+                queue.consumers[space][tube]:get()
         end
     end
 end

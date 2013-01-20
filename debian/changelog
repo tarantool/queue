@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.05-1) nowtaxi; urgency=low
+
+  * Fix take without timeout.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Mon, 21 Jan 2013 01:47:13 +0400
+
 dr-tarantool-queue (0.04-1) nowtaxi; urgency=low
 
   * queue.relese don't prolong TTL by default.
