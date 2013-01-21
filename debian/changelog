@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.07-1) nowtaxi; urgency=low
+
+  * Task can be created with wrong JSON.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Mon, 21 Jan 2013 17:30:52 +0400
+
 dr-tarantool-queue (0.06-1) nowtaxi; urgency=low
 
   * Reconnect options for connector.
