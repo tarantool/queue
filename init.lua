@@ -737,6 +737,9 @@ queue.take = function(space, tube, timeout)
             if not queue.workers[space][tube].ch:is_full() then
                 queue.workers[space][tube].ch:put(true)
             end
+            if not queue.consumers[space][tube]:is_full() then
+                queue.consumers[space][tube]:put(true)
+            end
             queue.stat[space][tube]:inc('take')
             return rettask(task)
         end
