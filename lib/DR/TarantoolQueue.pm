@@ -9,7 +9,7 @@ use JSON::XS;
 require DR::TarantoolQueue::Task;
 $Carp::Internal{ (__PACKAGE__) }++;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 =head1 NAME
 
@@ -22,7 +22,12 @@ DR::TarantoolQueue - client for tarantool's queue
         host    => 'tarantool.host',
         port    => 33014,
         tube    => 'request_queue',
-        space   => 11
+        space   => 11,
+
+        connect_opts => {   # see perldoc DR::Tarantool
+            reconnect_period    => 1,
+            reconnect_always    => 1
+        }
     );
 
 
@@ -37,6 +42,37 @@ DR::TarantoolQueue - client for tarantool's queue
 
 The module contains sync and async (coro) driver for tarantool queue.
 
+=head1 ATTRIBUTES
+
+=head2 host (ro) & port (ro)
+
+Tarantool's parameters.
+
+=head2 coro (ro)
+
+If B<true> (default) the driver will use L<Coro> tarantool's driver,
+otherwise the driver will use sync driver.
+
+=head2 ttl (rw)
+
+Default B<ttl> for tasks.
+
+=head2 ttr (rw)
+
+Default B<ttr> for tasks.
+
+=head2 space (rw)
+
+Default B<space> for tasks.
+
+=head2 tube (rw)
+
+Default B<tube> for tasks.
+
+=head2 connect_opts (ro)
+
+Additional options for L<DR::Tarantool>.
+
 =cut
 
 has host    => (is => 'ro', isa => 'Str',   required => 1);
@@ -48,6 +84,7 @@ has ttr     => (is => 'rw', isa => 'Num|Undef');
 has space   => (is => 'rw', isa => 'Str|Undef');
 has tube    => (is => 'rw', isa => 'Str|Undef');
 with 'DR::TarantoolQueue::JSE';
+has connect_opts => (is => 'ro', isa => 'HashRef', default => sub {{}});
 
 
 sub tnt {
@@ -58,7 +95,8 @@ sub tnt {
         $self->{tnt} = DR::Tarantool::tarantool
             port => $self->port,
             host => $self->host,
-            spaces => {}
+            spaces => {},
+            %{ $self->connect_opts }
         ;
     }
 
@@ -73,7 +111,8 @@ sub tnt {
     $self->{tnt} = DR::Tarantool::coro_tarantool
         port => $self->port,
         host => $self->host,
-        spaces => {}
+        spaces => {},
+        %{ $self->connect_opts }
     ;
     $_->ready for @{ $self->{tnt_waiter} };
     delete $self->{tnt_waiter};
