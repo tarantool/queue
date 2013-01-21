@@ -6,11 +6,11 @@ use Mouse;
 use JSON::XS ();
 use Carp;
 
-has space   => (is => 'ro', isa => 'Str', required => 1);
-has status  => (is => 'ro', isa => 'Str', required => 1);
-has tube    => (is => 'ro', isa => 'Str', required => 1);
-has id      => (is => 'ro', isa => 'Str', required => 1);
-has rawdata => (is => 'ro', isa => 'Str', required => 1);
+has space   => (is => 'ro', isa => 'Str',       required => 1);
+has status  => (is => 'ro', isa => 'Str',       required => 1);
+has tube    => (is => 'ro', isa => 'Str',       required => 1);
+has id      => (is => 'ro', isa => 'Str',       required => 1);
+has rawdata => (is => 'ro', isa => 'Str|Undef', required => 1);
 has data    => (
     is          => 'ro',
     isa         => 'HashRef|ArrayRef|Str|Undef',
@@ -27,7 +27,11 @@ $Carp::Internal{ (__PACKAGE__) }++;
 
 sub _build_data {
     my ($self) = @_;
-    $self->jse->decode( $self->rawdata );
+    return undef unless defined $self->rawdata;
+
+    my $res = eval { $self->jse->decode( $self->rawdata ) };
+    warn $@ if $@;
+    return $res;
 }
 
 
