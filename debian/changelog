@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.08-1) nowtaxi; urgency=low
+
+  * Multiply queue config in driver.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Tue, 22 Jan 2013 23:39:57 +0400
+
 dr-tarantool-queue (0.07-1) nowtaxi; urgency=low
 
   * Task can be created with wrong JSON.

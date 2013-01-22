@@ -9,7 +9,7 @@ use JSON::XS;
 require DR::TarantoolQueue::Task;
 $Carp::Internal{ (__PACKAGE__) }++;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 =head1 NAME
 
@@ -48,6 +48,10 @@ The module contains sync and async (coro) driver for tarantool queue.
 
 Tarantool's parameters.
 
+=head2 connect_opts (ro)
+
+Additional options for L<DR::Tarantool>. HashRef.
+
 =head2 coro (ro)
 
 If B<true> (default) the driver will use L<Coro> tarantool's driver,
@@ -61,6 +65,14 @@ Default B<ttl> for tasks.
 
 Default B<ttr> for tasks.
 
+=head2 pri (rw)
+
+Default B<pri> for tasks.
+
+=head2 delay (rw)
+
+Default B<delay> for tasks.
+
 =head2 space (rw)
 
 Default B<space> for tasks.
@@ -69,9 +81,26 @@ Default B<space> for tasks.
 
 Default B<tube> for tasks.
 
-=head2 connect_opts (ro)
 
-Additional options for L<DR::Tarantool>.
+=head2 defaults
+
+Defaults for queues. B<HashRef>. Key is tube name. Value is a hash with
+the following fields:
+
+=over
+
+=item ttl
+
+=item ttr
+
+=item delay
+
+=item pri
+
+=back
+
+Methods L</put> (L</urgent>) use these parameters if they
+are absent (otherwise it uses the same global attributes).
 
 =cut
 
@@ -81,11 +110,14 @@ has coro    => (is => 'ro', isa => 'Bool',  default  => 1);
 
 has ttl     => (is => 'rw', isa => 'Num|Undef');
 has ttr     => (is => 'rw', isa => 'Num|Undef');
+has pri     => (is => 'rw', isa => 'Num|Undef');
+has delay   => (is => 'rw', isa => 'Num|Undef');
 has space   => (is => 'rw', isa => 'Str|Undef');
 has tube    => (is => 'rw', isa => 'Str|Undef');
 with 'DR::TarantoolQueue::JSE';
 has connect_opts => (is => 'ro', isa => 'HashRef', default => sub {{}});
 
+has defaults => (is => 'ro', isa => 'HashRef', default => sub {{}});
 
 sub tnt {
     my ($self) = @_;
@@ -135,32 +167,51 @@ sub _producer {
 
     _check_opts $o, qw(space tube delay ttl ttr pri data);
 
-    $o->{space} = $self->space unless defined $o->{space};
-    croak 'space was not defined' unless defined $o->{space};
+    my $space = $o->{space};
+    $space = $self->space unless defined $space;
+    croak 'space was not defined' unless defined $space;
 
-    $o->{tube}  = $self->tube unless defined $o->{tube};
-    croak 'tube was not defined' unless defined $o->{tube};
+    my $tube = $o->{tube};
+    $tube  = $self->tube unless defined $tube;
+    croak 'tube was not defined' unless defined $tube;
 
-    $o->{ttl} ||= $self->ttl || 0;
-    $o->{ttr} ||= $self->ttr || 0;
-    $o->{delay} ||= 0;
-    $o->{pri} ||= 0;
+    my ($ttl, $ttr, $pri, $delay);
+    
+    for ([\$ttl, 'ttl'], [\$delay, 'delay'], [\$ttr, 'ttr'], [\$pri, 'pri']) {
+        my $rv = $_->[0];
+        my $n = $_->[1];
 
+        if (exists $o->{$n}) {
+            $$rv = $o->{$n};
+        } else {
+            if (exists $self->defaults->{ $tube }) {
+                if (exists $self->defaults->{ $tube }{ $n }) {
+                    $$rv = $self->defaults->{ $tube }{ $n };
+                } else {
+                    $$rv = $self->$n;
+                }
+            } else {
+                $$rv = $self->$n;
+            }
+        }
+        $$rv ||= 0;
+
+    }
     
 
     my $tuple = $self->tnt->call_lua(
         "queue.$method" => [
-            $o->{space},
-            $o->{tube},
-            $o->{delay},
-            $o->{ttl},
-            $o->{ttr},
-            $o->{pri},
+            $space,
+            $tube,
+            $delay,
+            $ttl,
+            $ttr,
+            $pri,
             $self->jse->encode($o->{data})
         ]
     );
 
-    return DR::TarantoolQueue::Task->tuple($tuple, $o->{space}, $self);
+    return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
 }
 
 =head1 METHODS
@@ -169,35 +220,7 @@ sub _producer {
 
     my $q = DR::TarantoolQueue->new(host => 'abc.com', port => 123);
 
-=head3 Options
-
-=over
-
-=item host & port
-
-Host and port where tarantools started.
-
-=item coro (boolean)
-
-If true (default), the queue client will use tarantool's coro client.
-
-=item ttl
-
-Default B<ttl> (time to live) value.
-
-=item ttr
-
-Default B<ttr> (time to release) value.
-
-=item tube
-
-Default queue name.
-
-=item space
-
-Default tarantool's space.
-
-=back
+Creates new queue(s) accessor.
 
 =cut
 
