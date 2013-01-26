@@ -2,6 +2,7 @@ Source: dr-tarantool-queue
 Section: database
 Priority: optional
 Maintainer: Dmitry E. Oboukhov <unera@debian.org>
+Uploaders: Roman V. Nikolaev <rshadow@rambler.ru>
 Build-Depends: debhelper (>= 8)
 Build-Depends-Indep: libcoro-perl,
  libdr-tarantool-perl,

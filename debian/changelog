@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.09-1) nowtaxi; urgency=low
+
+  * Fix always use Coro 
+
+ -- Roman V. Nikolaev <rshadow@rambler.ru>  Sat, 26 Jan 2013 18:37:31 +0400
+
 dr-tarantool-queue (0.08-1) nowtaxi; urgency=low
 
   * Multiply queue config in driver.

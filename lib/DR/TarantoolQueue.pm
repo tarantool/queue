@@ -9,7 +9,7 @@ use JSON::XS;
 require DR::TarantoolQueue::Task;
 $Carp::Internal{ (__PACKAGE__) }++;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 =head1 NAME
 
@@ -124,7 +124,7 @@ sub tnt {
 
     unless ($self->coro) {
         return $self->{tnt} if $self->{tnt};
-        $self->{tnt} = DR::Tarantool::tarantool
+        return $self->{tnt} = DR::Tarantool::tarantool
             port => $self->port,
             host => $self->host,
             spaces => {},
@@ -176,7 +176,7 @@ sub _producer {
     croak 'tube was not defined' unless defined $tube;
 
     my ($ttl, $ttr, $pri, $delay);
-    
+
     for ([\$ttl, 'ttl'], [\$delay, 'delay'], [\$ttr, 'ttr'], [\$pri, 'pri']) {
         my $rv = $_->[0];
         my $n = $_->[1];
@@ -197,7 +197,7 @@ sub _producer {
         $$rv ||= 0;
 
     }
-    
+
 
     my $tuple = $self->tnt->call_lua(
         "queue.$method" => [
@@ -289,7 +289,7 @@ sub statistics {
 
     croak 'space was not defined'
         if defined $o{tube} and !defined $o{space};
-    
+
     my $raw = $self->tnt->call_lua(
         "queue.statistics" => [
             defined($o{space}) ? $o{space} : (),
@@ -381,7 +381,7 @@ sub get_meta {
     } else {
         ($id, $space, $tube) = @o{'id', 'space', 'tube'};
         $space = $self->space unless defined $o{space};
-        croak 'space is not defined' unless defined $space; 
+        croak 'space is not defined' unless defined $space;
         $tube = $self->tube unless defined $tube;
     }
 
@@ -455,7 +455,7 @@ sub urgent {
 =head1 Consumer methods
 
 =head2 take
-    
+
     my $task = $q->take;
     my $task = $q->take(timeout => 0.5);
     my $task = $q->take(space => 1, tube => 'requests, timeout => 20);
@@ -483,7 +483,7 @@ sub take {
     $o{tube} = $self->tube unless defined $o{tube};
     croak 'tube was not defined' unless defined $o{tube};
     $o{timeout} ||= 0;
-   
+
 
     my $tuple = $self->tnt->call_lua(
         'queue.take' => [
@@ -493,7 +493,7 @@ sub take {
         ]
     );
 
-    
+
     return DR::TarantoolQueue::Task->tuple($tuple, $o{space}, $self);
 }
 
@@ -572,7 +572,7 @@ for my $m (qw(ack requeue bury dig unbury delete peek)) {
         } else {
             ($id, $space) = @o{'id', 'space'};
             $space = $self->space unless defined $o{space};
-            croak 'space is not defined' unless defined $space; 
+            croak 'space is not defined' unless defined $space;
         }
 
         my $tuple = $self->tnt->call_lua( "queue.$m" => [ $space, $id ] );
@@ -587,7 +587,7 @@ for my $m (qw(ack requeue bury dig unbury delete peek)) {
     $task->release; # the same
 
     $q->release(id => $task->id, space => $task->space);
-    $q->release(task => $task, delay => 10); # delay the task 
+    $q->release(task => $task, delay => 10); # delay the task
     $q->release(task => $task, ttl => 3600); # append task's ttl
 
 Return a task back to the queue: the task is not executed.
@@ -605,9 +605,9 @@ sub release {
     } else {
         ($id, $space) = @o{'id', 'space'};
         $space = $self->space unless defined $o{space};
-        croak 'space is not defined' unless defined $space; 
+        croak 'space is not defined' unless defined $space;
     }
-    my $tuple = $self->tnt->call_lua('queue.release' => 
+    my $tuple = $self->tnt->call_lua('queue.release' =>
         [ $space, $id, $o{delay}, $o{ttl} || () ]
     );
     return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
@@ -635,9 +635,9 @@ sub done {
     } else {
         ($id, $space) = @o{'id', 'space'};
         $space = $self->space unless defined $o{space};
-        croak 'space is not defined' unless defined $space; 
+        croak 'space is not defined' unless defined $space;
     }
-    my $tuple = $self->tnt->call_lua('queue.done' => 
+    my $tuple = $self->tnt->call_lua('queue.done' =>
         [ $space, $id, $self->jse->encode($o{data}) ]
     );
     return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
