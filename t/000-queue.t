@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 76;
+use constant PLAN => 79;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -139,6 +139,28 @@ my $task1 = tnt->call_lua('queue.put',
 
 is tnt->call_lua('queue.meta', [ $sno, $task1->[0] ])->raw(2), 'ready',
     'task1 is ready';
+
+my $meta =  tnt->call_lua('queue.meta', [ $sno, $task1->[0] ],
+    fields => [
+        { type => 'STR', name => 'id' },
+        { type => 'STR', name => 'tube' },
+        { type => 'STR', name => 'status' },
+        { type => 'NUM64', name => 'event' },
+        { type => 'STR', name => 'ipri' },
+        { type => 'STR', name => 'pri' },
+        { type => 'NUM', name => 'cid' },
+        { type => 'NUM64', name => 'created' },
+        { type => 'NUM64', name => 'ttl' },
+        { type => 'NUM64', name => 'ttr' },
+        { type => 'NUM', name => 'cbury' },
+        { type => 'NUM', name => 'ctaken' },
+        { type => 'NUM64', name => 'now' },
+    ]
+);
+
+cmp_ok $meta->now, '<', $meta->ttl + $meta->created, 'task is alive';
+is $meta->ttl, 10000000, 'ttl';
+is $meta->ttr, 20000000, 'ttr';
 
 is_deeply $task1, [ $task1->[0], 'tube_name', 'ready', 'task', 1 .. 10 ],
     'task 1';

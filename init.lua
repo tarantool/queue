@@ -1154,7 +1154,7 @@ queue.meta = function(space, id)
     task = task
         :transform(i_pri, 1, tostring(pri_unpack(task[i_pri])))
         :transform(i_ipri, 1, tostring(pri_unpack(task[i_ipri])))
-        :transform(i_task, #task - i_task, tostring(box.time64()))
+        :transform(i_task, #task - i_task, box.time64())
         :transform(i_status, 1, human_status[ task[i_status] ])
     return task
 end

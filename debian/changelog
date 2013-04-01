@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.10-1) nowtaxi; urgency=low
+
+  * Fix queue.meta (now is returned as NUM64 as described in README).
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Mon, 01 Apr 2013 14:24:55 +0400
+
 dr-tarantool-queue (0.09-1) nowtaxi; urgency=low
 
   * Fix always use Coro 
