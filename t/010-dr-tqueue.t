@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 60;
+use constant PLAN => 66;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -82,6 +82,7 @@ for ('put', 'urgent') {
     my $task3 = $q->$_(data => [ 3, 4, 'привет' ]);
     like $task3->id, qr[^[0-9a-fA-F]{32}$], 'task3.id';
     is_deeply $task3->data, [ 3, 4, 'привет' ], "$_(data => arrayref)";
+    
 }
 
 
@@ -92,8 +93,10 @@ isa_ok $task2_t => 'DR::TarantoolQueue::Task';
 my $task3_t = $q->take;
 isa_ok $task3_t => 'DR::TarantoolQueue::Task';
 
+
 isnt $task1_t->id, $task2_t->id, "task1 and task2 aren't the same";
 isnt $task1_t->id, $task3_t->id, "task1 and task3 aren't the same";
+
 
 isa_ok $task1_t->ack => 'DR::TarantoolQueue::Task', 'task1.ack';
 isa_ok $q->ack(id => $task2_t->id), 'DR::TarantoolQueue::Task', 'task2.ack';
@@ -155,6 +158,25 @@ $task1_t = $task1->done(data => 'abc');
 isa_ok $task1_t => 'DR::TarantoolQueue::Task';
 is $task1_t->status, 'done', 'task is done';
 is $task1_t->data, 'abc', 'task.data';
+
+
+my $task4 = $q->put(tube    => 'utftube', data    => [ 3, 4, 'привет' ]);
+like $task4->id, qr[^[0-9a-fA-F]{32}$], 'task3.id';
+is_deeply $task4->data, [ 3, 4, 'привет' ],
+    "put(data => arrayref)";
+
+my $task5 =
+    $q->urgent(tube => 'utftube', data => [ 3, 4, encode utf8 => 'медвед' ]);
+like $task5->id, qr[^[0-9a-fA-F]{32}$], 'task3.id';
+is_deeply $task5->data, [ 3, 4, encode utf8 => 'медвед' ],
+    "urgent(data => arrayref)";
+
+my $task5_t = $q->take(tube => 'utftube');
+my $task4_t = $q->take(tube => 'utftube');
+
+is_deeply $task4->data, $task4_t->data, 'Task and decoded utf data';
+is_deeply $task5->data, $task5_t->data, 'Task and encoded utf data';
+
 
 END {
     note $t->log if $ENV{DEBUG};
