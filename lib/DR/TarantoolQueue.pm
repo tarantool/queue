@@ -9,7 +9,7 @@ use JSON::XS;
 require DR::TarantoolQueue::Task;
 $Carp::Internal{ (__PACKAGE__) }++;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 =head1 NAME
 
@@ -576,7 +576,14 @@ for my $m (qw(ack requeue bury dig unbury delete peek)) {
         }
 
         my $tuple = $self->tnt->call_lua( "queue.$m" => [ $space, $id ] );
-        return DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
+        my $task = DR::TarantoolQueue::Task->tuple($tuple, $space, $self);
+
+        if ($m eq 'delete') {
+            $task->_set_status('removed');
+        } elsif ($m eq 'ack') {
+            $task->_set_status('ack(removed)');
+        }
+        $task;
     }
 }
 

@@ -7,15 +7,27 @@ use JSON::XS ();
 use Carp;
 
 has space   => (is => 'ro', isa => 'Str',       required => 1);
-has status  => (is => 'ro', isa => 'Str',       required => 1);
+has status  => (
+    is          => 'ro',
+    isa         => 'Str',
+    required    => 1,
+    writer      => '_set_status'
+);
 has tube    => (is => 'ro', isa => 'Str',       required => 1);
 has id      => (is => 'ro', isa => 'Str',       required => 1);
-has rawdata => (is => 'ro', isa => 'Str|Undef', required => 1);
+has rawdata => (
+    is          => 'ro',
+    isa         => 'Str|Undef',
+    required    => 1,
+    writer      => '_set_rawdata',
+    trigger     => sub { $_[0]->_clean_data }
+);
 has data    => (
     is          => 'ro',
     isa         => 'HashRef|ArrayRef|Str|Undef',
     lazy        => 1,
-    builder     => '_build_data'
+    builder     => '_build_data',
+    clearer     => '_clean_data'
 );
 
 has queue   => (is => 'ro', isa => 'Object|Undef', weak_ref => 1);
@@ -35,7 +47,19 @@ sub _build_data {
 }
 
 
-for my $m (qw(ack requeue bury dig unbury delete get_meta peek)) {
+for my $m (qw(ack requeue bury dig unbury delete peek)) {
+    no strict 'refs';
+    next if *{ __PACKAGE__ . "::$m" }{CODE};
+    *{ __PACKAGE__ . "::$m" } = sub {
+        my ($self) = @_;
+        croak "Can't find queue for task" unless $self->queue;
+        my $task = $self->queue->$m(task => $self);
+        $self->_set_status($task->status);
+        $self;
+    }
+}
+
+for my $m (qw(get_meta)) {
     no strict 'refs';
     next if *{ __PACKAGE__ . "::$m" }{CODE};
     *{ __PACKAGE__ . "::$m" } = sub {
@@ -64,12 +88,17 @@ sub tuple {
 sub done {
     my ($self, %o) = @_;
     $o{data} = $self->data unless exists $o{data};
-    $self->queue->done(task => $self, %o);
+    my $task = $self->queue->done(task => $self, %o);
+    $self->_set_status( $task->status );
+    $self->_set_rawdata( $task->rawdata );
+    $self;
 }
 
 sub release {
     my ($self, %o) = @_;
-    $self->queue->release(task => $self, %o);
+    my $task = $self->queue->release(task => $self, %o);
+    $self->_set_status( $task->status );
+    $self;
 }
 
 
