@@ -67,7 +67,7 @@ function uses L<Coro> and Your queue uses L<Coro>, too.
 
 =cut
 
-has count       => isa => 'Num',                is => 'ro', default => 1;
+has count       => isa => 'Num',                is => 'rw', default => 1;
 
 
 =head2 queue
@@ -86,6 +86,40 @@ Space and tube for processing queue.
 
 has space           => isa => 'Str|Undef', is => 'ro';
 has tube            => isa => 'Str|Undef', is => 'ro';
+
+=head2 restart
+
+The function will be called if L<restart_limit> is reached.
+
+=cut
+
+has restart         => isa => 'CodeRef|Undef', is => 'rw';
+
+=head2 restart_limit
+
+How many tasks can be processed before restart worker.
+
+If B<restart_limit> is 0, restart mechanizm will be disabled.
+
+If L<restart> callback isn't defined, restart mechanizm will be disabled.
+
+Each processed task increments common taskcounter. When B<restart_limit> is
+reached by the counter, worker don't take new task and call L<restart>
+function. After L<restart> worker will continue to process tasks.
+
+In L<restart> callback user can do L<perlfunc/exec> or L<perlfunc/exit>
+to avoid memory leaks.
+
+    DR::TarantoolQueue::Worker->new(
+        restart_limit   => 100,
+        restart         => sub { exec perl => $0 },
+        queue           => $q,
+        count           => 10
+    )->run(sub { ... });
+
+=cut
+
+has restart_limit   => isa => 'Num', is => 'rw', default => 0;
 
 =head1 PRIVATE ATTRIBUTES
 
@@ -127,9 +161,33 @@ Run workers. Two arguments:
 
 =item process function
 
+Function will receive three arguments:
+
+=over
+
+=item task
+
+=item queue
+
+=item task number
+
+=back
+
 =item debug function
 
 The function can be used to show internal debug messages.
+
+=over
+
+=item *
+
+Debug messages aren't finished by B<EOL> (C<\n>).
+
+=item *
+
+The function will be called as L<perlfunc/sprintf>.
+
+=back
 
 =back
 
@@ -152,49 +210,62 @@ sub run {
         $self->is_stopping( 1 )
     };
 
-    my @f;
     
     $self->is_run( 1 );
     $self->is_stopping( 0 );
 
-    for (1 .. $self->count) {
-        push @f => async {
-            while($self->is_run and !$self->is_stopping) {
-                my $task = $self->queue->take(
-                    defined($self->space) ? (space => $self->space) : (),
-                    defined($self->tube)  ? (tube  => $self->tube)  : (),
-                    timeout => $self->timeout,
-                );
-                next unless $task;
+    my $no;
+    my @f;
+    while(1) {
+        ($no, @f) = (0);
 
-                eval {
-                    $cb->( $task );
-                };
+        for (1 .. $self->count) {
+            push @f => async {
+                while($self->is_run and !$self->is_stopping) {
+                    last if $self->restart and $no >= $self->restart_limit;
+                    my $task = $self->queue->take(
+                        defined($self->space) ? (space => $self->space) : (),
+                        defined($self->tube)  ? (tube  => $self->tube)  : (),
+                        timeout => $self->timeout,
+                    );
+                    next unless $task;
 
-                if ($@) {
-                    $debugf->('Worker was died (%s)', $@);
-                    if ($task->status eq 'taken') {
-                        $debugf->('task %s will be buried', $task->id);
-                        eval { $task->bury };
-                        if ($@) {
-                            $debugf->("Can't bury task %s: %s", $task->id, $@);
-                        }
-                    }
-                    next;
-                }
-                if ($task->status eq 'taken') {
-                    $debugf->('task %s was processed, will be ack', $task->id);
-                    eval { $task->ack };
+                    $no++;
+                    eval {
+                        $cb->( $task, $self->queue, $no );
+                    };
+
                     if ($@) {
-                        $debugf->("Can't ack task %s: %s", $task->id, $@);
+                        $debugf->('Worker was died (%s)', $@);
+                        if ($task->status eq 'taken') {
+                            eval { $task->bury };
+                            if ($@) {
+                                $debugf->("Can't bury task %s: %s",
+                                    $task->id, $@);
+                            }
+                        }
+                        next;
                     }
-                    next;
+                    if ($task->status eq 'taken') {
+                        eval { $task->ack };
+                        if ($@) {
+                            $debugf->("Can't ack task %s: %s", $task->id, $@);
+                        }
+                        next;
+                    }
                 }
             }
         }
+
+        $_->join for @f;
+
+        last unless $self->is_run;
+        last if $self->is_stopping;
+        last unless $self->restart;
+        last unless $no >= $self->restart_limit;
+        $self->restart->(  );
     }
 
-    $_->join for @f;
     $self->is_run( 0 );
     $self->is_stopping( 0 );
     while(@{ $self->stop_waiters }) {

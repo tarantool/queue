@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 28;
+use constant PLAN => 30;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -123,6 +123,18 @@ is $q->statistics->{'space0.test_queue.tasks.delayed'}, 0,
     '0 tasks are delayed';
 is $q->statistics->{'space0.test_queue.tasks.buried'}, 5,
     '5 tasks are buried';
+$wrk->stop;
+
+my $restarted = 0;
+$wrk->restart(sub { $restarted++ });
+$wrk->restart_limit(15);
+async {$wrk->run(sub {})};
+$q->put(data => $_) for 1 .. 99;
+$wrk->stop;
+
+cmp_ok $restarted, '<=', 99 / $wrk->restart_limit, 'count of restarts';
+cmp_ok $restarted, '>=', 99 / $wrk->restart_limit / 2, 'count of restarts';
+
 
 END {
     note $t->log if $ENV{DEBUG};
