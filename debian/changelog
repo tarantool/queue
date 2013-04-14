@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.14-2) nowtaxi; urgency=low
+
+  * Update MANIFEST (add forgotten files).
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Sun, 14 Apr 2013 21:30:19 +0400
+
 dr-tarantool-queue (0.12-1) nowtaxi; urgency=low
 
   * Add some methods to DR::TarantoolQueue::Worker.

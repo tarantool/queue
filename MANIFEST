@@ -19,11 +19,11 @@ init.lua
 lib/DR/TarantoolQueue/JSE.pm
 lib/DR/TarantoolQueue.pm
 lib/DR/TarantoolQueue/Task.pm
+lib/DR/TarantoolQueue/Worker.pm
 Makefile.PL
 MANIFEST
 README.md
 t/000-queue.t
 t/010-dr-tqueue.t
-tarantool.cfg
-lib/DR/TarantoolQueue/Worker.pm
 t/020-worker.t
+tarantool.cfg
