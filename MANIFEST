@@ -26,3 +26,4 @@ t/000-queue.t
 t/010-dr-tqueue.t
 tarantool.cfg
 lib/DR/TarantoolQueue/Worker.pm
+t/020-worker.t
