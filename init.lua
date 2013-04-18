@@ -58,6 +58,10 @@
 --                 unique  = 0,
 --                 key_field = [
 --                     {
+--                         fieldno = 1,    # tube
+--                         type = "STR"
+--                     },
+--                     {
 --                         fieldno = 3,    # next_event
 --                         type = "NUM64"
 --                     }
@@ -189,7 +193,7 @@ local function process_tube(space, tube)
         local now = box.time64()
         local next_event = 3600
         while true do
-            local task = box.select_range(space, idx_event, 1)
+            local task = box.select_limit(space, idx_event, 0, 1, tube)
 
             if task == nil then
                 break
@@ -204,7 +208,6 @@ local function process_tube(space, tube)
             local created   = box.unpack('l', task[i_created])
             local ttl       = box.unpack('l', task[i_ttl])
             local ttr       = box.unpack('l', task[i_ttr])
-
 
             if now >= created + ttl then
                 queue.stat[space][tube]:inc('ttl.total')
@@ -223,7 +226,7 @@ local function process_tube(space, tube)
                     i_event,
                     created + ttl
                 )
-                queue.consumers[space][tube]:put(true, 0.1)
+                queue.consumers[space][tube]:put(true, 0)
             -- taken -> ready
             elseif task[i_status] == ST_TAKEN then
                 box.update(space, task[i_uuid],
@@ -238,7 +241,7 @@ local function process_tube(space, tube)
                     i_event,
                     created + ttl
                 )
-                queue.consumers[space][tube]:put(true, 0.1)
+                queue.consumers[space][tube]:put(true, 0)
             else
                 print("Internal error: unexpected task status: ",
                     task[i_status],
@@ -280,12 +283,8 @@ local function consumer_dead_tube(space, tube, cid)
             )
 
 
-            if not queue.consumers[space][tube]:is_full() then
-                queue.consumers[space][tube]:put(true)
-            end
-            if not queue.workers[space][tube].ch:is_full() then
-                queue.workers[space][tube].ch:put(true)
-            end
+            queue.consumers[space][tube]:put(true, 0)
+            queue.workers[space][tube].ch:put(true, 0)
         end
     end
 end
@@ -485,12 +484,8 @@ queue.restart_check = function(space, tube)
                 end
             end
             if wakeup then
-                if not queue.consumers[space][tube]:is_full() then
-                    queue.consumers[space][tube]:put(true)
-                end
-                if not queue.workers[space][tube].ch:is_full() then
-                    queue.workers[space][tube].ch:put(true)
-                end
+                queue.consumers[space][tube]:put(true, 0)
+                queue.workers[space][tube].ch:put(true, 0)
             end
         end
     )
@@ -643,15 +638,10 @@ local function put_task(space, tube, ipri, delay, ttl, ttr, pri, ...)
             box.pack('l', 0),
             ...
         )
+        queue.consumers[space][tube]:put(true, 0)
     end
 
-
-    if delay == 0 and not queue.consumers[space][tube]:is_full() then
-        queue.consumers[space][tube]:put(true)
-    end
-    if not queue.workers[space][tube].ch:is_full() then
-        queue.workers[space][tube].ch:put(true)
-    end
+    queue.workers[space][tube].ch:put(true, 0)
 
     return rettask(task)
 
@@ -705,9 +695,10 @@ queue.take = function(space, tube, timeout)
 
     while true do
 
-        local task = box.select_limit(space, idx_tube, 0, 1, tube, ST_READY)
-        if task ~= nil  then
+        local iterator = box.space[tonumber(space)].index[idx_tube]
+                                :iterator(box.index.EQ, tube, ST_READY)
 
+        for task in iterator do
             local now = box.time64()
             local created = box.unpack('l', task[i_created])
             local ttr = box.unpack('l', task[i_ttr])
@@ -715,6 +706,10 @@ queue.take = function(space, tube, timeout)
             local event = now + ttr
             if event > created + ttl then
                 event = created + ttl
+                -- tube started too late
+                if event <= now then
+                    break
+                end
             end
 
 
@@ -734,12 +729,8 @@ queue.take = function(space, tube, timeout)
                     1
             )
 
-            if not queue.workers[space][tube].ch:is_full() then
-                queue.workers[space][tube].ch:put(true)
-            end
-            if not queue.consumers[space][tube]:is_full() then
-                queue.consumers[space][tube]:put(true)
-            end
+            queue.workers[space][tube].ch:put(true, 0)
+            queue.consumers[space][tube]:put(true, 0)
             queue.stat[space][tube]:inc('take')
             return rettask(task)
         end
@@ -753,7 +744,7 @@ queue.take = function(space, tube, timeout)
                 return
             end
         else
-                queue.consumers[space][tube]:get()
+            queue.consumers[space][tube]:get()
         end
     end
 end
@@ -862,9 +853,7 @@ queue.done = function(space, id, ...)
                 :transform(i_event, 1, event)
 
     task = box.replace(space, task:unpack())
-    if not queue.workers[space][tube].ch:is_full() then
-        queue.workers[space][tube].ch:put(true)
-    end
+    queue.workers[space][tube].ch:put(true, 0)
     queue.stat[space][ tube ]:inc('done')
     return rettask(task)
 end
@@ -901,9 +890,7 @@ queue.bury = function(space, id)
         1
     )
 
-    if not queue.workers[space][tube].ch:is_full() then
-        queue.workers[space][tube].ch:put(true)
-    end
+    queue.workers[space][tube].ch:put(true, 0)
     queue.stat[space][ tube ]:inc('bury')
     return rettask(task)
 end
@@ -931,9 +918,7 @@ queue.dig = function(space, id)
         1
     )
 
-    if not queue.workers[space][tube].ch:is_full() then
-        queue.workers[space][tube].ch:put(true)
-    end
+    queue.workers[space][tube].ch:put(true, 0)
     queue.stat[space][ tube ]:inc('dig')
     return rettask(task)
 end
@@ -1058,13 +1043,9 @@ queue.release = function(space, id, delay, ttl)
             i_cid,
             0
         )
-        if not queue.consumers[space][tube]:is_full() then
-            queue.consumers[space][tube]:put(true)
-        end
+        queue.consumers[space][tube]:put(true, 0)
     end
-    if not queue.workers[space][tube].ch:is_full() then
-        queue.workers[space][tube].ch:put(true)
-    end
+    queue.workers[space][tube].ch:put(true, 0)
    
 
     queue.stat[space][ task[i_tube] ]:inc('release')
@@ -1114,12 +1095,8 @@ queue.requeue = function(space, id)
         i_ipri,
         pri_pack(ipri)
     )
-    if not queue.consumers[space][tube]:is_full() then
-        queue.consumers[space][tube]:put(true)
-    end
-    if not queue.workers[space][tube].ch:is_full() then
-        queue.workers[space][tube].ch:put(true)
-    end
+    queue.consumers[space][tube]:put(true, 0)
+    queue.workers[space][tube].ch:put(true, 0)
     
     queue.stat[space][ task[i_tube] ]:inc('requeue')
 

@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.15-1) nowtaxi; urgency=low
+
+  * Fix bug in process_tube (it can write wrong statistics)
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Fri, 19 Apr 2013 02:25:17 +0400
+
 dr-tarantool-queue (0.14-2) nowtaxi; urgency=low
 
   * Update MANIFEST (add forgotten files).
