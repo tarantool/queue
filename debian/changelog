@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.16-1) nowtaxi; urgency=low
+
+  * Space is always converted to luanumber.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Wed, 15 May 2013 15:43:05 +0400
+
 dr-tarantool-queue (0.15-1) nowtaxi; urgency=low
 
   * Fix bug in process_tube (it can write wrong statistics)

@@ -260,7 +260,7 @@ local function process_tube(space, tube)
 end
 
 local function consumer_dead_tube(space, tube, cid)
-    local index = box.space[tonumber(space)].index[idx_tube]
+    local index = box.space[space].index[idx_tube]
 
     for task in index:iterator(box.index.EQ, tube, ST_TAKEN) do
         local created = box.unpack('l', task[i_created])
@@ -431,6 +431,7 @@ queue.default = {}
 
 
 queue.restart_check = function(space, tube)
+    space = tonumber(space)
     if queue.restart[space] ~= nil and queue.restart[space][tube] then
         return 'already started'
     end
@@ -448,7 +449,7 @@ queue.restart_check = function(space, tube)
         function()
             box.fiber.detach()
             local wakeup = false
-            local index = box.space[tonumber(space)].index[idx_tube]
+            local index = box.space[space].index[idx_tube]
             for task in index:iterator(box.index.EQ, tube, ST_TAKEN) do
                 local now = box.time64()
                 local event = box.unpack('l', task[i_event])
@@ -527,7 +528,7 @@ local function put_statistics(stat, space, tube)
                     .. '.tasks.total'
     )
     table.insert(stat,
-        tostring(box.space[tonumber(space)].index[idx_tube]:count(tube))
+        tostring(box.space[space].index[idx_tube]:count(tube))
     )
 
     for i, s in pairs(all_statuses) do
@@ -537,8 +538,7 @@ local function put_statistics(stat, space, tube)
         )
         table.insert(stat,
             tostring(
-                box.space[tonumber(space)]
-                    .index[idx_tube]:count(tube, s)
+                box.space[space].index[idx_tube]:count(tube, s)
             )
         )
     end
@@ -551,8 +551,10 @@ queue.statistics = function( space, tube )
     local stat = {}
 
     if space ~= nil and tube ~= nil then
+        space = tonumber(space)
         put_statistics(stat, space, tube)
     elseif space ~= nil then
+        space = tonumber(space)
         local spt = rawget(queue.stat, space)
         if spt ~= nil then
             for tube, st in pairs(spt) do
@@ -658,6 +660,7 @@ end
 --      5. pri - priority
 --      6. ... - task data
 queue.put = function(space, tube, ...)
+    space = tonumber(space)
     queue.stat[space][tube]:inc('put')
     return put_task(space, tube, queue.default.ipri, ...)
 end
@@ -666,6 +669,7 @@ end
 -- queue.urgent(space, tube, delay, ttl, ttr, pri, ...)
 --  like queue.put but put task at begin of queue
 queue.urgent = function(space, tube, delayed, ...)
+    space = tonumber(space)
     delayed = tonumber(delayed)
     queue.stat[space][tube]:inc('urgent')
 
@@ -681,6 +685,8 @@ end
 -- queue.take(space, tube, timeout)
 -- take task for processing
 queue.take = function(space, tube, timeout)
+    
+    space = tonumber(space)
 
     if timeout == nil then
         timeout = 0
@@ -695,7 +701,7 @@ queue.take = function(space, tube, timeout)
 
     while true do
 
-        local iterator = box.space[tonumber(space)].index[idx_tube]
+        local iterator = box.space[space].index[idx_tube]
                                 :iterator(box.index.EQ, tube, ST_READY)
 
         for task in iterator do
@@ -753,6 +759,7 @@ end
 -- queue.delete(space, id)
 --  deletes task from queue
 queue.delete = function(space, id)
+    space = tonumber(space)
     local task = box.select(space, idx_task, id)
     if task == nil then
         error("Task not found")
@@ -766,6 +773,7 @@ end
 -- queue.ack(space, id)
 --  done task processing (task will be deleted)
 queue.ack = function(space, id)
+    space = tonumber(space)
     local task = box.select(space, idx_task, id)
     if task == nil then
         error('Task not found')
@@ -791,6 +799,7 @@ end
 -- queue.touch(space, id)
 --  prolong ttr for taken task
 queue.touch = function(space, id)
+    space = tonumber(space)
     local task = box.select(space, idx_task, id)
     if task == nil then
         error('Task not found')
@@ -831,6 +840,7 @@ end
 -- queue.done(space, id, ...)
 --  marks task as done, replaces task's data
 queue.done = function(space, id, ...)
+    space = tonumber(space)
     local task = box.select(space, 0, id)
     if task == nil then
         error("Task not found")
@@ -861,6 +871,7 @@ end
 -- queue.bury(space, id)
 --  bury task that is taken
 queue.bury = function(space, id)
+    space = tonumber(space)
     local task = box.select(space, 0, id)
     if task == nil then
         error("Task not found")
@@ -898,6 +909,8 @@ end
 -- queue.dig(space, id)
 --  dig(unbury) task
 queue.dig = function(space, id)
+    
+    space = tonumber(space)
     local task = box.select(space, 0, id)
     if task == nil then
         error("Task not found")
@@ -927,7 +940,9 @@ queue.unbury = queue.dig
 
 -- queue.kick(space, tube, count)
 queue.kick = function(space, tube, count)
-    local index = box.space[tonumber(space)].index[idx_tube]
+    space = tonumber(space)
+    
+    local index = box.space[space].index[idx_tube]
 
     if count == nil then
         count = 1
@@ -961,6 +976,7 @@ end
 -- queue.release(space, id [, delay [, ttl ] ])
 --  marks task as ready (or delayed)
 queue.release = function(space, id, delay, ttl)
+    space = tonumber(space)
     local task = box.select(space, idx_task, id)
     if task == nil then
         error('Task not found')
@@ -1057,6 +1073,7 @@ end
 -- queue.requeue(space, id)
 --  marks task as ready and push it at end of queue
 queue.requeue = function(space, id)
+    space = tonumber(space)
     local task = box.select(space, idx_task, id)
     if task == nil then
         error('Task not found')
@@ -1121,6 +1138,7 @@ end
 --      12. ctaken:num
 --      13. now:time64
 queue.meta = function(space, id)
+    space = tonumber(space)
     local task = box.select(space, 0, id)
     if task == nil then
         error('Task not found');
@@ -1140,6 +1158,7 @@ end
 -- queue.peek(space, id)
 -- peek task
 queue.peek = function(space, id)
+    space = tonumber(space)
     local task = box.select(space, 0, id)
     if task == nil then
         error("Task not found")
