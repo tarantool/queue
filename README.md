@@ -19,6 +19,13 @@ clean the queue from obsolete tasks.
 To configure a space supporting queues, use the following parameters:
 
 ```cfg
+readahead   = 1024000
+
+primary_port = 33020
+secondary_port = 33021
+admin_port   = 33022
+
+
 space = [
     {
         enabled = 1,
@@ -38,7 +45,7 @@ space = [
                 unique = 0,
                 key_field = [
                     {
-                        fieldno = 1,    # queue, aka tube
+                        fieldno = 1,    # tube
                         type = "STR"
                     },
                     {
@@ -59,6 +66,10 @@ space = [
                 type    = "TREE",
                 unique  = 0,
                 key_field = [
+                    {
+                        fieldno = 1,    # tube
+                        type = "STR"
+                    },
                     {
                         fieldno = 3,    # next_event
                         type = "NUM64"
