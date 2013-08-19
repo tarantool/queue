@@ -17,6 +17,7 @@
 
 -- tarantool config example:
 
+
 -- space = [
 --     {
 --         enabled = 1,
@@ -45,11 +46,11 @@
 --                     },
 --                     {
 --                         fieldno = 4,    # ipri
---                         type = "NUM"
+--                         type = "STR"
 --                     },
 --                     {
 --                         fieldno = 5    # pri
---                         type = "NUM"
+--                         type = "STR"
 --                     }
 --                 ]
 --             },
