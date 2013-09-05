@@ -19,7 +19,7 @@ clean the queue from obsolete tasks.
 To configure a space supporting queues, use the following parameters:
 
 ```cfg
-readahead   = 1024000
+readahead   = 16384
 
 primary_port = 33020
 secondary_port = 33021
