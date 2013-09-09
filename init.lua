@@ -787,10 +787,6 @@ queue.ack = function(space, id)
     if box.unpack('i', task[i_cid]) ~= box.session.id() then
         error('Only consumer that took the task can it ack')
     end
-    local task = box.select(space, idx_task, id)
-    if task == nil then
-        error("Task not found")
-    end
 
     queue.stat[space][ task[i_tube] ]:inc('ack')
     return rettask(box.delete(space, id))
@@ -813,11 +809,6 @@ queue.touch = function(space, id)
     if box.unpack('i', task[i_cid]) ~= box.session.id() then
         error('Only consumer that took the task can it touch')
     end
-    local task = box.select(space, idx_task, id)
-    if task == nil then
-        error("Task not found")
-    end
-    
 
     local ttr = box.unpack('l', task[i_ttr])
     local ttl = box.unpack('l', task[i_ttl])
