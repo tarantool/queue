@@ -79,7 +79,7 @@
 -- ttr - time to release (when task is run)
 -- delay - delay period for task
 
-
+(function(box)
 
 local FIBERS_PER_TUBE  =   1
 
@@ -1162,3 +1162,5 @@ end
 
 box.session.on_disconnect( function() consumer_dead(box.session.id()) end )
 
+
+end)(box)
