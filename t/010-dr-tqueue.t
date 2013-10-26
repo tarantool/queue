@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 77;
+use constant PLAN => 80;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -190,6 +190,30 @@ is_deeply $task4->data, $task4_t->data, 'Task and decoded utf data';
 is_deeply $task5->data, $task5_t->data, 'Task and encoded utf data';
 
 
+{
+    use Scalar::Util 'refaddr';
+    $q = DR::TarantoolQueue->new(
+        host    => '127.0.0.1',
+        port    => $t->primary_port,
+        space   => 0,
+        tube    => 'test_queue',
+        coro    => 1
+    );
+    ok $q, 'queue instance is created';
+    is $q->{tnt}, undef, 'connection is not created yet';
+
+    my (@clist, @f);
+    for (1 .. 100) {
+        push @f => async { $q->put(data => $_) };
+        push @clist => $q->{tnt};
+    }
+    $_->join for @f;
+    is_deeply [ map { refaddr $_ } @clist ],
+        [ map { refaddr $clist[0] } 1 .. 100 ],
+        'Only one connection established';
+
+
+}
 END {
     note $t->log if $ENV{DEBUG};
 }

@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.17-1) nowtaxi; urgency=low
+
+  * User can define tarantool connection outside queue.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Sat, 26 Oct 2013 13:11:19 +0400
+
 dr-tarantool-queue (0.16-1) nowtaxi; urgency=low
 
   * Space is always converted to luanumber.

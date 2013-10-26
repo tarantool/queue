@@ -9,7 +9,7 @@ use JSON::XS;
 require DR::TarantoolQueue::Task;
 $Carp::Internal{ (__PACKAGE__) }++;
 
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 
 =head1 NAME
 
@@ -104,52 +104,56 @@ are absent (otherwise it uses the same global attributes).
 
 =cut
 
-has host    => (is => 'ro', isa => 'Str',   required => 1);
-has port    => (is => 'ro', isa => 'Str',   required => 1);
+with 'DR::TarantoolQueue::JSE';
+
+has host    => (is => 'ro', isa => 'Maybe[Str]');
+has port    => (is => 'ro', isa => 'Maybe[Str]');
 has coro    => (is => 'ro', isa => 'Bool',  default  => 1);
 
-has ttl     => (is => 'rw', isa => 'Num|Undef');
-has ttr     => (is => 'rw', isa => 'Num|Undef');
-has pri     => (is => 'rw', isa => 'Num|Undef');
-has delay   => (is => 'rw', isa => 'Num|Undef');
-has space   => (is => 'rw', isa => 'Str|Undef');
-has tube    => (is => 'rw', isa => 'Str|Undef');
-with 'DR::TarantoolQueue::JSE';
+has ttl     => (is => 'rw', isa => 'Maybe[Num]');
+has ttr     => (is => 'rw', isa => 'Maybe[Num]');
+has pri     => (is => 'rw', isa => 'Maybe[Num]');
+has delay   => (is => 'rw', isa => 'Maybe[Num]');
+has space   => (is => 'rw', isa => 'Maybe[Str]');
+has tube    => (is => 'rw', isa => 'Maybe[Str]');
 has connect_opts => (is => 'ro', isa => 'HashRef', default => sub {{}});
 
 has defaults => (is => 'ro', isa => 'HashRef', default => sub {{}});
 
-sub tnt {
-    my ($self) = @_;
+has tnt     => (
+    is      => 'rw',
+    isa     => 'Object',
+    lazy    => 1,
+    builder => sub {
+        my ($self) = @_;
+        unless ($self->coro) {
+            return DR::Tarantool::tarantool
+                port => $self->port,
+                host => $self->host,
+                spaces => {},
+                %{ $self->connect_opts }
+            ;
+        }
+        
+        require Coro;
+        if ($self->{tnt_waiter}) {
+            push @{ $self->{tnt_waiter} } => $Coro::current;
+            Coro::schedule();
+            return $self->tnt;
+        }
 
-    unless ($self->coro) {
-        return $self->{tnt} if $self->{tnt};
-        return $self->{tnt} = DR::Tarantool::tarantool
+        $self->{tnt_waiter} = [];
+        my $tnt = DR::Tarantool::coro_tarantool
             port => $self->port,
             host => $self->host,
             spaces => {},
             %{ $self->connect_opts }
         ;
+        $_->ready for @{ $self->{tnt_waiter} };
+        delete $self->{tnt_waiter};
+        return $tnt;
     }
-
-    require Coro;
-    return $self->{tnt} if $self->{tnt};
-    if ($self->{tnt_waiter}) {
-        push @{ $self->{tnt_waiter} } => $Coro::current;
-        Coro::schedule();
-        return $self->{tnt};
-    }
-    $self->{tnt_waiter} = [];
-    $self->{tnt} = DR::Tarantool::coro_tarantool
-        port => $self->port,
-        host => $self->host,
-        spaces => {},
-        %{ $self->connect_opts }
-    ;
-    $_->ready for @{ $self->{tnt_waiter} };
-    delete $self->{tnt_waiter};
-    return $self->{tnt};
-}
+);
 
 
 sub _check_opts($@) {
