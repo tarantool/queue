@@ -5,6 +5,7 @@ package DR::TarantoolQueue::Worker;
 use Carp;
 use Mouse;
 use Coro;
+use Data::Dumper;
 
 =head1 NAME
 
@@ -151,6 +152,12 @@ has is_stopping     => isa => 'Bool', is => 'rw', default => 0;
 has stop_waiters    => isa => 'ArrayRef', is => 'ro', default => sub {[]};
 
 
+has mailto          => isa => 'Maybe[Str]', is => 'ro';
+has mailfrom        => isa => 'Maybe[Str]', is => 'ro';
+has mailsublect     => isa => 'Str', is => 'ro', default => 'Worker died';
+has mailheaders     => isa => 'HashRef[Str]', is => 'ro', default => sub {{}};
+
+
 =head1 METHODS
 
 =head2 run(CODEREF[, CODEREF])
@@ -237,6 +244,15 @@ sub run {
 
                     if ($@) {
                         $debugf->('Worker was died (%s)', $@);
+                        eval {
+                            $self->sendmail(
+                                $task,
+                                sprintf "Worker was died: %s", $@
+                            );
+                        };
+                        if ($@) {
+                            $debugf->("Can't send mail (%s)", $@);
+                        }
                         if ($task->status eq 'taken') {
                             eval { $task->bury };
                             if ($@) {
@@ -275,6 +291,48 @@ sub run {
     return $self->count;
 }
 
+
+=head2 sendmail
+
+Send mail about worker crash
+
+=cut
+
+sub sendmail {
+    my ($self, $task, $error) = @_;
+    return unless $self->mailto;
+    return unless $self->mailfrom;
+
+    my $subject = $self->mailsublect;
+
+    require MIME::Lite;
+    require MIME::Words;
+
+    $subject .= sprintf' (space: %s, tube: %s)', $task->space, $task->tube;
+    $subject = MIME::Words::encode_mimeword($subject, 'B', 'utf-8');
+
+    my $mail = MIME::Lite->new(
+        From    => $self->mailfrom || 'dimka@uvw.ru',
+        To      => $self->mailto || 'dimka@uvw.ru',
+        Subject => $subject,
+        type    => 'multipart/fixed',
+    );
+
+    local $Data::Dumper::Indent = 1;
+    local $Data::Dumper::Terse = 1;
+    local $Data::Dumper::Useqq = 1;
+    local $Data::Dumper::Deepcopy = 1;
+    local $Data::Dumper::Maxdepth = 0;
+
+
+    $mail->attach(
+        Type    => 'text/plain; charset=utf-8',
+        Data    => Dumper($task->data),
+    );
+
+    $mail->add($_ => $self->mailheaders->{$_}) for keys %{ $self->mailheaders };
+    $mail->send;
+}
 
 =head2 stop
 
