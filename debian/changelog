@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.22-1) nowtaxi; urgency=low
+
+  * Drop 'disposition' for the first mailpart.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Tue, 12 Nov 2013 23:08:08 +0400
+
 dr-tarantool-queue (0.21-1) nowtaxi; urgency=low
 
   * Add debug information in mail.

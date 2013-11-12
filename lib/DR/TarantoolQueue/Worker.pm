@@ -328,7 +328,6 @@ sub sendmail {
 
     $mail->attach(
         Type        => 'text/plain; charset=utf-8',
-        Disposition => 'inline',
         Data        => encode_utf8($error),
     );
     $mail->attach(
