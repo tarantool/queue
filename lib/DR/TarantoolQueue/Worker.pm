@@ -316,7 +316,7 @@ sub sendmail {
         From    => $self->mailfrom || 'dimka@uvw.ru',
         To      => $self->mailto || 'dimka@uvw.ru',
         Subject => $subject,
-        type    => 'multipart/fixed',
+        Type    => 'multipart/fixed',
     );
 
     local $Data::Dumper::Indent = 1;

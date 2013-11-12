@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.20-1) nowtaxi; urgency=low
+
+  * Typo in MIME::Lite attributes.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Tue, 12 Nov 2013 22:53:06 +0400
+
 dr-tarantool-queue (0.19-1) nowtaxi; urgency=low
 
   * Encode subject as utf8 before sendmail.
