@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.21-1) nowtaxi; urgency=low
+
+  * Add debug information in mail.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Tue, 12 Nov 2013 23:00:06 +0400
+
 dr-tarantool-queue (0.20-1) nowtaxi; urgency=low
 
   * Typo in MIME::Lite attributes.

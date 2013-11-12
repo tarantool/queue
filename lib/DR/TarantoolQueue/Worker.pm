@@ -327,8 +327,15 @@ sub sendmail {
 
 
     $mail->attach(
-        Type    => 'text/plain; charset=utf-8',
-        Data    => Dumper($task->data),
+        Type        => 'text/plain; charset=utf-8',
+        Disposition => 'inline',
+        Data        => encode_utf8($error),
+    );
+    $mail->attach(
+        Type        => 'text/plain; charset=utf-8',
+        Filename    => 'task.dump.txt',
+        Disposition => 'inline',
+        Data        => Dumper($task),
     );
 
     $mail->add($_ => $self->mailheaders->{$_}) for keys %{ $self->mailheaders };
