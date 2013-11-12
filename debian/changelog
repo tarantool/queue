@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.19-1) nowtaxi; urgency=low
+
+  * Encode subject as utf8 before sendmail.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Tue, 12 Nov 2013 22:47:55 +0400
+
 dr-tarantool-queue (0.18-1) nowtaxi; urgency=low
 
   * If worker crashes it can send email.

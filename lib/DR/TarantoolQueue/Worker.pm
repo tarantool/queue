@@ -6,6 +6,7 @@ use Carp;
 use Mouse;
 use Coro;
 use Data::Dumper;
+use Encode qw(encode_utf8);
 
 =head1 NAME
 
@@ -303,7 +304,7 @@ sub sendmail {
     return unless $self->mailto;
     return unless $self->mailfrom;
 
-    my $subject = $self->mailsublect;
+    my $subject = encode_utf8 $self->mailsublect;
 
     require MIME::Lite;
     require MIME::Words;
