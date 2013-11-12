@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.23-1) nowtaxi; urgency=low
+
+  * Save error message before sendmail.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Tue, 12 Nov 2013 23:12:29 +0400
+
 dr-tarantool-queue (0.22-1) nowtaxi; urgency=low
 
   * Drop 'disposition' for the first mailpart.

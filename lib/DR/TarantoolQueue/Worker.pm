@@ -244,11 +244,12 @@ sub run {
                     };
 
                     if ($@) {
+                        my $err = $@;
                         $debugf->('Worker was died (%s)', $@);
                         eval {
                             $self->sendmail(
                                 $task,
-                                sprintf "Worker was died: %s", $@
+                                sprintf "Worker was died: %s", $err
                             );
                         };
                         if ($@) {
