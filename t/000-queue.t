@@ -21,7 +21,7 @@ BEGIN {
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
-use feature 'state';
+# use feature 'state';
 
 
 

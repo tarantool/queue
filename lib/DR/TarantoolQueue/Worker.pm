@@ -204,7 +204,8 @@ The function will be called as L<perlfunc/sprintf>.
 sub run {
     my ($self, $cb, $debugf) = @_;
     croak 'process subroutine is not CODEREF' unless 'CODE' eq ref $cb;
-    $debugf //= sub {  };
+    $debugf = sub {  }
+	unless defined $debugf;
     croak 'debugf subroutine is not CODEREF' unless 'CODE' eq ref $debugf;
 
     croak 'worker is already run' if $self->is_run;
