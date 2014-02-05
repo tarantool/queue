@@ -26,4 +26,5 @@ README.md
 t/000-queue.t
 t/010-dr-tqueue.t
 t/020-worker.t
+t/030-parallel.t
 tarantool.cfg
