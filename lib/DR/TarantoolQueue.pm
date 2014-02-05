@@ -442,6 +442,30 @@ sub put {
     return $self->_producer(put => \%opts);
 }
 
+=head2 put_unique
+
+    $q->put_unique(data => { 1 => 2 });
+    $q->put_unique(space => 1, tube => 'abc',
+            delay => 10, ttl => 3600,
+            ttr => 60, pri => 10, data => [ 3, 4, 5 ]);
+    $q->put_unique(data => 'string');
+
+
+Enqueue an unique task. Returns new L<task|DR::TarantoolQueue::Task> object,
+if it was not enqueued previously. Otherwise it will return existing task. 
+The list of fields with task data (C<< data => ... >>) is optional.
+
+
+If 'B<space>' and (or) 'B<tube>' aren't defined the method
+will try to use them from L<queue|DR::TarantoolQueue/new> object.
+
+=cut
+
+sub put_unique {
+    my ($self, %opts) = @_;
+    return $self->_producer(put_unique => \%opts);
+}
+
 =head2 urgent
 
 Enqueue a task. The task will get the highest priority.

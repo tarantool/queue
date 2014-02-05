@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 80;
+use constant PLAN => 81;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -189,6 +189,10 @@ my $task4_t = $q->take(tube => 'utftube');
 is_deeply $task4->data, $task4_t->data, 'Task and decoded utf data';
 is_deeply $task5->data, $task5_t->data, 'Task and encoded utf data';
 
+my $task_unique1 = $q->put_unique(tube    => 'utftube_unique', data    => [ 3, 4, 'привет' ]);
+my $task_unique2 = $q->put_unique(tube    => 'utftube_unique', data    => [ 3, 4, 'привет' ]);
+
+is_deeply $task_unique1->id, $task_unique2->id, 'Unique tasks putting has equal ids';
 
 {
     use Scalar::Util 'refaddr';
