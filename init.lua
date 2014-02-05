@@ -67,6 +67,20 @@
 --                         type = "NUM64"
 --                     }
 --                 ]
+--            },
+--            {
+--                type    = "TREE",
+--                unique  = 0,
+--                key_field = [
+--                    {
+--                        fieldno = 1,    # tube
+--                        type = "STR"
+--                    },
+--                    {
+--                        fieldno = 12,   # task data
+--                        type = "STR"
+--                    }
+--                ]
 --             }
 --         ]
 --     }
@@ -109,6 +123,7 @@ local function pri_unpack(pri)  return box.unpack('b', pri)    end
 local idx_task         = 0
 local idx_tube         = 1
 local idx_event        = 2
+local idx_data         = 3
 
 -- task statuses
 local ST_READY         = 'r'
@@ -666,6 +681,28 @@ queue.put = function(space, tube, ...)
     return put_task(space, tube, queue.default.ipri, ...)
 end
 
+-- queue.put_unique(space, tube, delay, ttl, ttr, pri, ...)
+--  put unique task into queue.
+--   arguments
+--      1. tube - queue name
+--      2. delay - delay before task can be taken
+--      3. ttl - time to live (if delay > 0 ttl := ttl + delay)
+--      4. ttr - time to release (when task is taken)
+--      5. pri - priority
+--      6. ... - task data
+queue.put_unique = function(space, tube, delay, ttl, ttr, pri, data, ...)
+    space = tonumber(space)
+    
+    if data == nil then
+	error('Can not put unique task without data')
+    end
+    local task = box.select( space, idx_data, tube, data )
+    if task ~= nil then 
+	return rettask( task )
+    end
+    queue.stat[space][tube]:inc('put')
+    return put_task(space, tube, queue.default.ipri, delay, ttl, ttr, pri, data, ...)
+end
 
 -- queue.urgent(space, tube, delay, ttl, ttr, pri, ...)
 --  like queue.put but put task at begin of queue

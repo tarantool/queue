@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 79;
+use constant PLAN => 81;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -21,7 +21,7 @@ BEGIN {
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
-use feature 'state';
+# use feature 'state';
 
 
 
@@ -449,6 +449,47 @@ is_deeply $task1_t, $task1, 'task1 (pri)';
 is_deeply $task2_t, $task2, 'task2 (pri)';
 is_deeply $task3_t, $task3, 'task3 (pri)';
 
+my $task_unique1 = tnt->call_lua('queue.put_unique', 
+    [
+        $sno,
+        'tube_name',
+        0,                  # delay
+        5,                  # ttl
+        1,                  # ttr
+        30,                 # pri 
+        'unique_task', 50 .. 60
+    ]
+)->raw;
+
+my $task_unique2 = tnt->call_lua('queue.put_unique', 
+    [
+        $sno,
+        'tube_name',
+        0,                  # delay
+        5,                  # ttl
+        1,                  # ttr
+        30,                 # pri 
+        'unique_task', 50 .. 60
+    ]
+)->raw;
+
+is_deeply $task_unique1, $task_unique2, 'unique tasks';
+
+eval {
+    tnt->call_lua('queue.put_unique', 
+	[
+    	    $sno,
+            'tube_name',
+	    0,                  # delay
+    	    5,                  # ttl
+            1,                  # ttr
+	    30                  # pri 
+        ]
+    );
+};
+
+like $@, qr/Can not put unique task without data/,
+    'unique task without data are prohibited';
 
 END {
     note $t->log if $ENV{DEBUG};

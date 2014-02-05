@@ -21,7 +21,7 @@ BEGIN {
 use Encode qw(decode encode);
 use Cwd 'cwd';
 use File::Spec::Functions 'catfile';
-use feature 'state';
+#use feature 'state';
 
 
 
@@ -85,7 +85,7 @@ Coro::AnyEvent::sleep 0.2;
 for (@tasks) {
     $_ = eval { $q->peek(id => $_->id) };
 }
-is scalar grep({ $_ ~~ undef } @tasks), scalar @tasks, 'All tasks were ack';
+is scalar grep({ !defined($_) } @tasks), scalar @tasks, 'All tasks were ack';
 
 is $wrk->stop, 0, 'workers were stopped';
 @tasks = ();
