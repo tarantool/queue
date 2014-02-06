@@ -81,6 +81,30 @@ space = [
 ]
 ```
 
+If You want use method `queue.put_unique` you have to add additional
+(fourth) index:
+
+```lua
+            {
+                type    = "TREE",
+                unique  = 0,
+                key_field = [
+                    {
+                        fieldno = 1,    # tube
+                        type = "STR"
+                    },
+                    {
+		    	fieldno = 2,	# status
+		    	type = "STR"
+		    },
+                    {
+                        fieldno = 12,   # task data
+                        type = "STR"
+                    }
+                ]
+            }
+```
+
 It may also be desirable to tune server `readahead` configuration
 variable if many consumers re-use the same socket for getting and
 acknowledging tasks.
