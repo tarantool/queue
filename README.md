@@ -84,7 +84,7 @@ space = [
 If You want use method `queue.put_unique` you have to add additional
 (fourth) index:
 
-```lua
+```cfg
             {
                 type    = "TREE",
                 unique  = 0,
