@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.24-1) nowtaxi; urgency=medium
+
+  * Add method queue.put_unique.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Thu, 06 Feb 2014 14:25:13 +0400
+
 dr-tarantool-queue (0.23-1) nowtaxi; urgency=low
 
   * Save error message before sendmail.

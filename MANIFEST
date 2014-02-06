@@ -16,8 +16,8 @@ debian/rules
 debian/source/format
 debian/watch
 init.lua
-lib/DR/TarantoolQueue/JSE.pm
 lib/DR/TarantoolQueue.pm
+lib/DR/TarantoolQueue/JSE.pm
 lib/DR/TarantoolQueue/Task.pm
 lib/DR/TarantoolQueue/Worker.pm
 Makefile.PL

@@ -68,6 +68,12 @@
 --                     }
 --                 ]
 --            },
+--         ]
+--     }
+-- ]
+
+-- If You want use method queue.put_unique you have to add additional
+-- (fourth) index:
 --            {
 --                type    = "TREE",
 --                unique  = 0,
@@ -76,15 +82,16 @@
 --                        fieldno = 1,    # tube
 --                        type = "STR"
 --                    },
+--                     {
+--                         fieldno = 2,    # status
+--                         type = "STR"
+--                     },
 --                    {
 --                        fieldno = 12,   # task data
 --                        type = "STR"
 --                    }
 --                ]
 --             }
---         ]
---     }
--- ]
 
 -- Glossary
 -- space - number of space contains tubes
@@ -693,10 +700,26 @@ end
 queue.put_unique = function(space, tube, delay, ttl, ttr, pri, data, ...)
     space = tonumber(space)
     
+    delay = tonumber(delay)
+    if delay <= 0 then
+        delay = queue.default.delay
+    end
+    delay = to_time64(delay)
+
+    local check_status = ST_READY
+    if delay > 0 then
+        check_status = ST_DELAYED
+    end
+    
     if data == nil then
 	error('Can not put unique task without data')
     end
-    local task = box.select( space, idx_data, tube, data )
+
+    if box.space[0].index[idx_data] == nil then
+        error("Tarantool have to be configured to use queue.put_unique method")
+    end
+
+    local task = box.select( space, idx_data, tube, check_status, data )
     if task ~= nil then 
 	return rettask( task )
     end
