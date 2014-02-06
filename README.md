@@ -94,9 +94,9 @@ If You want use method `queue.put_unique` you have to add additional
                         type = "STR"
                     },
                     {
-		    	fieldno = 2,	# status
-		    	type = "STR"
-		    },
+                        fieldno = 2,    # status
+                        type = "STR"
+                    },
                     {
                         fieldno = 12,   # task data
                         type = "STR"
