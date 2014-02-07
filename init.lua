@@ -715,7 +715,7 @@ queue.put_unique = function(space, tube, delay, ttl, ttr, pri, data, ...)
 	error('Can not put unique task without data')
     end
 
-    if box.space[0].index[idx_data] == nil then
+    if box.space[space].index[idx_data] == nil then
         error("Tarantool have to be configured to use queue.put_unique method")
     end
 
