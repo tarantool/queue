@@ -449,47 +449,54 @@ is_deeply $task1_t, $task1, 'task1 (pri)';
 is_deeply $task2_t, $task2, 'task2 (pri)';
 is_deeply $task3_t, $task3, 'task3 (pri)';
 
-my $task_unique1 = tnt->call_lua('queue.put_unique', 
-    [
-        $sno,
-        'tube_name',
-        0,                  # delay
-        5,                  # ttl
-        1,                  # ttr
-        30,                 # pri 
-        'unique_task', 50 .. 60
-    ]
-)->raw;
+SKIP: {
+    my $task_unique1 = eval {
+        tnt->call_lua('queue.put_unique', 
+            [
+                $sno,
+                'tube_name',
+                0,                  # delay
+                5,                  # ttl
+                1,                  # ttr
+                30,                 # pri 
+                'unique_task', 50 .. 60
+            ]
+        )->raw;
+    };
+    skip 'index is not configured for put_unique', 2
+        if !$task_unique1 and $@ =~ /unique/;
 
-my $task_unique2 = tnt->call_lua('queue.put_unique', 
-    [
-        $sno,
-        'tube_name',
-        0,                  # delay
-        5,                  # ttl
-        1,                  # ttr
-        30,                 # pri 
-        'unique_task', 50 .. 60
-    ]
-)->raw;
-
-is_deeply $task_unique1, $task_unique2, 'unique tasks';
-
-eval {
-    tnt->call_lua('queue.put_unique', 
-	[
-    	    $sno,
+    my $task_unique2 = tnt->call_lua('queue.put_unique', 
+        [
+            $sno,
             'tube_name',
-	    0,                  # delay
-    	    5,                  # ttl
+            0,                  # delay
+            5,                  # ttl
             1,                  # ttr
-	    30                  # pri 
+            30,                 # pri 
+            'unique_task', 50 .. 60
         ]
-    );
-};
+    )->raw;
 
-like $@, qr/Can not put unique task without data/,
-    'unique task without data are prohibited';
+    is_deeply $task_unique1, $task_unique2, 'unique tasks';
+
+    eval {
+        tnt->call_lua('queue.put_unique', 
+            [
+                $sno,
+                'tube_name',
+                0,                  # delay
+                5,                  # ttl
+                1,                  # ttr
+                30                  # pri 
+            ]
+        );
+    };
+
+    like $@, qr/Can not put unique task without data/,
+        'unique task without data are prohibited';
+
+}
 
 END {
     note $t->log if $ENV{DEBUG};

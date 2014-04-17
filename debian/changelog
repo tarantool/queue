@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.25-1) nowtaxi; urgency=medium
+
+  * Sync client uses realsync connection if it is available.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Thu, 17 Apr 2014 14:18:14 +0400
+
 dr-tarantool-queue (0.24-1) nowtaxi; urgency=medium
 
   * Add method queue.put_unique.

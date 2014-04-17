@@ -7,7 +7,7 @@ use open qw(:std :utf8);
 use lib qw(lib ../lib);
 
 use Test::More;
-use constant PLAN => 81;
+use constant PLAN => 82;
 
 BEGIN {
     system 'which tarantool_box >/dev/null 2>&1';
@@ -69,6 +69,13 @@ push @f => async {
 } for 1 .. 5;
 $_->join for @f;
 @f = ();
+
+if (DR::Tarantool->can('rsync_tarantool')) {
+    isa_ok $qs->tnt => 'DR::Tarantool::RealSyncClient';
+} else {
+    isa_ok $qs->tnt => 'DR::Tarantool::SyncClient';
+}
+
 ok 5 == grep({ $_ == $fh[0] } @fh), 'connection established once';
 ok $qs->tnt->ping, 'ping by sync client';
 
@@ -189,11 +196,20 @@ my $task4_t = $q->take(tube => 'utftube');
 is_deeply $task4->data, $task4_t->data, 'Task and decoded utf data';
 is_deeply $task5->data, $task5_t->data, 'Task and encoded utf data';
 
-my $task_unique1 = $q->put_unique(tube    => 'utftube_unique', data    => [ 3, 4, 'привет' ]);
-my $task_unique2 = $q->put_unique(tube    => 'utftube_unique', data    => [ 3, 4, 'привет' ]);
+SKIP: {
+    my $task_unique1 = eval {
+        $q->put_unique(tube => 'utftube_unique',
+            data => [ 3, 4, 'привет' ]);
+    };
+    skip 'tarantool is not configured for put_unique', 1
+        if !$task_unique1 and $@ =~ /put_unique/;
+    my $task_unique2 = $q->put_unique(tube => 'utftube_unique',
+        data    => [ 3, 4, 'привет' ]);
 
-is_deeply $task_unique1->id, $task_unique2->id, 'Unique tasks putting has equal ids';
+    is_deeply $task_unique1->id, $task_unique2->id,
+        'Unique tasks putting has equal ids';
 
+}
 {
     use Scalar::Util 'refaddr';
     $q = DR::TarantoolQueue->new(

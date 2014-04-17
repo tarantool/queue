@@ -127,12 +127,21 @@ has tnt     => (
     builder => sub {
         my ($self) = @_;
         unless ($self->coro) {
-            return DR::Tarantool::tarantool
-                port => $self->port,
-                host => $self->host,
-                spaces => {},
-                %{ $self->connect_opts }
-            ;
+            if (DR::Tarantool->can('rsync_tarantool')) {
+                return DR::Tarantool::rsync_tarantool
+                    port => $self->port,
+                    host => $self->host,
+                    spaces => {},
+                    %{ $self->connect_opts }
+                ;
+            } else {
+                return DR::Tarantool::tarantool
+                    port => $self->port,
+                    host => $self->host,
+                    spaces => {},
+                    %{ $self->connect_opts }
+                ;
+            }
         }
         
         require Coro;
