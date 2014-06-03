@@ -826,14 +826,17 @@ queue.truncate = function(space, tube)
     space = tonumber(space)
 
     local index = box.space[space].index[idx_tube]
-    local deleted = 0
+    local task_ids = {}
 
     for task in index:iterator(box.index.EQ, tube) do
-        box.delete(space, task[i_uuid])
-        deleted = deleted + 1
+        table.insert(task_ids, task[i_uuid])
     end
 
-    return deleted
+    for _, task in pairs(tasks) do
+        box.space[space]:delete(task)
+    end
+
+    return #task_ids
 end
 
 
