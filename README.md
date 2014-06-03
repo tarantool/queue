@@ -256,6 +256,10 @@ An alias to `dig`.
 
 Delete a task from the queue (regardless of task state or status).
 
+#### queue.truncate(space, tube)
+
+Truncate a tube. Return the number of deleted tasks.
+
 #### queue.meta(space, id)
 
 Return taks metadata:
