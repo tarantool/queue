@@ -832,8 +832,8 @@ queue.truncate = function(space, tube)
         table.insert(task_ids, task[i_uuid])
     end
 
-    for _, task in pairs(tasks) do
-        box.space[space]:delete(task)
+    for _, task_id in pairs(task_ids) do
+        box.space[space]:delete(task_id)
     end
 
     return #task_ids
