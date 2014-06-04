@@ -567,6 +567,7 @@ local function put_statistics(stat, space, tube)
     end
 end
 
+
 -- queue.statistics
 -- returns statistics about all queues
 queue.statistics = function( space, tube )
@@ -688,6 +689,7 @@ queue.put = function(space, tube, ...)
     return put_task(space, tube, queue.default.ipri, ...)
 end
 
+
 -- queue.put_unique(space, tube, delay, ttl, ttr, pri, ...)
 --  put unique task into queue.
 --   arguments
@@ -727,6 +729,7 @@ queue.put_unique = function(space, tube, delay, ttl, ttr, pri, data, ...)
     return put_task(space, tube, queue.default.ipri, delay, ttl, ttr, pri, data, ...)
 end
 
+
 -- queue.urgent(space, tube, delay, ttl, ttr, pri, ...)
 --  like queue.put but put task at begin of queue
 queue.urgent = function(space, tube, delayed, ...)
@@ -742,6 +745,7 @@ queue.urgent = function(space, tube, delayed, ...)
     local ipri = get_ipri(space, tube, -1)
     return put_task(space, tube, ipri, delayed, ...)
 end
+
 
 -- queue.take(space, tube, timeout)
 -- take task for processing
@@ -817,6 +821,25 @@ queue.take = function(space, tube, timeout)
 end
 
 
+-- queue.truncate(space, tube)
+queue.truncate = function(space, tube)
+    space = tonumber(space)
+
+    local index = box.space[space].index[idx_tube]
+    local task_ids = {}
+
+    for task in index:iterator(box.index.EQ, tube) do
+        table.insert(task_ids, task[i_uuid])
+    end
+
+    for _, task_id in pairs(task_ids) do
+        box.space[space]:delete(task_id)
+    end
+
+    return #task_ids
+end
+
+
 -- queue.delete(space, id)
 --  deletes task from queue
 queue.delete = function(space, id)
@@ -889,6 +912,7 @@ queue.touch = function(space, id)
     return rettask(task)
 end
 
+
 -- queue.done(space, id, ...)
 --  marks task as done, replaces task's data
 queue.done = function(space, id, ...)
@@ -919,6 +943,7 @@ queue.done = function(space, id, ...)
     queue.stat[space][ tube ]:inc('done')
     return rettask(task)
 end
+
 
 -- queue.bury(space, id)
 --  bury task that is taken
@@ -958,6 +983,7 @@ queue.bury = function(space, id)
     return rettask(task)
 end
 
+
 -- queue.dig(space, id)
 --  dig(unbury) task
 queue.dig = function(space, id)
@@ -989,6 +1015,7 @@ queue.dig = function(space, id)
 end
 
 queue.unbury = queue.dig
+
 
 -- queue.kick(space, tube, count)
 queue.kick = function(space, tube, count)
