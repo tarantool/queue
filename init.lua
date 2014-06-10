@@ -754,12 +754,9 @@ queue.take = function(space, tube, timeout)
     space = tonumber(space)
 
     if timeout == nil then
-        timeout = 0
+        timeout = -1
     else
         timeout = tonumber(timeout)
-        if timeout < 0 then
-            timeout = 0
-        end
     end
 
     local created = box.time()
@@ -806,8 +803,13 @@ queue.take = function(space, tube, timeout)
             return rettask(task)
         end
 
+        if timeout == 0 then
+            queue.stat[space][tube]:inc('take_timeout')
+            return
+        end
+
         if timeout > 0 then
-            now = box.time()
+            local now = box.time()
             if now < created + timeout then
                 queue.consumers[space][tube]:get(created + timeout - now)
             else
