@@ -11,6 +11,14 @@ if dir == nil then
     cleanup = true
 end
 
+local files = fio.glob(fio.pathjoin(dir, '*'))
+for _, file in pairs(files) do
+    if fio.basename(file) ~= 'tarantool.log' then
+        log.info("skip removing %s", file)
+        fio.unlink(file)
+    end
+end
+
 box.cfg {
     wal_dir     = dir,
     snap_dir    = dir,

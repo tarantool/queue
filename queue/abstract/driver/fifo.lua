@@ -12,8 +12,14 @@ function tube.create_space(space_name)
 end
 
 -- start tube on space
-function tube.new(space)
-    local self = { space = space }
+function tube.new(space, on_task_change)
+    if on_task_change == nil then
+        on_task_change = function() end
+    end
+    local self = {
+        space       = space,
+        on_task_change = on_task_change,
+    }
     setmetatable(self, { __index = method })
     return self
 end
@@ -26,7 +32,9 @@ function method.put(self, data, opts)
     if max ~= nil then
         id = max[1] + 1
     end
-    return self.space:insert{id, state.READY, data}
+    local task = self.space:insert{id, state.READY, data}
+    self.on_task_change(task)
+    return task
 end
 
 
@@ -42,8 +50,21 @@ end
 function method.delete(self, id)
     local task = self.space:delete(id)
     if task then
-        return task:transform(2, 1, state.DONE)
+        self.on_task_change()
+        return task
+    else
+        box.error(box.error.PROC_LUA, "Task not found")
     end
+end
+
+-- release task
+function method.release(self, id, opts)
+    local task = self.space:update(id, {{ '=', 2, state.READY }})
+    if task == nil then
+        box.error(box.error.PROC_LUA, "Task not found")
+    end
+    self.on_task_change(task)
+    return task
 end
 
 return tube

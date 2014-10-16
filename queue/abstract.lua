@@ -2,6 +2,7 @@ local fiber = require 'fiber'
 local log = require 'log'
 local session = box.session
 local queue = { driver = {}, tube = {} }
+local state = require 'queue.abstract.state'
 local TIMEOUT_INFINITY  = 365 * 86400 * 1000
 
 local function time()
@@ -26,27 +27,14 @@ function tube.take(self)
     end
 end
 
-
 function tube.put(self, data, opts)
     if opts == nil then
         opts = {}
     end
     local task = self.raw:put(data, opts)
-    if task == nil then
-        return nil
+    if task ~= nil then
+        return task
     end
-
-    local tube_id = self.tube_id
-    local consumer = box.space._queue_consumers.index.consumer:min{ tube_id }
-
-    if consumer ~= nil then
-        if consumer[3] == tube_id then 
-            fiber.find( consumer[2] ):wakeup()
-            box.space._queue_consumers:delete{ consumer[1], consumer[2] }
-        end
-    end
-
-    return task
 end
 
 function register_taken(self, task)
@@ -92,12 +80,58 @@ function tube.ack(self, id)
     end
 
     box.space._queue_taken:delete{session.id(), self.tube_id, id}
-    return self.raw:delete(id)
+    return self.raw:delete(id):transform(2, 1, state.DONE)
+end
+
+function tube.release(self, id, opts)
+    local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
+    if _taken == nil then
+        box.error(box.error.PROC_LUA, "Task not found")
+    end
+    box.space._queue_taken:delete{session.id(), self.tube_id, id}
+    return self.raw:release(id, opts)
 end
 
 
 -- methods
 local method = {}
+
+
+local function make_self(driver, space, tube_name, tube_type, tube_id)
+    local self = {
+        raw     = driver.new(space),
+        name    = tube_name,
+        type    = tube_type,
+        tube_id = tube_id
+    }
+    setmetatable(self, {__index = tube})
+    queue.tube[tube_name] = self
+
+    -- wakeup consumer if queue have new task
+    self.raw.on_task_change = function(task)
+        -- task was removed
+        if task == nil then
+
+            return
+        end
+
+        -- task swicthed to ready (or new task)
+        if task[2] == state.READY then
+            local tube_id = self.tube_id
+            local consumer =
+                box.space._queue_consumers.index.consumer:min{ tube_id }
+
+            if consumer ~= nil then
+                if consumer[3] == tube_id then 
+                    fiber.find( consumer[2] ):wakeup()
+                    box.space._queue_consumers:delete{ consumer[1], consumer[2] }
+                end
+            end
+        end
+    end
+
+    return self
+end
 
 -- create tube
 function method.create_tube(tube_name, tube_type, opts)
@@ -121,16 +155,7 @@ function method.create_tube(tube_name, tube_type, opts)
     -- create tube space
     local space = driver.create_space(space_name, opts)
 
-    -- bless tube object
-    local self = {
-        raw     = driver.new(space),
-        name    = tube_name,
-        type    = tube_type,
-        tube_id = tube_id
-    }
-    setmetatable(self, {__index = tube})
-    queue.tube[tube_name] = self
-    return self
+    return make_self(driver, space, tube_name, tube_type, tube_id)
 end
 
 
@@ -181,16 +206,8 @@ function method.start()
             box.error(box.error.PROC_LUA,
                 "Space " .. tube_space .. " is not exists")
         end
-        local self = {
-            raw         = driver.new(space),
-            name        = tube_name,
-            type        = tube_type,
-            tube_id     = tube_id
-        }
-        setmetatable(self, {__index = tube})
-        queue.tube[tube_name] = self
+        return make_self(driver, space, tube_name, tube_type, tube_id)
     end
-
     return true
 end
 
