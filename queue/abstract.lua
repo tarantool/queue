@@ -40,9 +40,9 @@ function tube.put(self, data, opts)
     local consumer = box.space._queue_consumers.index.consumer:min{ tube_id }
 
     if consumer ~= nil then
-        if consumer[2] == tube_id then 
-            fiber.find( consumer[5] ):wakeup()
-            box.space._queue_consumers:delete{ consumer[1] }
+        if consumer[3] == tube_id then 
+            fiber.find( consumer[2] ):wakeup()
+            box.space._queue_consumers:delete{ consumer[1], consumer[2] }
         end
     end
 
@@ -53,7 +53,7 @@ function register_taken(self, task)
     if task == nil then
         return
     end
-    box.space._queue_taken:insert{session.id(), self.tube_id, task[1]}
+    box.space._queue_taken:insert{session.id(), self.tube_id, task[1], fiber.time()}
     return task
 end
 
@@ -70,17 +70,11 @@ function tube.take(self, timeout)
         local started = fiber.time()
         local time = event_time(timeout)
         local tube_id = self.tube_id
-
-        local cmax = box.space._queue_consumers.index.pk:max()
-        local id = 0
-        if cmax ~= nil then
-            id = cmax[1] + 1
-        end
         
         box.space._queue_consumers:insert{
-                id, tube_id, session.id(), time, fiber.id() }
+                session.id(), fiber.id(), tube_id, time, fiber.time() }
         fiber.sleep(timeout)
-        box.space._queue_consumers:delete{ id }
+        box.space._queue_consumers:delete{ session.id(), fiber.id() }
         task = self.raw:take()
 
         if task ~= nil then
@@ -153,11 +147,11 @@ function method.start()
 
     local _cons = box.space._queue_consumers
     if _cons == nil then
-        -- id, tube, session, time, fid
+        -- session, fid, tube, time
         _cons = box.schema.create_space('_queue_consumers', { temporary = true })
-        _cons:create_index('pk', { type = 'tree', parts = { 1, 'num' }})
+        _cons:create_index('pk', { type = 'tree', parts = { 1, 'num', 2, 'num' }})
         _cons:create_index('consumer',
-            { type = 'tree', parts = { 2, 'num', 4, 'num' }})
+            { type = 'tree', parts = { 3, 'num', 4, 'num' }})
     end
 
     local _taken = box.space._queue_taken
