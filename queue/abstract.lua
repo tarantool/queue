@@ -41,7 +41,8 @@ function register_taken(self, task)
     if task == nil then
         return
     end
-    box.space._queue_taken:insert{session.id(), self.tube_id, task[1], fiber.time()}
+    box.space._queue_taken
+        :insert{session.id(), self.tube_id, task[1], fiber.time()}
     return task
 end
 
@@ -76,9 +77,10 @@ end
 function tube.ack(self, id)
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
-        box.error(box.error.PROC_LUA, "Task is not found")
+        box.error(box.error.PROC_LUA, "Task was not taken in the session")
     end
 
+    self:peek(id)
     box.space._queue_taken:delete{session.id(), self.tube_id, id}
     return self.raw:delete(id):transform(2, 1, state.DONE)
 end
@@ -86,12 +88,42 @@ end
 function tube.release(self, id, opts)
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
-        box.error(box.error.PROC_LUA, "Task not found")
+        box.error(box.error.PROC_LUA, "Task was not taken in the session")
     end
+
+    self:peek(id)
     box.space._queue_taken:delete{session.id(), self.tube_id, id}
     return self.raw:release(id, opts)
 end
 
+function tube.peek(self, id)
+    local task = self.raw:peek(id)
+    if task == nil then
+        box.error(box.error.PROC_LUA, "Task not found")
+    end
+    return task
+end
+
+function tube.bury(self, id)
+    local task = self:peek(id)
+    if task[2] == state.BURIED then
+        return task
+    end
+    return self.raw:bury(id)
+end
+
+
+function tube.kick(self, count)
+    if count == nil then
+        count = 1
+    end
+    return self.raw:kick(count)
+end
+
+function tube.delete(self, id)
+    self:peek(id)
+    return self.raw:delete(id):transform(2, 1, state.DONE)
+end
 
 -- methods
 local method = {}
@@ -124,7 +156,8 @@ local function make_self(driver, space, tube_name, tube_type, tube_id)
             if consumer ~= nil then
                 if consumer[3] == tube_id then 
                     fiber.find( consumer[2] ):wakeup()
-                    box.space._queue_consumers:delete{ consumer[1], consumer[2] }
+                    box.space._queue_consumers
+                        :delete{ consumer[1], consumer[2] }
                 end
             end
         end
@@ -133,15 +166,24 @@ local function make_self(driver, space, tube_name, tube_type, tube_id)
     return self
 end
 
+-------------------------------------------------------------------------------
 -- create tube
 function method.create_tube(tube_name, tube_type, opts)
+
+    if opts == nil then
+        opts = {}
+    end
+
+
     local driver = queue.driver[tube_type]
     if driver == nil then
-        box.error(box.error.PROC_LUA, "Unknown tube type " .. tostring(tube_type))
+        box.error(box.error.PROC_LUA,
+            "Unknown tube type " .. tostring(tube_type))
     end
     local space_name = string.format('queue_%s_%s', tube_type, tube_name)
     if box.space[space_name] ~= nil then
-        box.error(box.error.PROC_LUA, "Space " .. space_name .. " already exists")
+        box.error(box.error.PROC_LUA,
+            "Space " .. space_name .. " already exists")
     end
    
     -- create tube record
@@ -173,8 +215,10 @@ function method.start()
     local _cons = box.space._queue_consumers
     if _cons == nil then
         -- session, fid, tube, time
-        _cons = box.schema.create_space('_queue_consumers', { temporary = true })
-        _cons:create_index('pk', { type = 'tree', parts = { 1, 'num', 2, 'num' }})
+        _cons = box.schema
+            .create_space('_queue_consumers', { temporary = true })
+        _cons:create_index('pk',
+            { type = 'tree', parts = { 1, 'num', 2, 'num' }})
         _cons:create_index('consumer',
             { type = 'tree', parts = { 3, 'num', 4, 'num' }})
     end

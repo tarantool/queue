@@ -48,23 +48,48 @@ end
 
 -- delete task
 function method.delete(self, id)
-    local task = self.space:delete(id)
-    if task then
-        self.on_task_change()
-        return task
-    else
-        box.error(box.error.PROC_LUA, "Task not found")
-    end
+    return self.space:delete(id)
 end
 
 -- release task
 function method.release(self, id, opts)
     local task = self.space:update(id, {{ '=', 2, state.READY }})
-    if task == nil then
-        box.error(box.error.PROC_LUA, "Task not found")
+    if task ~= nil then
+        self.on_task_change(task)
     end
-    self.on_task_change(task)
     return task
 end
+
+-- bury task
+function method.bury(self, id)
+    local task = self.space:update(id, {{ '=', 2, state.BURIED }})
+    if task == nil then
+        self.on_task_change()
+    end
+    return task
+end
+
+-- unbury several tasks
+function method.kick(self, count)
+    for i = 1, count do
+        local task = self.space.index.status:min{ state.BURIED }
+        if task == nil then
+            return i - 1
+        end
+        if task[2] ~= state.BURIED then
+            return i - 1
+        end
+
+        task = self.space:update(task[1], {{ '=', 2, state.READY }})
+        self.on_task_change(task)
+    end
+    return count
+end
+
+-- peek task
+function method.peek(self, id)
+    return self.space:get{id}
+end
+
 
 return tube

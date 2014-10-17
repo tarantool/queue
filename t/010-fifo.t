@@ -4,6 +4,7 @@
 local fiber = require 'fiber'
 local test = (require 'tap').test()
 local tnt  = require 't.tnt'
+local state = require 'queue.abstract.state'
 test:plan(8)
 
 test:ok(rawget(box, 'space'), 'box started')
@@ -31,7 +32,7 @@ end)
 
 
 test:test('fifo', function(test)
-    test:plan(4)
+    test:plan(5)
 
     test:test('order', function(test)
         test:plan(16)
@@ -127,6 +128,50 @@ test:test('fifo', function(test)
         fiber.sleep(0.1)
         test:ok(tube:release(task[1]), 'task was released')
         fiber.sleep(0.1)
+    end)
+
+
+    test:test('bury/kick/delete/peek', function(test)
+        test:plan(18)
+        test:ok(tube:put('first'), 'put task 1')
+        test:ok(tube:put(2), 'put task 2')
+        test:ok(tube:put('third'), 'put task 3')
+        test:ok(tube:put(4), 'put task 4')
+
+        local task1 = tube:take()
+        local task2 = tube:take()
+        local task3 = tube:take()
+        local task4 = tube:take()
+
+        task1 = tube:bury(task1[1])
+        test:is(task1[2], state.BURIED, 'task1 is buried')
+        test:ok(tube:bury(task2[1]), 'task2 is buried')
+        test:ok(tube:bury(task3[1]), 'task3 is buried')
+        test:ok(tube:bury(task4[1]), 'task4 is buried')
+
+        fiber.create(function()
+            for i = 1, 3 do
+                tube:take()
+            end
+        end)
+
+        fiber.sleep(0.1)
+        test:is(tube:kick(3), 3, '3 tasks were kicken')
+        fiber.sleep(0.1)
+
+        test:is(tube:peek(task1[1])[2], state.TAKEN, 'task1 unburied and taken')
+        test:is(tube:peek(task2[1])[2], state.TAKEN, 'task2 unburied and taken')
+        test:is(tube:peek(task3[1])[2], state.TAKEN, 'task3 unburied and taken')
+        test:is(tube:peek(task4[1])[2], state.BURIED, 'task4 is still buried')
+
+        test:is(tube:kick(100500), 1, 'one task was unburied')
+        test:is(tube:peek(task4[1])[2], state.READY, 'task4 unburied and ready')
+        test:is(tube:delete(task4[1])[2], state.DONE, 'task4 was removed')
+
+        local s, e = pcall(function() tube:peek(task4[1]) end)
+        test:ok(not s, "Task not found exception")
+        test:is(e, "Task not found", "Task not found message")
+
     end)
 end)
 
