@@ -72,8 +72,11 @@ function tube.new(space, on_task_change, opts)
         on_task_change  = function(self, task)
             -- wakeup fiber
             if task ~= nil and task[i_status] == state.DELAYED then
+                log.info('Add delayed task %d', task[i_id])
                 if self.fiber ~= nil then
-                    self.fiber:wakeup()
+                    if self.fiber:id() ~= fiber.id() then
+                        self.fiber:wakeup()
+                    end
                 end
             end
             on_task_change(task)
@@ -90,25 +93,71 @@ end
 -- watch fiber
 function method._fiber(self)
     fiber.name('fifottl')
-    while true do
-        local delayed = self.space.index.watch:min{ state.DELAYED }
-        if delayed and delayed[i_status] == state.DELAYED then
-            local now = time()
-            if now >= delayed[i_next_event] then
-                delayed = self.space:update(delayed[i_id], {
-                    { '=', i_status, state.READY },
-                    { '=', i_next_event, delayed[i_created] + delayed[i_ttl] }
-                })
-                self:on_task_change(delayed)
+    log.info("Started queue fifottl fiber")
+    local estimated
+    local ttl_statuses = { state.READY, state.BURIED }
+    local now, task
 
+    while true do
+        estimated = TIMEOUT_INFINITY
+        now = time()
+
+        -- delayed tasks
+        task = self.space.index.watch:min{ state.DELAYED }
+        if task and task[i_status] == state.DELAYED then
+            if now >= task[i_next_event] then
+                task = self.space:update(task[i_id], {
+                    { '=', i_status, state.READY },
+                    { '=', i_next_event, task[i_created] + task[i_ttl] }
+                })
+                self:on_task_change(task)
+                estimated = 0
             else
-                local estimated =
-                    tonumber(delayed[i_next_event] - now) / 1000000
-                fiber.sleep(estimated)
+                estimated = tonumber(task[i_next_event] - now) / 1000000
             end
-        else
-            -- there is no delayed tasks
-            fiber.sleep(TIMEOUT_INFINITY)
+        end
+
+        -- ttl tasks
+        for _, state in pairs(ttl_statuses) do
+            task = self.space.index.watch:min{ state }
+            if task ~= nil and task[i_status] == state then
+                if now >= task[i_next_event] then
+                    self.space:delete(task[i_id])
+                    self:on_task_change()
+                else
+                    local et = tonumber(task[i_next_event] - now) / 1000000
+                    if et < estimated then
+                        estimated = et
+                    end
+                end
+            end
+        end
+
+        -- ttr tasks
+        task = self.space.index.watch:min{ state.TAKEN }
+        if task and task[i_status] == state.TAKEN then
+            if now >= task[i_next_event] then
+                task = self.space:update(task[i_id], {
+                    { '=', i_status, state.READY },
+                    { '=', i_next_event, task[i_created] + task[i_ttl] }
+                })
+                self:on_task_change(task)
+                estimated = 0
+            else
+                local et = tonumber(task[i_next_event] - now) / 1000000
+                if et < estimated then
+                    estimated = et
+                end
+            end
+        end
+
+
+        log.info('Estimated time %s', estimated)
+
+        if estimated > 0 then
+            -- free refcounter
+            task = nil
+            fiber.sleep(estimated)
         end
     end
 end
