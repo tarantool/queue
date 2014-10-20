@@ -4,6 +4,7 @@ local session = box.session
 local queue = { driver = {}, tube = {} }
 local state = require 'queue.abstract.state'
 local TIMEOUT_INFINITY  = 365 * 86400 * 1000
+local json = require 'json'
 
 local function time()
     return tonumber64(fiber.time() * 1000000)
@@ -14,7 +15,8 @@ local function event_time(timeout)
 end
 
 -- load all drivers
-queue.driver.fifo = require 'queue.abstract.driver.fifo'
+queue.driver.fifo       = require 'queue.abstract.driver.fifo'
+queue.driver.fifottl    = require 'queue.abstract.driver.fifottl'
 
 
 -- tube methods
@@ -32,9 +34,7 @@ function tube.put(self, data, opts)
         opts = {}
     end
     local task = self.raw:put(data, opts)
-    if task ~= nil then
-        return task
-    end
+    return self.raw:normalize_task(task)
 end
 
 function register_taken(self, task)
@@ -43,7 +43,7 @@ function register_taken(self, task)
     end
     box.space._queue_taken
         :insert{session.id(), self.tube_id, task[1], fiber.time()}
-    return task
+    return self.raw:normalize_task(task)
 end
 
 function tube.take(self, timeout)
@@ -82,7 +82,8 @@ function tube.ack(self, id)
 
     self:peek(id)
     box.space._queue_taken:delete{session.id(), self.tube_id, id}
-    return self.raw:delete(id):transform(2, 1, state.DONE)
+    return self.raw:normalize_task(
+        self.raw:delete(id):transform(2, 1, state.DONE))
 end
 
 function tube.release(self, id, opts)
@@ -93,7 +94,7 @@ function tube.release(self, id, opts)
 
     self:peek(id)
     box.space._queue_taken:delete{session.id(), self.tube_id, id}
-    return self.raw:release(id, opts)
+    return self.raw:normalize_task(self.raw:release(id, opts))
 end
 
 function tube.peek(self, id)
@@ -101,7 +102,7 @@ function tube.peek(self, id)
     if task == nil then
         box.error(box.error.PROC_LUA, "Task not found")
     end
-    return task
+    return self.raw:normalize_task(task)
 end
 
 function tube.bury(self, id)
@@ -109,7 +110,7 @@ function tube.bury(self, id)
     if task[2] == state.BURIED then
         return task
     end
-    return self.raw:bury(id)
+    return self.raw:normalize_task(self.raw:bury(id))
 end
 
 
@@ -122,25 +123,22 @@ end
 
 function tube.delete(self, id)
     self:peek(id)
-    return self.raw:delete(id):transform(2, 1, state.DONE)
+    return self.raw:normalize_task(
+        self.raw:delete(id):transform(2, 1, state.DONE))
 end
 
 -- methods
 local method = {}
 
 
-local function make_self(driver, space, tube_name, tube_type, tube_id)
-    local self = {
-        raw     = driver.new(space),
-        name    = tube_name,
-        type    = tube_type,
-        tube_id = tube_id
-    }
-    setmetatable(self, {__index = tube})
-    queue.tube[tube_name] = self
-
+local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
+    if opts == nil then
+        opts = {}
+    end
+    local self
+    
     -- wakeup consumer if queue have new task
-    self.raw.on_task_change = function(task)
+    local on_task_change = function(task)
         -- task was removed
         if task == nil then
 
@@ -162,6 +160,16 @@ local function make_self(driver, space, tube_name, tube_type, tube_id)
             end
         end
     end
+    
+    self = {
+        raw     = driver.new(space, on_task_change, opts),
+        name    = tube_name,
+        type    = tube_type,
+        tube_id = tube_id,
+        opts    = opts,
+    }
+    setmetatable(self, {__index = tube})
+    queue.tube[tube_name] = self
 
     return self
 end
@@ -196,8 +204,7 @@ function method.create_tube(tube_name, tube_type, opts)
 
     -- create tube space
     local space = driver.create_space(space_name, opts)
-
-    return make_self(driver, space, tube_name, tube_type, tube_id)
+    return make_self(driver, space, tube_name, tube_type, tube_id, opts)
 end
 
 
@@ -250,7 +257,7 @@ function method.start()
             box.error(box.error.PROC_LUA,
                 "Space " .. tube_space .. " is not exists")
         end
-        return make_self(driver, space, tube_name, tube_type, tube_id)
+        return make_self(driver, space, tube_name, tube_type, tube_id, tube_opts)
     end
     return true
 end

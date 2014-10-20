@@ -11,6 +11,8 @@ function tube.create_space(space_name)
     return space
 end
 
+
+
 -- start tube on space
 function tube.new(space, on_task_change)
     if on_task_change == nil then
@@ -22,6 +24,14 @@ function tube.new(space, on_task_change)
     }
     setmetatable(self, { __index = method })
     return self
+end
+
+
+-- normalize task: cleanup all internal fields
+function method.normalize_task(self, task)
+    if task ~= nil then
+        return task
+    end
 end
 
 
