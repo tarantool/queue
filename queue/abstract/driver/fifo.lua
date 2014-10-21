@@ -63,7 +63,12 @@ end
 
 -- delete task
 function method.delete(self, id)
-    return self.space:delete(id)
+    local task = self.space:delete(id)
+    if task ~= nil then
+        task = task:transform(2, 1, state.DONE)
+    end
+    self.on_task_change(task)
+    return task
 end
 
 -- release task
@@ -79,7 +84,7 @@ end
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', 2, state.BURIED }})
     if task == nil then
-        self.on_task_change()
+        self.on_task_change(task)
     end
     return task
 end

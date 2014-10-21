@@ -139,8 +139,13 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     local on_task_change = function(task)
         -- task was removed
         if task == nil then
-
             return
+        end
+
+        -- if task was taken and become other state
+        local taken = box.space._queue_taken.index.task:get{tube_id, task[1]}
+        if taken ~= nil then
+            box.space._queue_taken:delete{ taken[1], taken[2], taken[3] }
         end
 
         -- task swicthed to ready (or new task)
@@ -201,7 +206,7 @@ function method._on_consumer_disconnect()
             log.error("Inconsistent queue state: tube %d not found", task[2])
             box.space._queue_taken:delete{task[1], task[2], task[3] }
         else
-            log.warn("Consumer %s disconnected, release task %s from tube %s",
+            log.warn("Consumer %s disconnected, release task %s(%s)",
                 id, task[3], tube[1])
 
             queue.tube[tube[1]]:release(task[3])
@@ -272,6 +277,9 @@ function method.start()
         _taken = box.schema.create_space('_queue_taken', { temporary = true })
         _taken:create_index('pk',
             { type = 'tree', parts = { 1, 'num', 2, 'num', 3, 'num'}})
+
+        _taken:create_index('task',
+            { type = 'tree', parts = { 2, 'num', 3, 'num' } })
     end
 
     for _, tube_rc in _queue:pairs() do

@@ -71,8 +71,7 @@ function tube.new(space, on_task_change, opts)
         space           = space,
         on_task_change  = function(self, task)
             -- wakeup fiber
-            if task ~= nil and task[i_status] == state.DELAYED then
-                log.info('Add delayed task %d', task[i_id])
+            if task ~= nil then
                 if self.fiber ~= nil then
                     if self.fiber:id() ~= fiber.id() then
                         self.fiber:wakeup()
@@ -123,7 +122,7 @@ function method._fiber(self)
             if task ~= nil and task[i_status] == state then
                 if now >= task[i_next_event] then
                     self.space:delete(task[i_id])
-                    self:on_task_change()
+                    self:on_task_change(task:transform(2, 1, state.DONE))
                 else
                     local et = tonumber(task[i_next_event] - now) / 1000000
                     if et < estimated then
@@ -151,8 +150,6 @@ function method._fiber(self)
             end
         end
 
-
-        log.info('Estimated time %s', estimated)
 
         if estimated > 0 then
             -- free refcounter
@@ -218,8 +215,8 @@ function method.take(self)
         return
     end
 
-    local next_event = event_time(self.opts.ttr)
-    local dead_event = task[i_created] + time(self.opts.ttl)
+    local next_event = task[i_created] + task[i_ttr]
+    local dead_event = task[i_created] + task[i_ttl]
     if next_event > dead_event then
         next_event = dead_event
     end
@@ -228,12 +225,18 @@ function method.take(self)
         { '=', i_status, state.TAKEN },
         { '=', i_next_event, next_event  }
     })
+    self:on_task_change(task)
     return task
 end
 
 -- delete task
 function method.delete(self, id)
-    return self.space:delete(id)
+    local task = self.space:delete(id)
+    if task ~= nil then
+        task = task:transform(2, 1, state.DONE)
+    end
+    self:on_task_change(task)
+    return task
 end
 
 -- release task
@@ -262,7 +265,7 @@ end
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
     if task == nil then
-        self:on_task_change()
+        self:on_task_change(task)
     end
     return task
 end
