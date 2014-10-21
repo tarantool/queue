@@ -22,13 +22,6 @@ queue.driver.fifottl    = require 'queue.abstract.driver.fifottl'
 -- tube methods
 local tube = {}
 
-function tube.take(self)
-    local task = self.raw:take()
-    if task ~= nil then
-        return task
-    end
-end
-
 function tube.put(self, data, opts)
     if opts == nil then
         opts = {}
@@ -100,13 +93,18 @@ end
 function tube.peek(self, id)
     local task = self.raw:peek(id)
     if task == nil then
-        box.error(box.error.PROC_LUA, "Task not found")
+        box.error(box.error.PROC_LUA,
+            string.format("Task %s not found", tostring(id)))
     end
     return self.raw:normalize_task(task)
 end
 
 function tube.bury(self, id)
     local task = self:peek(id)
+    local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
+    if _taken ~= nil then
+        box.space._queue_taken:delete{session.id(), self.tube_id, id}
+    end
     if task[2] == state.BURIED then
         return task
     end
@@ -174,6 +172,43 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     return self
 end
 
+
+function method._on_consumer_disconnect()
+    local waiter, fiber, task, tube, id
+    id = session.id()
+    -- wakeup all waiters
+    while true do
+        waiter = box.space._queue_consumers.index.pk:min{id}
+        if waiter == nil then
+            break
+        end
+        box.space._queue_consumers:delete{ waiter[1], waiter[2] }
+        fiber = fiber.find(waiter[2])
+        if fiber ~= nil and fiber:status() ~= 'dead' then
+            fiber:wakeup()
+        end
+    end
+
+    -- release all session tasks
+    while true do
+        task = box.space._queue_taken.index.pk:min{id}
+        if task == nil or task[1] ~= id then
+            break
+        end
+
+        tube = box.space._queue.index.tube_id:get{task[2]}
+        if tube == nil then
+            log.error("Inconsistent queue state: tube %d not found", task[2])
+            box.space._queue_taken:delete{task[1], task[2], task[3] }
+        else
+            log.warn("Consumer %s disconnected, release task %s from tube %s",
+                id, task[3], tube[1])
+
+            queue.tube[tube[1]]:release(task[3])
+        end
+    end
+end
+
 -------------------------------------------------------------------------------
 -- create tube
 function method.create_tube(tube_name, tube_type, opts)
@@ -211,6 +246,7 @@ end
 -- create or join infrastructure
 function method.start()
 
+    -- tube_name, tube_id, space_name, tube_type, opts
     local _queue = box.space._queue
     if _queue == nil then
         _queue = box.schema.create_space('_queue')
@@ -257,9 +293,11 @@ function method.start()
             box.error(box.error.PROC_LUA,
                 "Space " .. tube_space .. " is not exists")
         end
-        return make_self(driver, space, tube_name, tube_type, tube_id, tube_opts)
+        make_self(driver, space, tube_name, tube_type, tube_id, tube_opts)
     end
-    return true
+
+    session.on_disconnect(queue._on_consumer_disconnect)
+    return queue
 end
 
 

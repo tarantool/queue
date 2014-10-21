@@ -42,7 +42,7 @@ test:test('put/take/peek', function(test)
 
     local s, e = pcall(function() tube:peek(task[1]) end)
     test:ok(not s, "peek status")
-    test:is(e, 'Task not found', 'peek error message')
+    test:ok(string.match(e, 'Task %d+ not found') ~= nil, 'peek error message')
 end)
 
 test:test('delayed tasks', function(test)

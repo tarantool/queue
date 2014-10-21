@@ -5,7 +5,8 @@ local fiber = require 'fiber'
 local test = (require 'tap').test()
 local tnt  = require 't.tnt'
 local state = require 'queue.abstract.state'
-test:plan(8)
+local yaml = require 'yaml'
+test:plan(11)
 
 test:ok(rawget(box, 'space'), 'box started')
 
@@ -170,9 +171,47 @@ test:test('fifo', function(test)
 
         local s, e = pcall(function() tube:peek(task4[1]) end)
         test:ok(not s, "Task not found exception")
-        test:is(e, "Task not found", "Task not found message")
+        test:ok(string.match(e, "Task %d+ not found") ~= nil,
+            "Task not found message")
 
     end)
+end)
+
+test:test('creating existing tube', function(test)
+    test:plan(2)
+    local s, e = pcall(function() queue.create_tube('test', 'fifo') end)
+    test:ok(not s, 'exception was thrown')
+    test:is(e, 'Space queue_fifo_test already exists', 'text of exception')
+end)
+
+test:test('tempspace', function(test)
+    test:plan(2)
+    tube = queue.create_tube('test1', 'fifo', { temporary = true })
+    test:ok(tube, 'tube was created')
+    local space_r = box.space._space:get{queue.tube.test1.raw.space.id}
+    test:ok(string.match(space_r[6], 'temporary') ~= nil, 'really tempspace')
+end)
+
+test:test('disconnect test', function(test)
+    test:plan(6)
+
+    tube:put(1)
+    tube:put(2)
+    tube:put(3)
+
+    local task1 = tube:take(.1)
+    test:ok(task1, 'task1 was taken')
+    local task2 = tube:take(.1)
+    test:ok(task2, 'task2 was taken')
+    local task3 = tube:take(.1)
+    test:ok(task3, 'task3 was taken')
+
+
+    queue._on_consumer_disconnect()
+
+    test:is(tube:peek(task1[1])[2], state.READY, 'task1 was marked as READY')
+    test:is(tube:peek(task2[1])[2], state.READY, 'task2 was marked as READY')
+    test:is(tube:peek(task3[1])[2], state.READY, 'task3 was marked as READY')
 end)
 
 

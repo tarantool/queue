@@ -4,8 +4,13 @@ local method = {}
 
 
 -- create space
-function tube.create_space(space_name)
-    local space = box.schema.create_space(space_name)
+function tube.create_space(space_name, opts)
+    local space_opts = {}
+    if opts.temporary then
+        space_opts.temporary = true
+    end
+
+    local space = box.schema.create_space(space_name, space_opts)
     space:create_index('task_id', { type = 'tree', parts = { 1, 'num' }})
     space:create_index('status', { type = 'tree', parts = { 2, 'str', 1, 'num' }})
     return space
