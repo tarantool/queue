@@ -57,7 +57,9 @@ end
 function method.take(self)
     local task = self.space.index.status:min{state.READY}
     if task ~= nil and task[2] == state.READY then
-        return self.space:update(task[1], { { '=', 2, state.TAKEN } })
+        task = self.space:update(task[1], { { '=', 2, state.TAKEN } })
+        self.on_task_change(task)
+        return task
     end
 end
 

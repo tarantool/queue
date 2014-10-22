@@ -30,22 +30,13 @@ function tube.put(self, data, opts)
     return self.raw:normalize_task(task)
 end
 
-function register_taken(self, task)
-    if task == nil then
-        return
-    end
-    box.space._queue_taken
-        :insert{session.id(), self.tube_id, task[1], fiber.time()}
-    return self.raw:normalize_task(task)
-end
-
 function tube.take(self, timeout)
     if timeout == nil then
         timeout = TIMEOUT_INFINITY
     end
     local task = self.raw:take()
     if task ~= nil then
-        return register_taken(self, task)
+        return self.raw:normalize_task(task)
     end
 
     while timeout > 0 do
@@ -57,10 +48,11 @@ function tube.take(self, timeout)
                 session.id(), fiber.id(), tube_id, time, fiber.time() }
         fiber.sleep(timeout)
         box.space._queue_consumers:delete{ session.id(), fiber.id() }
+        
         task = self.raw:take()
 
         if task ~= nil then
-            return register_taken(self, task)
+            return self.raw:normalize_task(task)
         end
 
         timeout = timeout - (fiber.time() - started)
@@ -161,6 +153,11 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
                         :delete{ consumer[1], consumer[2] }
                 end
             end
+
+        -- task swicthed to taken - registry in taken space
+        elseif task[2] == state.TAKEN then
+            box.space._queue_taken
+                :insert{session.id(), self.tube_id, task[1], fiber.time()}
         end
     end
     
