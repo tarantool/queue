@@ -1,26 +1,27 @@
-local queue = { is_run = false }
-local queue_methods = {}
-local queue_mt = { __index = queue_methods }
-
-local function init()
-    setmetatable(queue, queue_mt)
-    queue.is_run = true
-    queue.schema = require 'queue.schema'
+local function index_unconfigured()
+    box.error(box.error.PROC_LUA, "Please run box.cfg{} first")
 end
+
+local queue = {}
+setmetatable(queue, { __index = index_unconfigured })
+
 
 if rawget(box, 'space') == nil then
     local orig_cfg = box.cfg
     box.cfg = function(...)
-        orig_cfg(...)
-        init()
-    end
-    setmetatable(queue, {
-        __index = function()
-            box.error(box.error.PROC_LUA, "usage box.cfg{..} first")
+        local result = { orig_cfg(...) }
+
+        local abstract = require 'queue.abstract'
+        for k, v in pairs(abstract) do
+            rawset(queue, k, v)
         end
-    })
+        setmetatable(queue, getmetatable(abstract))
+        queue.start()
+
+        return unpack(result)
+    end
 else
-    init()
+    queue = require 'queue.abstract'
 end
 
 return queue
