@@ -264,9 +264,7 @@ end
 -- bury task
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
-    if task == nil then
-        self:on_task_change(task)
-    end
+    self:on_task_change(task)
     return task
 end
 

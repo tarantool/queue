@@ -17,6 +17,7 @@ end
 -- load all drivers
 queue.driver.fifo       = require 'queue.abstract.driver.fifo'
 queue.driver.fifottl    = require 'queue.abstract.driver.fifottl'
+queue.driver.utube      = require 'queue.abstract.driver.utube'
 
 
 -- tube methods
