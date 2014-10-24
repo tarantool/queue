@@ -101,7 +101,6 @@ local function process_neighbour(self, task)
     if task ~= nil then
         local neighbour = self.space.index.utube:min{state.READY, task[i_utube]}
         if neighbour ~= nil then
-            log.info('wakeup neighbour')
             self:on_task_change(neighbour)
         end
     end
@@ -229,12 +228,10 @@ end
 
 -- take task
 function method.take(self)
-    log.info('try take from tube')
     for s, t in self.space.index.status:pairs(state.READY, {iterator = 'GE'}) do
         if t[2] ~= state.READY then
             break
         end
-        log.info('candidate %s', t[1])
 
         local taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
         if taken == nil or taken[i_status] ~= state.TAKEN then
@@ -242,7 +239,6 @@ function method.take(self)
             self:on_task_change(t)
             return t
         end
-        log.info('exists record %s in utube %s', taken[1], taken[i_utube])
     end
 end
 
