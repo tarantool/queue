@@ -1,7 +1,7 @@
 local fiber = require 'fiber'
 local log = require 'log'
 local session = box.session
-local queue = { driver = {}, tube = {} }
+local queue = { tube = {} }
 local state = require 'queue.abstract.state'
 local TIMEOUT_INFINITY  = 365 * 86400 * 1000
 local json = require 'json'
@@ -15,10 +15,12 @@ local function event_time(timeout)
 end
 
 -- load all drivers
-queue.driver.fifo       = require 'queue.abstract.driver.fifo'
-queue.driver.fifottl    = require 'queue.abstract.driver.fifottl'
-queue.driver.utube      = require 'queue.abstract.driver.utube'
-
+queue.driver = {
+    fifo        = require('queue.abstract.driver.fifo'),
+    fifottl     = require('queue.abstract.driver.fifottl'),
+    utube       = require('queue.abstract.driver.utube'),
+    utubettl    = require('queue.abstract.driver.utubettl')
+}
 
 -- tube methods
 local tube = {}
@@ -73,13 +75,16 @@ function tube.ack(self, id)
 end
 
 function tube.release(self, id, opts)
+    if opts == nil then
+        opts = {}
+    end
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
         box.error(box.error.PROC_LUA, "Task was not taken in the session")
     end
 
-    self:peek(id)
     box.space._queue_taken:delete{session.id(), self.tube_id, id}
+    self:peek(id)
     return self.raw:normalize_task(self.raw:release(id, opts))
 end
 

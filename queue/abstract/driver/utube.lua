@@ -16,7 +16,7 @@ function tube.create_space(space_name, opts)
     space:create_index('status',
         { type = 'tree', parts = { 2, 'str', 1, 'num' }})
     space:create_index('utube',
-        { type = 'tree', parts = { 2, 'str', 3, 'str' }, unique = false})
+        { type = 'tree', parts = { 2, 'str', 3, 'str', 1, 'num' }})
     return space
 end
 
@@ -65,7 +65,7 @@ function method.take(self)
         end
 
         local taken = self.space.index.utube:min{state.TAKEN, task[3]}
-        if taken == nil then
+        if taken == nil or taken[2] ~= state.TAKEN then
             task = self.space:update(task[1], { { '=', 2, state.TAKEN } })
             self.on_task_change(task)
             return task

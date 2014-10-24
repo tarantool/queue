@@ -15,7 +15,8 @@ local i_ttl             = 4
 local i_ttr             = 5
 local i_pri             = 6
 local i_created         = 7
-local i_data            = 8
+local i_utube           = 8
+local i_data            = 9
 
 
 local function time(tm)
@@ -59,6 +60,10 @@ function tube.create_space(space_name, opts)
             parts = { i_status, 'str', i_pri, 'num', i_id, 'num' }})
     space:create_index('watch',
         { type = 'tree', parts = { i_status, 'str', i_next_event, 'num' }})
+
+    space:create_index('utube',
+        { type = 'tree',
+            parts = { i_status, 'str', i_utube, 'str', i_id, 'num' }})
     return space
 end
 
@@ -90,10 +95,24 @@ function tube.new(space, on_task_change, opts)
     return self
 end
 
+
+local function process_neighbour(self, task)
+    self:on_task_change(task)
+    if task ~= nil then
+        local neighbour = self.space.index.utube:min{state.READY, task[i_utube]}
+        if neighbour ~= nil then
+            log.info('wakeup neighbour')
+            self:on_task_change(neighbour)
+        end
+    end
+    return task
+end
+
+
 -- watch fiber
 function method._fiber(self)
     fiber.name('fifottl')
-    log.info("Started queue fifottl fiber")
+    log.info("Started queue utubettl fiber")
     local estimated
     local ttl_statuses = { state.READY, state.BURIED }
     local now, task
@@ -164,7 +183,7 @@ end
 -- cleanup internal fields in task
 function method.normalize_task(self, task)
     if task ~= nil then
-        return task:transform(3, 5)
+        return task:transform(i_next_event, i_data - i_next_event)
     end
 end
 
@@ -192,8 +211,6 @@ function method.put(self, data, opts)
         next_event = event_time(ttl)
     end
 
-
-
     local task = self.space:insert{
             id,
             status,
@@ -202,6 +219,7 @@ function method.put(self, data, opts)
             time(ttr),
             pri,
             time(),
+            tostring(opts.utube),
             data
     }
     self:on_task_change(task)
@@ -211,33 +229,32 @@ end
 
 -- take task
 function method.take(self)
-    local task = self.space.index.status:min{state.READY}
-    if task == nil or task[i_status] ~= state.READY then
-        return
-    end
+    log.info('try take from tube')
+    for s, t in self.space.index.status:pairs(state.READY, {iterator = 'GE'}) do
+        if t[2] ~= state.READY then
+            break
+        end
+        log.info('candidate %s', t[1])
 
-    local next_event = task[i_created] + task[i_ttr]
-    local dead_event = task[i_created] + task[i_ttl]
-    if next_event > dead_event then
-        next_event = dead_event
+        local taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
+        if taken == nil or taken[i_status] ~= state.TAKEN then
+            t = self.space:update(t[1], { { '=', i_status, state.TAKEN } })
+            self:on_task_change(t)
+            return t
+        end
+        log.info('exists record %s in utube %s', taken[1], taken[i_utube])
     end
-
-    task = self.space:update(task[i_id], {
-        { '=', i_status, state.TAKEN },
-        { '=', i_next_event, next_event  }
-    })
-    self:on_task_change(task)
-    return task
 end
+
 
 -- delete task
 function method.delete(self, id)
     local task = self.space:delete(id)
     if task ~= nil then
-        task = task:transform(2, 1, state.DONE)
+        task = task:transform(i_status, 1, state.DONE)
+        return process_neighbour(self, task)
     end
     self:on_task_change(task)
-    return task
 end
 
 -- release task
@@ -252,6 +269,9 @@ function method.release(self, id, opts)
             { '=', i_next_event, event_time(opts.delay) },
             { '+', i_ttl, opts.delay }
         })
+        if task ~= nil then
+            return process_neighbour(self, task)
+        end
     else
         task = self.space:update(id, {
             { '=', i_status, state.READY },
@@ -265,8 +285,10 @@ end
 -- bury task
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
+    if task ~= nil then
+        return process_neighbour(self, task:transform(i_status, 1, state.DONE))
+    end
     self:on_task_change(task)
-    return task
 end
 
 -- unbury several tasks
