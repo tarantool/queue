@@ -27,9 +27,9 @@ test:test('put/take/peek', function(test)
     test:is(task[2], state.READY, "task.state")
     
     local peek = tube:peek(task[1])
-    test:isdeeply(task[1], peek[1], "put and peek tasks are the same")
-    test:isdeeply(task[2], peek[2], "put and peek tasks are the same")
-    test:isdeeply(task[3], peek[3], "put and peek tasks are the same")
+    test:is_deeply(task[1], peek[1], "put and peek tasks are the same")
+    test:is_deeply(task[2], peek[2], "put and peek tasks are the same")
+    test:is_deeply(task[3], peek[3], "put and peek tasks are the same")
 
     local taken = tube:take{ timeout =  .1 }
     test:ok(taken, 'task was taken')
