@@ -23,7 +23,7 @@ local yaml = require 'yaml'
 
 
 test:test('access to queue after box.cfg{}', function(test)
-    test:plan(7)
+    test:plan(9)
     test:istable(queue.tube, 'queue.tube is table')
     test:is(#queue.tube, 0, 'queue.tube is empty')
 
@@ -36,6 +36,9 @@ test:test('access to queue after box.cfg{}', function(test)
     test:ok(task, 'task was taken')
     test:is(task[3], 123, 'task.data')
     test:ok(queue.tube.test:ack(task[1]), 'task.ack')
+
+    test:ok(queue.tube.test:drop(), 'tube.drop')
+    test:isnil(queue.tube.test, 'tube is really removed')
 end)
 
 

@@ -123,6 +123,35 @@ function tube.delete(self, id)
         self.raw:delete(id):transform(2, 1, state.DONE))
 end
 
+-- drop tube
+function tube.drop(self)
+    local tube_name = self.name
+
+    local tube = box.space._queue:get{tube_name}
+    if tube == nil then
+        box.error(box.error.PROC_LUA, "Tube not found")
+    end
+
+    local tube_id = tube[2]
+
+    local cons = box.space._queue_consumers.index.consumer:min{tube_id}
+
+    if cons ~= nil and cons[3] == tube_id then
+        box.error(box.error.PROC_LUA, "There are consumers connected the tube")
+    end
+
+    local taken = box.space._queue_taken.index.task:min{tube_id}
+    if taken ~= nil and taken[2] == tube_id then
+        box.error(box.error.PROC_LUA, "There are taken tasks in the tube")
+    end
+
+    local space_name = tube[3]
+
+    box.space[space_name]:drop()
+    queue.tube[tube_name] = nil
+    return true
+end
+
 -- methods
 local method = {}
 
@@ -249,6 +278,7 @@ function method.create_tube(tube_name, tube_type, opts)
     local space = driver.create_space(space_name, opts)
     return make_self(driver, space, tube_name, tube_type, tube_id, opts)
 end
+
 
 
 -- create or join infrastructure
