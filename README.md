@@ -1,4 +1,4 @@
-# Имеющиеся очереди в коллекции
+# A collection of persistent queue implementations
 
 ## `fifo` - простая очередь
 
