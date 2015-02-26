@@ -1,5 +1,5 @@
 all:
-	@echo "only tests are avalable [ init | fifo | fifottl | utube | utubettl ]"
+	@echo "Only tests are avalable [ init | fifo | fifottl | utube | utubettl ]"
 
 init:
 	tarantool t/000-init.t
