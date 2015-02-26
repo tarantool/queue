@@ -1,12 +1,12 @@
-package = 'queue-collection'
+package = 'queue'
 version = 'scm-1'
 source  = {
-    url    = 'git://github.com/tarantool/queue-collection.git',
+    url    = 'git://github.com/tarantool/queue.git',
     branch = 'master',
 }
 description = {
     summary  = "Queue collection for tarantool",
-    homepage = 'https://github.com/tarantool/queue-collection',
+    homepage = 'https://github.com/tarantool/queue.git',
     license  = 'BSD',
 }
 dependencies = {
