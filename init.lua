@@ -139,6 +139,9 @@ local ST_TAKEN         = 't'
 local ST_BURIED        = 'b'
 local ST_DONE          = '*'
 
+-- timeout infinity
+local TIMEOUT_INFINITY   = 365 * 86400
+
 
 local human_status = {}
     human_status[ST_READY]      = 'ready'
@@ -752,10 +755,13 @@ end
 queue.take = function(space, tube, timeout)
     
     space = tonumber(space)
-
+    
     if timeout == nil then
-        timeout = -1
+        timeout = TIMEOUT_INFINITY
     else
+        if timeout < 0 then
+            error("Timeout can't be less then 0")
+        end
         timeout = tonumber(timeout)
     end
 
