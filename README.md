@@ -186,8 +186,9 @@ take the highest-priority task.
 Otherwise, wait for a `ready` task to appear in the queue, and, as
 soon as it appears, mark it as `taken` and return to the consumer.
 If there is a `timeout`, and the task doesn't appear until the
-timeout expires, return 'nil'. If timeout is not given, wait
-indefinitely until a task appears.
+timeout expires, return 'nil' (a timeout of 0 returns immediately).
+If timeout is not given or negative, wait indefinitely until a task
+appears.
 
 All the time while the consumer is working on a task, it must keep
 the connection to the server open. If a connection disappears while
