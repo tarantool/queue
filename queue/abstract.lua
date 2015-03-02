@@ -7,11 +7,11 @@ local TIMEOUT_INFINITY  = 365 * 86400 * 1000
 local json = require 'json'
 
 local function time()
-    return tonumber64(fiber.time() * 1000000)
+    return 0ULL + fiber.time() * 1000000
 end
 
 local function event_time(timeout)
-    return tonumber64((fiber.time() + timeout) * 1000000)
+    return 0ULL + (fiber.time() + timeout) * 1000000
 end
 
 -- load all drivers

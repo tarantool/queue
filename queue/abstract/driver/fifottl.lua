@@ -22,14 +22,14 @@ local function time(tm)
     if tm == nil then
         tm = fiber.time()
     end
-    return tonumber64(tm * 1000000)
+    return 0ULL + tm * 1000000
 end
 
 local function event_time(timeout)
     if timeout == nil then
         box.error(box.error.PROC_LUA, debug.traceback())
     end
-    return tonumber64((fiber.time() + timeout) * 1000000)
+    return 0ULL + ((fiber.time() + timeout) * 1000000)
 end
 
 -- create space
@@ -180,7 +180,7 @@ function method.put(self, data, opts)
     local ttl = opts.ttl or self.opts.ttl
     local ttr = opts.ttr or self.opts.ttr
     local pri = opts.pri or self.opts.pri or 0
-    
+
     local next_event
 
     if opts.delay ~= nil and opts.delay > 0 then
