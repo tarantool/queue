@@ -158,6 +158,7 @@ has mailfrom        => isa => 'Maybe[Str]', is => 'ro';
 has mailsublect     => isa => 'Str', is => 'ro', default => 'Worker died';
 has mailheaders     => isa => 'HashRef[Str]', is => 'ro', default => sub {{}};
 
+has restart_check   => isa => 'CodeRef', is => 'ro', default => sub {sub { 0 }};
 
 =head1 METHODS
 
@@ -232,6 +233,7 @@ sub run {
             push @f => async {
                 while($self->is_run and !$self->is_stopping) {
                     last if $self->restart and $no >= $self->restart_limit;
+                    last if $self->restart_check->();
                     my $task = $self->queue->take(
                         defined($self->space) ? (space => $self->space) : (),
                         defined($self->tube)  ? (tube  => $self->tube)  : (),

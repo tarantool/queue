@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.25-2) nowtaxi; urgency=low
+
+  * Fix tests (negative timeout check), add restart_check trigger.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Tue, 03 Mar 2015 15:33:46 +0300
+
 dr-tarantool-queue (0.25-1) nowtaxi; urgency=medium
 
   * Sync client uses realsync connection if it is available.

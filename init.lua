@@ -759,10 +759,10 @@ queue.take = function(space, tube, timeout)
     if timeout == nil then
         timeout = TIMEOUT_INFINITY
     else
+        timeout = tonumber(timeout)
         if timeout < 0 then
             error("Timeout can't be less then 0")
         end
-        timeout = tonumber(timeout)
     end
 
     local created = box.time()
