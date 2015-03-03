@@ -1,4 +1,4 @@
-dr-tarantool-queue (0.25-2) nowtaxi; urgency=low
+dr-tarantool-queue (0.26) nowtaxi; urgency=low
 
   * Fix tests (negative timeout check), add restart_check trigger.
 
