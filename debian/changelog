@@ -1,3 +1,9 @@
+dr-tarantool-queue (0.27) nowtaxi; urgency=low
+
+  * restart_check works only if restart defined, too.
+
+ -- Dmitry E. Oboukhov <unera@debian.org>  Tue, 03 Mar 2015 15:41:48 +0300
+
 dr-tarantool-queue (0.26) nowtaxi; urgency=low
 
   * Fix tests (negative timeout check), add restart_check trigger.

@@ -233,7 +233,7 @@ sub run {
             push @f => async {
                 while($self->is_run and !$self->is_stopping) {
                     last if $self->restart and $no >= $self->restart_limit;
-                    last if $self->restart_check->();
+                    last if $self->restart and $self->restart_check->();
                     my $task = $self->queue->take(
                         defined($self->space) ? (space => $self->space) : (),
                         defined($self->tube)  ? (tube  => $self->tube)  : (),

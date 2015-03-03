@@ -9,7 +9,7 @@ use JSON::XS;
 require DR::TarantoolQueue::Task;
 $Carp::Internal{ (__PACKAGE__) }++;
 
-our $VERSION = '0.26';
+our $VERSION = '0.27';
 
 =head1 NAME
 
