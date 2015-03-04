@@ -1,6 +1,5 @@
 language: perl
 perl:
-  - "5.20"
   - "5.18"
 
 before_script:
@@ -9,7 +8,7 @@ before_script:
   - curl http://tarantool.org/dist/public.key | sudo apt-key add -
   - echo "deb http://tarantool.org/dist/stable/ubuntu/ `lsb_release -c -s` main" | sudo tee -a /etc/apt/sources.list.d/tarantool.list
   - sudo apt-get update > /dev/null
-  - sudo apt-get -q install tarantool tarantool-dev
+  - sudo apt-get -q install tarantool-lts tarantool-lts-dev
 
 script:
   - perl Makefile.PL && make test
