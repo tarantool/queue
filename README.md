@@ -1,5 +1,5 @@
 # A collection of persistent queue implementations
-
+[![Build Status](https://travis-ci.org/tarantool/queue.svg?branch=master)](https://travis-ci.org/tarantool/queue)
 ## `fifo` - простая очередь
 
 Особенности:
