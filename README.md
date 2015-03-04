@@ -1,4 +1,5 @@
 # Queue API description
+[![Build Status](https://travis-ci.org/tarantool/queue.svg?branch=stable)](https://travis-ci.org/tarantool/queue)
 
 A Tarantool/Box instance can serve as a Queue Manager, along
 with any other database work necessary.
