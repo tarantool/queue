@@ -1,5 +1,4 @@
-all:
-	@echo "Only tests are avalable [ init | fifo | fifottl | utube | utubettl ]"
+all: init fifo fifottl utube utubettl
 
 init:
 	tarantool t/000-init.t
@@ -11,4 +10,5 @@ utube:
 	tarantool t/030-utube.t
 utubettl:
 	tarantool t/040-utubettl.t
-
+help:
+	@echo "Only tests are avalable [ init | fifo | fifottl | utube | utubettl ]"

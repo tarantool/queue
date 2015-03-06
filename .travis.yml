@@ -11,8 +11,4 @@ before_script:
   - sudo apt-get -q install tarantool tarantool-dev
 
 script:
-  - make init
-  - make fifo
-  - make fifottl
-  - make utube 
-  - make utubettl 
+  - make all

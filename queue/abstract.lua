@@ -211,7 +211,7 @@ end
 
 
 function method._on_consumer_disconnect()
-    local waiter, fiber, task, tube, id
+    local waiter, fb, task, tube, id
     id = session.id()
     -- wakeup all waiters
     while true do
@@ -220,9 +220,9 @@ function method._on_consumer_disconnect()
             break
         end
         box.space._queue_consumers:delete{ waiter[1], waiter[2] }
-        fiber = fiber.find(waiter[2])
-        if fiber ~= nil and fiber:status() ~= 'dead' then
-            fiber:wakeup()
+        fb = fiber.find(waiter[2])
+        if fb ~= nil and fb:status() ~= 'dead' then
+            fb:wakeup()
         end
     end
 
