@@ -1,4 +1,4 @@
-# A collection of persistent queue implementations
+# A collection of persistent queue implementations for Tarantool 1.6
 [![Build Status](https://travis-ci.org/tarantool/queue.svg?branch=master)](https://travis-ci.org/tarantool/queue)
 ## `fifo` - простая очередь
 
@@ -315,5 +315,4 @@ queue.tube.tube_name:drop()
 * `tube:kick(count)` - откопать `count` задач
 * `tube:peek(task_id)` - выбрать задачу по ID
 
-
- 
+For Tarantool 1.5 Queue see [stable branch](https://github.com/tarantool/queue/tree/stable/)
