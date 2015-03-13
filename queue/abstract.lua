@@ -19,7 +19,8 @@ queue.driver = {
     fifo        = require('queue.abstract.driver.fifo'),
     fifottl     = require('queue.abstract.driver.fifottl'),
     utube       = require('queue.abstract.driver.utube'),
-    utubettl    = require('queue.abstract.driver.utubettl')
+    utubettl    = require('queue.abstract.driver.utubettl'),
+    stube       = require('queue.abstract.driver.stube'),
 }
 
 -- tube methods
@@ -33,11 +34,11 @@ function tube.put(self, data, opts)
     return self.raw:normalize_task(task)
 end
 
-function tube.take(self, timeout)
+function tube.take(self, timeout, opts)
     if timeout == nil then
         timeout = TIMEOUT_INFINITY
     end
-    local task = self.raw:take()
+    local task = self.raw:take(opts)
     if task ~= nil then
         return self.raw:normalize_task(task)
     end
@@ -52,7 +53,7 @@ function tube.take(self, timeout)
         fiber.sleep(timeout)
         box.space._queue_consumers:delete{ session.id(), fiber.id() }
         
-        task = self.raw:take()
+        task = self.raw:take(opts)
 
         if task ~= nil then
             return self.raw:normalize_task(task)
