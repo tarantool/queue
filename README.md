@@ -47,78 +47,85 @@ out of a sub-queue concurrently, ech sub-queue is executed in strict FIFO order,
 
 ### Example: 
 
-Imagine a web-crawler, к, обходящий множество страниц разных сайтов.
-Этот паук написан в виде воркера к очереди, задания которой представляют собой
-урлы. Если воркеров запущено большое число, а в качестве заданий в очереди
-попадается многократно один и тот же сайт, то эти воркеры работая параллельно
-могут устроить данному сайту DDOS.
+Imagine a web-crawler, fetching and parsing perhaps the entire Internet.
+The crawler is based on a queue, each task in the queue being a URL
+which needs to be downloaded and processed.
+If there are many workers, the same URL may show up in the queue many times
+-- since it may be referred to by main linking pages. And the workers,
+working in parallel, can DOS this site, resulting in the crawler
+ending up in the web server user-agent ban list :)
 
-Если указать например имя домена в качестве имени микроочереди для каждого
-таска, то проблема перегрузки клиентского сайта будет решена: не более одного
-воркера будет делать запросы на один домен.
-
+If the domain name is used as a micro-queue name, thiis problem can be
+solved: all URLs of the same domain name can be fetched and processed
+in strict FIFO order.
 
 ## `utubettl` - extention of `utube` to support `ttl`
 
-Работает аналогично `fifottl` и `utube`
+This tube works the same way as 'fifottl' and 'utube' queues.
 
-# Схема очереди
+# The implementation
 
-Данная глава информационная. По идее пользователю эта информация не
-требуется.
+This purpose of this part is to give you an idea how the various
+queues map to Tarantool data structures: spaces, fibers, IPC channels, etc.
 
-Очередь работает со спецспейсом `_queue`, который либо создает
-сама при первом `init`, либо использует созданный ей же ранее.
+The queue metadata (which queues exist, and their properties) are 
+stored in space `_queue`. This space is created automatically upon
+first invocation of `init` call, or is used if it already exists.
 
-#### Структура спейса `_queue`
+#### The schema of space `_queue`
 
-1. `tube` - имя очереди
-1. `tube_id` - числовой ID очереди
-1. `space` - имя спейса, связанного с очередью
-1. `type` - тип очереди
-1. `opts` - дополнительные опции по данной очереди
+1. `tube` - the name of the queue
+1. `tube_id` - queue ID, numeric
+1. `space` - the name bound to the queue and supporting it (stores queue
+   data)
+1. `type` - the queue type
+1. `opts` - additional options supplied when creating the queue
 
-Так же создается два спецспейса с флагом `temporary = true`:
+Two more temporary spaces exist to support all queues:
 
-#### Список ожидающих заданий консьюмеров `_queue_consumers`
+#### The list of waiting consumers `_queue_consumers`
 
-1. `session` - id сессии в которой пришел клиент
-1. `fid` - id файбера клиента
-1. `tube_id` - id очереди, которую ждет данный клиент
-1. `timeout` - когда у клиента истечет терпение и он уйдет
-1. `time` - когда клиент начал ждать
+Waiting consumers can pile up when there are no taks.
 
+1. `session` - session (connection) id of the client
+1. `fid` - client fiber id
+1. `tube_id` - queue id, the client is waiting for a task in this queue
+1. `timeout` - the client wait timeout
+1. `time` - when the client has come for a task 
 
-#### Список задач находящихся на выполнении `_queue_taken`
+#### The list of in progress tasks `_queue_taken`
 
-1. `session` - id сессии с которой пришел клиент
-1. `tube_id` - id очереди в которой он выполняет сейчас таск
-1. `task_id` - id задачи, которую он сейчас выполняет
-1. `time` - когда он начал выполнять задачу
+1. `session` - session id of the client connection
+1. `tube_id` - queue id, to which the task belongs
+1. `task_id` - task id (of the task being taken)
+1. `time` - task execution start time
 
 # API
 
-## Все таски представляют из себя таплы из трех элементов:
+## Each task is represented as a tuple with 3 fields:
 
-1. id задачи
-1. статус задачи
-1. данные связанные с задачей
+1. task id - numeric
+1. task status  - new, in progress, etc
+1. task data (JSON)
 
-Статусы задачи могут быть следующими (разные очереди могут поддерживать
-разные наборы статусов):
+Queues with ttl, priority or delay support, obviously, 
+store additional task fields.
 
-* `r` - задача готова к обработке (первый `consumer`'ом, который сделает запрос
-`take` - получит ее на выполнение)
-* `t` - задача взята в обработку каким-то `consumer`'ом
-* `-` - задача выполнена (реально - удалена из очереди)
-* `!` - задача закопана
-* `~` - задача отложена на некоторое время
+Task status is one of the following (different queues support use  different
+sets of status values, so this is a superset):
 
-ID задачам назначает очередь. в настоящее время это целочисленные ID
-для очередей `fifo` и `fifottl`.
+* `r` - the task is ready for execution (the first `consumer` executing
+`take` will get it) 
+* `t` - the task has been taken by a consumer
+* `-` - the task is executed (a task is pruned from the queue when it's
+  executed, so this status may be hard to see)
+* `!` - the task is buried (disabled temporarily until further changes)
+* `~` - the task is delayed for some time
 
+Task ID is assigned to a task when it's inserted into a queue. Currently task ids are
+simple integers for `fifo` и `fifottl` queues.
 
-## Подключение очереди
+## Using a queue
 
 ```lua
     local queue = require 'queue'
