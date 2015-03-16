@@ -39,18 +39,15 @@ The value of priority is **lowest** for the **highest**. In other words, a task 
 
 ## `utube` - a queue with micro-queues inside
 
-Особенности.
-Работает аналогично `fifo`. В этой очереди так же нет `ttl`, `ttr` итп.
-Отличие в том, что каждый `put` принимает в опциях параметр `utube` - имя
-микроочереди.
-Два таска одновременно не могут быть взяты из одной микроочереди.
+The main idea of this queue backend is the same as in `fifo` queue: the tasks are executed in FIFO order, there is no `ttl`/`ttr`/`delay`/`priority` support.
 
-То есть очередь контроллирует чтобы для каждой микроочереди соблюдался
-FIFO режим.
+The main new feature of this queue is that each `put` call accepts a new option, `utube` - the name of the sub-queue.
+The sub-queues split the task stream according to subqueue name: it's not possible to take two tasks
+out of a sub-queue concurrently, ech sub-queue is executed in strict FIFO order, one task at a time.
 
-### Пример использования такой очереди:
+### Example: 
 
-Допустим имеется некоторый веб-паук, обходящий множество страниц разных сайтов.
+Imagine a web-crawler, к, обходящий множество страниц разных сайтов.
 Этот паук написан в виде воркера к очереди, задания которой представляют собой
 урлы. Если воркеров запущено большое число, а в качестве заданий в очереди
 попадается многократно один и тот же сайт, то эти воркеры работая параллельно
