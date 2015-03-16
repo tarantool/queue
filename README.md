@@ -1,18 +1,17 @@
 # A collection of persistent queue implementations for Tarantool 1.6
 [![Build Status](https://travis-ci.org/tarantool/queue.svg?branch=master)](https://travis-ci.org/tarantool/queue)
-## `fifo` - простая очередь
+## `fifo` - a simple queue
 
-Особенности:
+Features:
 
-* В случае одного консюмера выполняет алгоритм FIFO.
-* В случае множества консюмеров алгоритм FIFO может нарушаться параллельной
-работой нескольких консюмеров, однако в среднем FIFO будет соблюден
-* Доступные опции очереди:
- * `temporary` - если истина, то очередь не будет писаться на диск
-
-Очередь `fifo` не поддерживает
- * приоритеты
- * времена жизни (`ttl`), работы (`ttr`), отложенные (`delay`) задачи
+* in case there is no more than one consumer, tasks are scheduled in strict FIFO order
+* for many concurrent consumers, FIFO is preserved but is less strict: concurrent consumers may complete tasks in different order; on average, FIFO is preserved
+* Available properties of queue object:
+ * `temporary` - if true, the queue is in-memory only (the contents does not persist on disk)
+ 
+`fifo` queue does not support:
+ * task priorities
+ * task time to live (`ttl`), execute (`ttr`), delayed task (`delay` option)
 
 
 ## `fifottl` - простая очередь с приоритетами и временем жизни тасков
