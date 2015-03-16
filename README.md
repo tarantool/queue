@@ -266,59 +266,62 @@ queue.tube.tube_name:drop()
 
 # Implementation details
 
-Реализация опирается на общие для всех очередей вещи:
+The implementation is based on the common functions for all queues:
 
-1. контроль за `consumer`'ами (ожидание/побудка итп)
-1. единообразный API
-1. создание спейсов
-1. итп
+1. controlling the `consumers`' (watching connection state/wakeup)
+1. similarities of the API
+1. spaces to support each tube
+1. etc
 
-соответственно каждая новая очередь описывается драйвером.
+Each new queue has a "driver" to support it. 
 
-## Драйверы очередей
+## Queue drivers
 
-Основные требования
+Mandatory requirements
 
-1. Поддерживает понятия:
- * ненормализованный таск (внутреннее строение таска) - таппл.
-   единственное требование: первое поле - ID, второе поле - состояние.
- * нормализованный таск (описан выше)
-1. При каждом изменении состояния таска по любой причине (как инициированной
-очередью, так и инициированной внутренними нуждами) должен уведомить
-основную систему об этом уведомлении.
-1. Не выбрасывает исключения вида "задачи нет в очереди" (но может
-выбрасывать исключения вида "неверные параметры вызова")
+1. The driver works with tuples. The only thing the driver needs
+to know about the tuples is their first two fields: id and state.
+1. Whenever the driver notices that a task state has changed, it must
+notify the framework about the change. 
+1. The driver must not throw execptions, unless the driver API is misused.
+I.e. for normal operation, even errors during normal operation, there
+should be no exceptions. 
 
-## API драйверов
+## Driver API
 
-1. метод `new` (конструктор объекта). принимает два аргумента:
- * спейс (объект) с которым работает данный драйвер
- * функцию для уведомления всей системы о происходящих изменениях
+Driver class must implement the following API:
+
+1. `new` (constructs an instance of a driver), takes:
+ * the space object, in which the driver must store its tasks
+ * a callback to notify the main queue framework on a task state change:
  (`on_task_change`)
- * опции (таблица) очереди
-1. метод `create_space` - создание спейса. передаются два аргумента
- * имя спейса
- * опции очереди
+ * options of the queue (a Lua table)
+1. `create_space` - creates the supporting space. The arguments are:
+ * space name
+ * space options
 
-Таким образом когда пользователь просит у системы создать новую очередь,
-то система просит у драйвера создать спейс для этой очереди, затем
-конструирует объект передавая ему созданный спейс.
+To sum up, when the user creates a new queue, the queue framework
+passes the request to the driver, asking it to create a space to 
+support this queue, and then creates a driver instance, passing to it
+the created space object.
 
-Объект конструируется так же и в случае когда очередь просто стартует
-вместе с запуском тарантула.
+The same call sequence is used when the queue is "restarted" after
+Tarantool server restart.
 
-Каждый объект очереди имеет следующее API:
+The driver instance returned by `new` method must provide the following
+API:
 
-* `tube:normalize_task(task)` - должен привести таск к обобщенному виду
-  (вырезать из него все ненужные пользователю данные)
-* `tube:put(data[, opts])` - положить задачу в очередь. Возвращает
-ненормализованный таск (запись в спейсе).
-* `tube:take()` - берет задачу готовую к выполнению из очереди (помечая
-ее как "выполняющаяся"). Если таких задач нет - возвращает nil
-* `tube:delete(task_id)` - удаление задачи из очереди
-* `tube:release(task_id, opts)` - возврат задачи в очередь
-* `tube:bury(task_id)` - закопать задачу
-* `tube:kick(count)` - откопать `count` задач
-* `tube:peek(task_id)` - выбрать задачу по ID
+* `tube:normalize_task(task)` - converts the task tuple to the object 
+which is passed on to the user (removes the administrative fields)
+* `tube:put(data[, opts])` - puts a task into the queue. 
+Returns a normalized task which represents a tuple in the space
+* `tube:take()` - sets task state to 'in progress' and returns the task.
+If there are no `READY` tasks in the queue, returns nil.
+* `tube:delete(task_id)` - deletes a task from the queue
+* `tube:release(task_id, opts)` - puts a task back to teh queue (in `READY`
+  state).
+* `tube:bury(task_id)` - buries a task
+* `tube:kick(count)` - digs out `count` tasks
+* `tube:peek(task_id)` - return task state by ID
 
 For Tarantool 1.5 Queue see [stable branch](https://github.com/tarantool/queue/tree/stable/)
