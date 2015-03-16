@@ -159,66 +159,68 @@ are infinity.
 
 ## Producer API
 
-Положить таск в очередь можно командой
+To insert a new task into the queue, use:
 
 ```lua
 queue.tube.tube_name:put(task_data[, opts])
 ```
 
-Опции `opts` в общем случае необязательны, если не указаны, то берутся из
-общих настроек очереди (или устанавливаются в то или иное дефолтное значение).
+Options `opts` are optional, and if they are not provided, the defaults
+provided in the queue constructor are used. When a queue doesn't have
+default options set, the default defaults are used (infinity for `ttl` and
+`ttr`, zero for `delay`).
 
-Общие для всех очередей опции (разные очереди могут не поддерживать те или иные
+The full list of options is (simpler queues may not support some of them):
 опции):
 
-* `ttl` - время жизни таска в секундах. Спустя данное время, если таск не был
-взят ни одним консьюмером таск удаляется из очереди.
-* `ttr` - время отведенное на выполнение таска консьюмером. Если консюмер не
-уложился в это время, то таск возвращается в состояние `READY` (и его сможет
-взять на выполнение другой консюмер). По умолчанию равно `ttl`.
-* `pri` - приоритет задачи.
-* `delay` - отложить выполнение задачи на указанное число секунд.
+* `ttl` - task time to live in seconds. If a task is not taken by any consumer during its time to live, it's removed from the queue.
+* `ttr` - time allotted to execute a task. If a consumer can't run the task
+  with the given time limit, the task is reset to `READY` state,
+  The `READY` task can be taken by any other consumer. By default, `ttr`
+  equals `ttl`.
+* `pri` - task priority, **lowest** is the **highest**
+* `delay` - task execution must be delayed for the given number of seconds.
+  Delay time is added to the total time to live of the task.
 
-Возвращает созданную задачу.
+This method returns the created task.
 
 ## Consumer API
 
-Получить таск на выполнение можно командой
+Get a task for execution:
 
 ```lua
 queue.tube.tube_name:take([timeout])
 ```
 
-Ожидает `timeout` секунд до появления задачи в очереди.
-Возвращает задачу или пустой ответ.
+Waits `timeout` seconds until a `READY` task appears in the queue.
+Returns either a task object or nil.
 
-
-После выполнения задачи консюмером необходимо сделать для задачи `ack`:
+The consumer signals successful task execution with `ack` method:
 
 ```lua
 queue.tube.tube_name:ack(task_id)
 ```
 
-Необходимо отметить:
+Please note:
 
-1. `ack` может делать только тот консюмер, который взял задачу на исполнение
-1. при разрыве сессии с консюмером, все взятые им задачи переводятся в состояние
-"готова к исполнению" (то есть им делается принудительный `release`)
+1. `ack` is accepted only from the consumer, which took the task for
+execution
+1. if a consumer disconnects, all tasks taken by this consumer are put back
+to `READY` state (in other words, the tasks are `release`d).
 
-Если консюмер по какой-то причине не может выполнить задачу, то он может
-вернуть ее в очередь:
+If a consumer for any reason can not execute a task, it can put the
+task back into the queue:
 
 ```lua
 queue.tube.tube_name:release(task_id, opts)
 ```
 
-в опциях можно передавать задержку на последующее выполнение (для очередей,
-которые поддерживают отложенное исполнение) - `delay`.
-
+the options may contain a possible new `delay` before the task is executed
+again.
 
 ## Miscellaneous
 
-Посмотреть на задачу зная ее ID можно испльзуя запрос
+To look at a task without changing its state, use:
 
 ```lua
 
@@ -226,8 +228,9 @@ local task = queue.tube.tube_name:peek(task_id)
 
 ```
 
-Если воркер понял что с задачей что-то не то и она не может быть выполнена
-то он (и не только он) может ее закопать вызвав метод
+If a worker suddenly realized that a task is somehow poisoned, can
+not be executed in the current circumstances, it can **bury** it,
+in other words, disable it until its restored again:
 
 ```lua
 
@@ -235,7 +238,7 @@ queue.tube.tube_name:bury(task_id)
 
 ```
 
-Откопать заданное количество проблемных задач можно функцией `kick`:
+To reset back to `READY` a bunch of buried task one can use `kick`:
 
 ```lua
 
@@ -243,7 +246,7 @@ queue.tube.tube_name:kick(count)
 
 ```
 
-Удалить задачу зная ее ID можно функцией `delete`:
+A task (in any state) can be deleted permanently with `delete`:
 
 ```lua
 
@@ -252,15 +255,14 @@ queue.tube.tube_name:delete(task_id)
 ```
 
 
-Удалить очередь целиком (при условии что в ней нет исполняющихся
-задач или присоединенных воркеров можно при помощи функции drop:
+The entire queue can be dropped (if there are no in-progress tasks or 
+workers) with `drop`:
 
 ```lua
 
 queue.tube.tube_name:drop()
 
 ```
-
 
 # Implementation details
 
