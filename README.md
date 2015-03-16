@@ -63,7 +63,7 @@ in strict FIFO order.
 
 This tube works the same way as 'fifottl' and 'utube' queues.
 
-# The implementation
+# The supporting schema
 
 This purpose of this part is to give you an idea how the various
 queues map to Tarantool data structures: spaces, fibers, IPC channels, etc.
@@ -125,35 +125,39 @@ sets of status values, so this is a superset):
 Task ID is assigned to a task when it's inserted into a queue. Currently task ids are
 simple integers for `fifo` и `fifottl` queues.
 
-## Using a queue
+## Using a queue module
 
 ```lua
     local queue = require 'queue'
 ```
 
-Операция `require` создает спецспейс `_queue` (если он не создан), а так
-же устанавливает все необходимые триггеры итп.
+When invoking `require`, a supporting space `_queue` is created (unless
+it already exists). The same call sets all the necessary space triggers,
+etc.
 
-## Создание очереди
+## Creating a new queue
 
 ```
     queue.schema.create_tube(name, type, { ... })
 ```
 
-Создает очередь.
+Creates a queue.
 
-Пока поддерживаются следующие типы:
+The following queue types are supported:
 
-1. `fifo` - таски обрабатываются в порядке поступления.
-нарушение порядка возможно только при наличии нескольких воркеров, которые
-работают с разной скоростью и (или) отваливаются.
-1. `fifottl` - таски обрабатываются в порядке поступления.
-Таски и очередь в настройках имеют предзаданное время жизни (`ttl`) и время
-исполнения (`ttr`).
-1. `utube` - очередь микроочередей
-1. `utubettl` - очередь микроочередей с поддержкой `ttl`, `ttr` итп
+1. `fifo` - tasks are executed in FIFO order, unless concurrent
+consumers slightly "bias" FIFO since they execute tasks at
+different speeds or fail.
 
-## Продюсер
+1. `fifottl` - a FIFO queue which supports task time to live (`ttl`)
+and time to run (`ttr`).
+The queue constructor can be given defaults for `ttr` and `ttl`, and
+each task in its options can supersede the defaults. The default defaults
+are infinity.
+1. `utube` - a queue of micro-queues, or partitioned queue
+1. `utubettl` - a queue of micro-queues with `ttl`, `ttr` and so on
+
+## Producer API
 
 Положить таск в очередь можно командой
 
@@ -177,7 +181,7 @@ queue.tube.tube_name:put(task_data[, opts])
 
 Возвращает созданную задачу.
 
-## Консюмер
+## Consumer API
 
 Получить таск на выполнение можно командой
 
@@ -212,7 +216,7 @@ queue.tube.tube_name:release(task_id, opts)
 которые поддерживают отложенное исполнение) - `delay`.
 
 
-## Другие запросы
+## Miscellaneous
 
 Посмотреть на задачу зная ее ID можно испльзуя запрос
 
@@ -258,7 +262,7 @@ queue.tube.tube_name:drop()
 ```
 
 
-# Описание собственно реализации
+# Implementation details
 
 Реализация опирается на общие для всех очередей вещи:
 
