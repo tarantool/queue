@@ -11,19 +11,21 @@ Features:
  
 `fifo` queue does not support:
  * task priorities
- * task time to live (`ttl`), execute (`ttr`), delayed task (`delay` option)
+ * task time to live (`ttl`), execute (`ttr`), delayed tasks (`delay` option)
 
 
-## `fifottl` - простая очередь с приоритетами и временем жизни тасков
+## `fifottl` - a simple priority queue with task time to live support
 
-Доступные опции при создании очереди:
- * `temporary` - если истина, то очередь не будет писаться на диск
- * `ttl` - время жизни сообщения в очереди (если не указано - бесконечность)
- * `ttr` - время обработки сообщения в очереди (если не указано - `ttl`)
- * `pri` - приоритет по умолчанию (если не указано - `0`)
+The following options can be supplied when creating a queue:
+ * `temporary` - if true, the content of the queue does not persist on disk
+ * `ttl` - time to live for a task put into the queue; if `ttl` is not given, it's set to infinity
+ * `ttr` - time allotted to the worker to work on a task; if not set, is the same as `ttl`
+ * `pri` - task priority (`0` is the highest priority and is the default)
+ 
+When a message (task) is pushed into a `fifottl` queue, the following options can be set:
+`ttl`, `ttr`, `pri`, and`delay`
 
-При помещении задачи (сообщения) в очередь можно указать параметры
-`ttl`, `ttr`, `pri`, а так же `delay`, например:
+Example:
 
 ```lua
 
@@ -31,16 +33,11 @@ queue.tube.tube_name:put('my_task_data', { ttl = 60.1, delay = 80 })
 
 ```
 
-В данном примере положена задача с временем жизни 60.1 секунд.
-Задачу начать выполнять не ранее чем через 80 секунд.
-Таким образом, время жизни задачи автоматически растягивается
-на то время, на которое эта задача отложена.
+In the example above, the task has 60.1 seconds to live, but execution is postponed for 80 secods. Delayed start automatically extends the time to live of a task to the amount of the delay, thus the actual time to live is 140.1 seconds.
 
-Приоритет работает так: **меньшие** цифры в приоритете означают **больший**
-приоритет. То есть задача с приоритетом 1 выполнится позже задачи с приоритетом
-0 при прочих равных условиях.
+The value of priority is **lowest** for the **highest**. In other words, a task with priority 1 is executed after the task with priority 0, all other options being equal.
 
-## `utube` - очередь с микроочередями внутри
+## `utube` - a queue with micro-queues inside
 
 Особенности.
 Работает аналогично `fifo`. В этой очереди так же нет `ttl`, `ttr` итп.
@@ -64,7 +61,7 @@ FIFO режим.
 воркера будет делать запросы на один домен.
 
 
-## `utubettl` - очередь с микроочередями с поддержкой `ttl`, итп
+## `utubettl` - extention of `utube` to support `ttl`
 
 Работает аналогично `fifottl` и `utube`
 
