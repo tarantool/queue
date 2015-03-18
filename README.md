@@ -264,6 +264,53 @@ queue.tube.tube_name:drop()
 
 ```
 
+It's possible to get queue statistics with `statistics` function.
+All queues statistics:
+```lua
+queue.statistics()
+---
+- - queue_fifottl_test2:
+      tasks:
+      - total: 1
+      - ready: 1
+      - taken: 0
+      - buried: 0
+      - done: 0
+      - delayed: 0
+      calls:
+      - put: 1
+  - queue_fifottl_test:
+      tasks:
+      - total: 2
+      - ready: 1
+      - taken: 1
+      - buried: 0
+      - done: 0
+      - delayed: 0
+      calls:
+      - put: 2
+      - take: 1
+
+```
+Get statistics for given queue space:
+```lua
+queue.statistics('queue_fifottl_test')
+---
+- - queue_fifottl_test:
+      tasks:
+      - total: 1
+      - ready: 1
+      - taken: 0
+      - buried: 0
+      - done: 0
+      - delayed: 0
+      calls:
+      - put: 2
+      - take: 1
+...
+
+```
+
 # Implementation details
 
 The implementation is based on the common functions for all queues:

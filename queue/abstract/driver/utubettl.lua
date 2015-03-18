@@ -75,7 +75,7 @@ function tube.new(space, on_task_change, opts)
     end
     local self = {
         space           = space,
-        on_task_change  = function(self, task)
+        on_task_change  = function(self, task, stat_data)
             -- wakeup fiber
             if task ~= nil then
                 if self.fiber ~= nil then
@@ -84,7 +84,7 @@ function tube.new(space, on_task_change, opts)
                     end
                 end
             end
-            on_task_change(task)
+            on_task_change(task, stat_data)
         end,
         opts            = opts,
     }
@@ -221,7 +221,7 @@ function method.put(self, data, opts)
             tostring(opts.utube),
             data
     }
-    self:on_task_change(task)
+    self:on_task_change(task, 'put')
     return task
 end
 
@@ -236,7 +236,7 @@ function method.take(self)
         local taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
         if taken == nil or taken[i_status] ~= state.TAKEN then
             t = self.space:update(t[1], { { '=', i_status, state.TAKEN } })
-            self:on_task_change(t)
+            self:on_task_change(t, 'take')
             return t
         end
     end
@@ -250,7 +250,7 @@ function method.delete(self, id)
         task = task:transform(i_status, 1, state.DONE)
         return process_neighbour(self, task)
     end
-    self:on_task_change(task)
+    self:on_task_change(task, 'delete')
 end
 
 -- release task
@@ -274,7 +274,7 @@ function method.release(self, id, opts)
             { '=', i_next_event, task[i_created] + task[i_ttl] }
         })
     end
-    self:on_task_change(task)
+    self:on_task_change(task, 'release')
     return task
 end
 
@@ -284,7 +284,7 @@ function method.bury(self, id)
     if task ~= nil then
         return process_neighbour(self, task:transform(i_status, 1, state.DONE))
     end
-    self:on_task_change(task)
+    self:on_task_change(task, 'bury')
 end
 
 -- unbury several tasks
@@ -299,7 +299,7 @@ function method.kick(self, count)
         end
 
         task = self.space:update(task[i_id], {{ '=', i_status, state.READY }})
-        self:on_task_change(task)
+        self:on_task_change(task, 'kick')
     end
     return count
 end

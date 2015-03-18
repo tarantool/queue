@@ -70,7 +70,7 @@ function tube.new(space, on_task_change, opts)
     end
     local self = {
         space           = space,
-        on_task_change  = function(self, task)
+        on_task_change  = function(self, task, stats_data)
             -- wakeup fiber
             if task ~= nil then
                 if self.fiber ~= nil then
@@ -79,7 +79,7 @@ function tube.new(space, on_task_change, opts)
                     end
                 end
             end
-            on_task_change(task)
+            on_task_change(task, stats_data)
         end,
         opts            = opts,
     }
@@ -192,8 +192,6 @@ function method.put(self, data, opts)
         next_event = event_time(ttl)
     end
 
-
-
     local task = self.space:insert{
             id,
             status,
@@ -204,7 +202,7 @@ function method.put(self, data, opts)
             time(),
             data
     }
-    self:on_task_change(task)
+    self:on_task_change(task, 'put')
     return task
 end
 
@@ -226,7 +224,7 @@ function method.take(self)
         { '=', i_status, state.TAKEN },
         { '=', i_next_event, next_event  }
     })
-    self:on_task_change(task)
+    self:on_task_change(task, 'take')
     return task
 end
 
@@ -236,7 +234,7 @@ function method.delete(self, id)
     if task ~= nil then
         task = task:transform(2, 1, state.DONE)
     end
-    self:on_task_change(task)
+    self:on_task_change(task, 'delete')
     return task
 end
 
@@ -258,14 +256,14 @@ function method.release(self, id, opts)
             { '=', i_next_event, task[i_created] + task[i_ttl] }
         })
     end
-    self:on_task_change(task)
+    self:on_task_change(task, 'release')
     return task
 end
 
 -- bury task
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
-    self:on_task_change(task)
+    self:on_task_change(task, 'bury')
     return task
 end
 
@@ -281,7 +279,7 @@ function method.kick(self, count)
         end
 
         task = self.space:update(task[i_id], {{ '=', i_status, state.READY }})
-        self:on_task_change(task)
+        self:on_task_change(task, 'kick')
     end
     return count
 end

@@ -155,7 +155,6 @@ end
 -- methods
 local method = {}
 
-
 local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     if opts == nil then
         opts = {}
@@ -174,7 +173,6 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         if taken ~= nil then
             box.space._queue_taken:delete{ taken[1], taken[2], taken[3] }
         end
-
         -- task swicthed to ready (or new task)
         if task[2] == state.READY then
             local tube_id = self.tube_id
@@ -188,7 +186,6 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
                         :delete{ consumer[1], consumer[2] }
                 end
             end
-
         -- task swicthed to taken - registry in taken space
         elseif task[2] == state.TAKEN then
             box.space._queue_taken
@@ -362,34 +359,31 @@ local function put_statistics(stat, space, tube)
     if st == nil then
         return
     end
-
+    local space_stat = {}
+    space_stat[space] = {tasks={}, calls={}}
+    
+    -- add api calls stats
     for name, value in pairs(st) do
         if type(value) ~= 'function' then
-
-            table.insert(stat,
-                tostring(space) .. '.' .. tostring(name)
-           )
-            table.insert(stat, tostring(value))
+            local s_table = {}
+            s_table[tostring(name)] = value
+            table.insert(space_stat[space]['calls'], s_table)
         end
 
     end
-    table.insert(stat,
-                tostring(space) .. '.tasks.total'
-    )
-    table.insert(stat,
-        tostring(box.space[space].index[idx_tube]:count())
-    )
+
+    -- add total tasks count
+    local s_total = {}
+    s_total['total'] = box.space[space].index[idx_tube]:count()
+    table.insert(space_stat[space]['tasks'], s_total)
     
+    -- add tasks by state count
     for i, s in pairs(state) do
-        table.insert(stat,
-                    tostring(space) .. '.tasks.' .. human_status[s]
-        )
-        table.insert(stat,
-            tostring(
-                box.space[space].index[idx_tube]:count(s)
-            )
-        )
+        local s_table = {}
+        s_table[human_status[s]] = box.space[space].index[idx_tube]:count(s)
+        table.insert(space_stat[space]['tasks'], s_table)
     end
+    table.insert(stat, space_stat)
 end
 
 
