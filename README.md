@@ -138,7 +138,7 @@ etc.
 ## Creating a new queue
 
 ```
-    queue.schema.create_tube(name, type, { ... })
+    queue.create_tube(name, type, { ... })
 ```
 
 Creates a queue.
