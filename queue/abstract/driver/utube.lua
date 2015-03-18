@@ -52,7 +52,7 @@ function method.put(self, data, opts)
         id = max[1] + 1
     end
     local task = self.space:insert{id, state.READY, tostring(opts.utube), data}
-    self.on_task_change(task)
+    self.on_task_change(task, 'put')
     return task
 end
 
@@ -67,7 +67,7 @@ function method.take(self)
         local taken = self.space.index.utube:min{state.TAKEN, task[3]}
         if taken == nil or taken[2] ~= state.TAKEN then
             task = self.space:update(task[1], { { '=', 2, state.TAKEN } })
-            self.on_task_change(task)
+            self.on_task_change(task, 'take')
             return task
         end
     end
@@ -80,12 +80,12 @@ function method.delete(self, id)
         task = task:transform(2, 1, state.DONE)
 
         local neighbour = self.space.index.utube:min{state.READY, task[3]}
-        self.on_task_change(task)
+        self.on_task_change(task, 'delete')
         if neighbour then
             self.on_task_change(neighbour)
         end
     else
-        self.on_task_change(task)
+        self.on_task_change(task, 'delete')
     end
     return task
 end
@@ -94,7 +94,7 @@ end
 function method.release(self, id, opts)
     local task = self.space:update(id, {{ '=', 2, state.READY }})
     if task ~= nil then
-        self.on_task_change(task)
+        self.on_task_change(task, 'release')
     end
     return task
 end
@@ -104,12 +104,12 @@ function method.bury(self, id)
     local task = self.space:update(id, {{ '=', 2, state.BURIED }})
     if task ~= nil then
         local neighbour = self.space.index.utube:min{state.READY, task[3]}
-        self.on_task_change(task)
+        self.on_task_change(task, 'bury')
         if neighbour then
             self.on_task_change(neighbour)
         end
     else
-        self.on_task_change(task)
+        self.on_task_change(task, 'bury')
     end
     return task
 end
@@ -126,7 +126,7 @@ function method.kick(self, count)
         end
 
         task = self.space:update(task[1], {{ '=', 2, state.READY }})
-        self.on_task_change(task)
+        self.on_task_change(task, 'kick')
     end
     return count
 end

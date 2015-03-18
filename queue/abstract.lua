@@ -1,7 +1,7 @@
 local fiber = require 'fiber'
 local log = require 'log'
 local session = box.session
-local queue = { tube = {} }
+local queue = { tube = {}, stat = {} }
 local state = require 'queue.abstract.state'
 local TIMEOUT_INFINITY  = 365 * 86400 * 1000
 local json = require 'json'
@@ -163,7 +163,7 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     local self
     
     -- wakeup consumer if queue have new task
-    local on_task_change = function(task)
+    local on_task_change = function(task, stats_data)
         -- task was removed
         if task == nil then
             return
@@ -194,8 +194,11 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
             box.space._queue_taken
                 :insert{session.id(), self.tube_id, task[1], fiber.time()}
         end
+        if stats_data ~= nil then
+            queue.stat[space.name]:inc(stats_data)
+        end
     end
-    
+
     self = {
         raw     = driver.new(space, on_task_change, opts),
         name    = tube_name,
@@ -341,6 +344,96 @@ function method.start()
     return queue
 end
 
+local human_status = {}
+human_status[state.READY]      = 'ready'
+human_status[state.DELAYED]    = 'delayed'
+human_status[state.TAKEN]      = 'taken'
+human_status[state.BURIED]     = 'buried'
+human_status[state.DONE]       = 'done'
+
+local idx_tube = 1
+
+local function put_statistics(stat, space, tube)
+    if space == nil then
+        return
+    end
+
+    local st = rawget(queue.stat, space)
+    if st == nil then
+        return
+    end
+
+    for name, value in pairs(st) do
+        if type(value) ~= 'function' then
+
+            table.insert(stat,
+                tostring(space) .. '.' .. tostring(name)
+           )
+            table.insert(stat, tostring(value))
+        end
+
+    end
+    table.insert(stat,
+                tostring(space) .. '.tasks.total'
+    )
+    table.insert(stat,
+        tostring(box.space[space].index[idx_tube]:count())
+    )
+    
+    for i, s in pairs(state) do
+        table.insert(stat,
+                    tostring(space) .. '.tasks.' .. human_status[s]
+        )
+        table.insert(stat,
+            tostring(
+                box.space[space].index[idx_tube]:count(s)
+            )
+        )
+    end
+end
+
+
+queue.statistics = function( space )
+    local stat = {}
+    if space ~= nil then
+        put_statistics(stat, space)
+    else
+        for space, spt in pairs(queue.stat) do
+            put_statistics(stat, space)
+        end
+    end
+    return stat
+
+end
+
+setmetatable(queue.stat, {
+        __index = function(tbs, space)
+            local spt = {
+                inc = function(t, cnt)
+                    t[cnt] = t[cnt] + 1
+                    return t[cnt]
+                end
+            }
+            setmetatable(spt, {
+                __index = function(t, cnt)
+                    rawset(t, cnt, 0)
+                    return 0
+                end 
+            })
+                
+            rawset(tbs, space, spt)
+            return spt
+        end,
+        __gc = function(tbs)
+            for space, tubes in pairs(tbs) do
+                for tube, tbt in pairs(tubes) do
+                    rawset(tubes, tube, nil)
+                end
+                rawset(tbs, space, nil)
+            end
+        end
+    }
+)
 
 setmetatable(queue, { __index = method })
 return queue
