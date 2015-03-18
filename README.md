@@ -265,11 +265,10 @@ queue.tube.tube_name:drop()
 ```
 
 It's possible to get queue statistics with `statistics` function.
-All queues statistics:
 ```lua
 queue.statistics()
 ---
-- - queue_fifottl_test2:
+- - test2:
       tasks:
       - total: 1
       - ready: 1
@@ -279,7 +278,7 @@ queue.statistics()
       - delayed: 0
       calls:
       - put: 1
-  - queue_fifottl_test:
+  - test:
       tasks:
       - total: 2
       - ready: 1
@@ -292,11 +291,11 @@ queue.statistics()
       - take: 1
 
 ```
-Get statistics for given queue space:
+Get statistics for given tube:
 ```lua
 queue.statistics('queue_fifottl_test')
 ---
-- - queue_fifottl_test:
+- - test:
       tasks:
       - total: 1
       - ready: 1

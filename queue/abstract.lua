@@ -260,7 +260,9 @@ function method.create_tube(tube_name, tube_type, opts)
         box.error(box.error.PROC_LUA,
             "Unknown tube type " .. tostring(tube_type))
     end
-    local space_name = string.format('queue_%s_%s', tube_type, tube_name)
+    -- space name must be equal to tube name
+    -- https://github.com/tarantool/queue/issues/9#issuecomment-83019109
+    local space_name = tube_name
     if box.space[space_name] ~= nil then
         box.error(box.error.PROC_LUA,
             "Space " .. space_name .. " already exists")
