@@ -148,6 +148,7 @@ function tube.drop(self)
     local space_name = tube[3]
 
     box.space[space_name]:drop()
+    box.space._queue:delete{tube_name}
     queue.tube[tube_name] = nil
     return true
 end
