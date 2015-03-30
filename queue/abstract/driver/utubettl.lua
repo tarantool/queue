@@ -100,7 +100,7 @@ local function process_neighbour(self, task)
     self:on_task_change(task)
     if task ~= nil then
         local neighbour = self.space.index.utube:min{state.READY, task[i_utube]}
-        if neighbour ~= nil then
+        if neighbour ~= nil and neighbour[i_status] == state.READY then
             self:on_task_change(neighbour)
         end
     end
@@ -282,7 +282,7 @@ end
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
     if task ~= nil then
-        return process_neighbour(self, task:transform(i_status, 1, state.DONE))
+        return process_neighbour(self, task:transform(i_status, 1, state.BURIED))
     end
     self:on_task_change(task, 'bury')
 end

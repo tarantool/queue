@@ -2,6 +2,7 @@ local state = require 'queue.abstract.state'
 local tube = {}
 local method = {}
 local log = require 'log'
+local i_status = 2
 
 -- create space
 function tube.create_space(space_name, opts)
@@ -105,7 +106,7 @@ function method.bury(self, id)
     if task ~= nil then
         local neighbour = self.space.index.utube:min{state.READY, task[3]}
         self.on_task_change(task, 'bury')
-        if neighbour then
+        if neighbour and neighbour[i_status] == state.READY then
             self.on_task_change(neighbour)
         end
     else

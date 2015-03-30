@@ -6,7 +6,7 @@ local test = (require 'tap').test()
 local tnt  = require 't.tnt'
 local state = require 'queue.abstract.state'
 local yaml = require 'yaml'
-test:plan(9)
+test:plan(10)
 
 test:ok(rawget(box, 'space'), 'box started')
 
@@ -90,6 +90,12 @@ test:test('bury in utube', function(test)
     tube:bury(taken[1])
     fiber.sleep(0.2)
     test:is(state, 2, 'state was changed')
+end)
+test:test('instant bury', function(test)
+    test:plan(1)
+    tube:put(1, {ttr=60})
+    taken = tube:take(.1)
+    test:is(tube:bury(taken[1])[2], '!', 'task is buried')
 end)
 
 
