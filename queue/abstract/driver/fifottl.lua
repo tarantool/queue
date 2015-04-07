@@ -214,7 +214,7 @@ function method.take(self)
         return
     end
 
-    local next_event = task[i_created] + task[i_ttr]
+    local next_event = time() + task[i_ttr]
     local dead_event = task[i_created] + task[i_ttl]
     if next_event > dead_event then
         next_event = dead_event

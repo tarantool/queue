@@ -46,12 +46,12 @@ function tube.take(self, timeout)
         local started = fiber.time()
         local time = event_time(timeout)
         local tube_id = self.tube_id
-        
+
         box.space._queue_consumers:insert{
                 session.id(), fiber.id(), tube_id, time, fiber.time() }
         fiber.sleep(timeout)
         box.space._queue_consumers:delete{ session.id(), fiber.id() }
-        
+
         task = self.raw:take()
 
         if task ~= nil then
@@ -161,7 +161,7 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         opts = {}
     end
     local self
-    
+
     -- wakeup consumer if queue have new task
     local on_task_change = function(task, stats_data)
         -- task was removed
@@ -181,7 +181,7 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
                 box.space._queue_consumers.index.consumer:min{ tube_id }
 
             if consumer ~= nil then
-                if consumer[3] == tube_id then 
+                if consumer[3] == tube_id then
                     fiber.find( consumer[2] ):wakeup()
                     box.space._queue_consumers
                         :delete{ consumer[1], consumer[2] }
@@ -268,7 +268,7 @@ function method.create_tube(tube_name, tube_type, opts)
         box.error(box.error.PROC_LUA,
             "Space " .. space_name .. " already exists")
     end
-   
+
     -- create tube record
     local last = box.space._queue.index.tube_id:max()
     local tube_id = 0
@@ -364,7 +364,7 @@ local function put_statistics(stat, space, tube)
     end
     local space_stat = {}
     space_stat[space] = {tasks={}, calls={}}
-    
+
     -- add api calls stats
     for name, value in pairs(st) do
         if type(value) ~= 'function' then
@@ -379,7 +379,7 @@ local function put_statistics(stat, space, tube)
     local s_total = {}
     s_total['total'] = box.space[space].index[idx_tube]:count()
     table.insert(space_stat[space]['tasks'], s_total)
-    
+
     -- add tasks by state count
     for i, s in pairs(state) do
         local s_table = {}
@@ -415,9 +415,9 @@ setmetatable(queue.stat, {
                 __index = function(t, cnt)
                     rawset(t, cnt, 0)
                     return 0
-                end 
+                end
             })
-                
+
             rawset(tbs, space, spt)
             return spt
         end,
