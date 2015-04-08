@@ -124,6 +124,7 @@ function method._fiber(self)
                 if now >= task[i_next_event] then
                     self.space:delete(task[i_id])
                     self:on_task_change(task:transform(2, 1, state.DONE))
+                    estimated = 0
                 else
                     local et = tonumber(task[i_next_event] - now) / 1000000
                     if et < estimated then
