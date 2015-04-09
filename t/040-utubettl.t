@@ -6,7 +6,7 @@ local test = (require 'tap').test()
 local tnt  = require 't.tnt'
 local state = require 'queue.abstract.state'
 local yaml = require 'yaml'
-test:plan(12)
+test:plan(13)
 
 test:ok(rawget(box, 'space'), 'box started')
 
@@ -39,6 +39,16 @@ test:test('Easy put/take/ack', function(test)
     test:ok(task, 'task2 was taken')
     test:is(task[3], 345, 'task.data')
     test:is(task[2], state.TAKEN, 'task.status')
+end)
+
+test:test('ttr put/take', function(test)
+    test:plan(3)
+    my_queue = queue.create_tube('trr_test', 'utubettl')
+    test:ok(my_queue:put('ttr1', { ttr = 1 }), 'put ttr task')
+    test:ok(my_queue:take(0.1) ~= nil, 'take this task')
+    fiber.sleep(1)
+    task = my_queue:peek(0)
+    test:is(task[2], state.READY, 'Ready state returned after one second')
 end)
 
 test:test('ack in utube', function(test)

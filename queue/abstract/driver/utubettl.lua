@@ -233,10 +233,13 @@ function method.take(self)
         if t[2] ~= state.READY then
             break
         end
-
+        local next_event = time() + t[i_ttr]
         local taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
         if taken == nil or taken[i_status] ~= state.TAKEN then
-            t = self.space:update(t[1], { { '=', i_status, state.TAKEN } })
+            t = self.space:update(t[1], { 
+                { '=', i_status, state.TAKEN },
+                { '=', i_next_event, next_event }
+            })
             self:on_task_change(t, 'take')
             return t
         end
