@@ -162,9 +162,9 @@ is $task3_t->status, 'ready', 'task3 released as ready';
 is $task3->status, 'ready', 'task3 released as ready';
 
 cmp_ok $task2->get_meta->{ttl}, '<', $meta->{ttl}, 'release updated ttl';
-cmp_ok $task2->get_meta->{ttl}, '>=', (30+20) * 1_000_000,
+cmp_ok $task2->get_meta->{ttl}, '>=', (30+20),
     'ttl is more than 50s';
-cmp_ok $task2->get_meta->{ttl}, '<', (30+30) * 1_000_000,
+cmp_ok $task2->get_meta->{ttl}, '<', (30+30),
     'ttl is less than 60s';
 
 

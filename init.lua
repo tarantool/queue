@@ -1238,8 +1238,16 @@ queue.meta = function(space, id)
         :transform(i_ipri, 1, tostring(pri_unpack(task[i_ipri])))
         :transform(i_task, #task - i_task, box.time64())
         :transform(i_status, 1, human_status[ task[i_status] ])
-        :transform(i_ttl, 1, from_time64(task[i_ttl]))
-        :transform(i_ttr, 1, from_time64(task[i_ttr]))
+
+    local meta_ttl = box.unpack('l', task[i_ttl])
+    if meta_ttl ~= nil then
+        task = task:transform(i_ttl, 1, box.pack('l', from_time64(meta_ttl)))
+    end
+    
+    local meta_ttr = box.unpack('l', task[i_ttr])
+    if meta_ttr ~= nil then
+        task = task:transform(i_ttr, 1, box.pack('l', from_time64(meta_ttr)))
+    end
     return task
 end
 

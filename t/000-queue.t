@@ -158,9 +158,9 @@ my $meta =  tnt->call_lua('queue.meta', [ $sno, $task1->[0] ],
     ]
 );
 
-cmp_ok $meta->now, '<', $meta->ttl + $meta->created, 'task is alive';
-is $meta->ttl, 10000000, 'ttl';
-is $meta->ttr, 20000000, 'ttr';
+cmp_ok $meta->now/1000000, '<', $meta->ttl + $meta->created, 'task is alive';
+is $meta->ttl, 10, 'ttl';
+is $meta->ttr, 20, 'ttr';
 
 is_deeply $task1, [ $task1->[0], 'tube_name', 'ready', 'task', 1 .. 10 ],
     'task 1';
