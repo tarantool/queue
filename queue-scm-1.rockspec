@@ -5,7 +5,7 @@ source  = {
     branch = 'master',
 }
 description = {
-    summary  = "Queue collection for tarantool",
+    summary  = "A set of persistent in-memory queues",
     homepage = 'https://github.com/tarantool/queue.git',
     license  = 'BSD',
 }
