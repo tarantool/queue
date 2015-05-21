@@ -275,10 +275,11 @@ function method.create_tube(tube_name, tube_type, opts)
     if last ~= nil then
         tube_id = last[2] + 1
     end
-    box.space._queue:insert{ tube_name, tube_id, space_name, tube_type, opts }
+    --box.space._queue:insert{ tube_name, tube_id, space_name, tube_type, opts }
 
     -- create tube space
     local space = driver.create_space(space_name, opts)
+    box.space._queue:insert{ tube_name, tube_id, space_name, tube_type, opts }
     return make_self(driver, space, tube_name, tube_type, tube_id, opts)
 end
 
