@@ -268,44 +268,44 @@ It's possible to get queue statistics with `statistics` function.
 ```lua
 queue.statistics()
 ---
-- - test2:
+- - - test2:
       tasks:
-      - total: 1
-      - ready: 1
-      - taken: 0
-      - buried: 0
-      - done: 0
-      - delayed: 0
-      calls:
-      - put: 1
-  - test:
+        - total: 1
+        - ready: 1
+        - taken: 0
+        - buried: 0
+        - done: 0
+        - delayed: 0
+        calls:
+        - put: 1
+    - test:
       tasks:
-      - total: 2
-      - ready: 1
-      - taken: 1
-      - buried: 0
-      - done: 0
-      - delayed: 0
-      calls:
-      - put: 2
-      - take: 1
+        - total: 2
+        - ready: 1
+        - taken: 1
+        - buried: 0
+        - done: 0
+        - delayed: 0
+        calls:
+        - put: 2
+        - take: 1
 
 ```
 Get statistics for given tube:
 ```lua
 queue.statistics('queue_fifottl_test')
 ---
-- - test:
-      tasks:
-      - total: 1
-      - ready: 1
-      - taken: 0
-      - buried: 0
-      - done: 0
-      - delayed: 0
-      calls:
-      - put: 2
-      - take: 1
+- - - test:
+        tasks:
+        - total: 1
+        - ready: 1
+        - taken: 0
+        - buried: 0
+        - done: 0
+        - delayed: 0
+        calls:
+        - put: 2
+        - take: 1
 ...
 
 ```
