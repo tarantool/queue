@@ -149,7 +149,10 @@ function tube.drop(self)
 
     box.space[space_name]:drop()
     box.space._queue:delete{tube_name}
+    -- drop queue
     queue.tube[tube_name] = nil
+    -- drop statistics
+    queue.stat[tube_name] = nil
     return true
 end
 
@@ -399,8 +402,7 @@ queue.statistics = function( space )
             put_statistics(stat, space)
         end
     end
-    return stat
-
+    return {stat, }
 end
 
 setmetatable(queue.stat, {
