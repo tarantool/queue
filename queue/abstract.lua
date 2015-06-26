@@ -347,16 +347,16 @@ function method.start()
     return queue
 end
 
-local human_status = {}
-human_status[state.READY]      = 'ready'
-human_status[state.DELAYED]    = 'delayed'
-human_status[state.TAKEN]      = 'taken'
-human_status[state.BURIED]     = 'buried'
-human_status[state.DONE]       = 'done'
+local human_states = {}
+human_states[state.READY]      = 'ready'
+human_states[state.DELAYED]    = 'delayed'
+human_states[state.TAKEN]      = 'taken'
+human_states[state.BURIED]     = 'buried'
+human_states[state.DONE]       = 'done'
 
 local idx_tube = 1
 
-local function put_statistics(stat, space, tube)
+local function build_stats(space)
     if space == nil then
         return
     end
@@ -365,44 +365,39 @@ local function put_statistics(stat, space, tube)
     if st == nil then
         return
     end
-    local space_stat = {}
-    space_stat[space] = {tasks={}, calls={}}
+
+    local stat = {tasks={}, calls={}}
 
     -- add api calls stats
     for name, value in pairs(st) do
         if type(value) ~= 'function' then
-            local s_table = {}
-            s_table[tostring(name)] = value
-            table.insert(space_stat[space]['calls'], s_table)
+            stat['calls'][tostring(name)] = value
         end
-
     end
 
     -- add total tasks count
-    local s_total = {}
-    s_total['total'] = box.space[space].index[idx_tube]:count()
-    table.insert(space_stat[space]['tasks'], s_total)
+    stat['tasks']['total'] = box.space[space].index[idx_tube]:count()
 
     -- add tasks by state count
     for i, s in pairs(state) do
-        local s_table = {}
-        s_table[human_status[s]] = box.space[space].index[idx_tube]:count(s)
-        table.insert(space_stat[space]['tasks'], s_table)
+        local state = human_states[s]
+        stat['tasks'][state] = box.space[space].index[idx_tube]:count(s)
     end
-    table.insert(stat, space_stat)
+
+    return stat
 end
 
-
-queue.statistics = function( space )
-    local stat = {}
+queue.statistics = function(space)
     if space ~= nil then
-        put_statistics(stat, space)
-    else
-        for space, spt in pairs(queue.stat) do
-            put_statistics(stat, space)
-        end
+        return build_stats(space)
     end
-    return {stat, }
+
+    local stat = {}
+    for space, spt in pairs(queue.stat) do
+        stat[space] = build_stats(space)
+    end
+
+    return stat
 end
 
 setmetatable(queue.stat, {
