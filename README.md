@@ -8,7 +8,7 @@ Features:
 * for many concurrent consumers, FIFO is preserved but is less strict: concurrent consumers may complete tasks in different order; on average, FIFO is preserved
 * Available properties of queue object:
  * `temporary` - if true, the queue is in-memory only (the contents does not persist on disk)
- 
+
 `fifo` queue does not support:
  * task priorities
  * task time to live (`ttl`), execute (`ttr`), delayed tasks (`delay` option)
@@ -21,7 +21,7 @@ The following options can be supplied when creating a queue:
  * `ttl` - time to live for a task put into the queue; if `ttl` is not given, it's set to infinity
  * `ttr` - time allotted to the worker to work on a task; if not set, is the same as `ttl`
  * `pri` - task priority (`0` is the highest priority and is the default)
- 
+
 When a message (task) is pushed into a `fifottl` queue, the following options can be set:
 `ttl`, `ttr`, `pri`, and`delay`
 
@@ -45,7 +45,7 @@ The main new feature of this queue is that each `put` call accepts a new option,
 The sub-queues split the task stream according to subqueue name: it's not possible to take two tasks
 out of a sub-queue concurrently, ech sub-queue is executed in strict FIFO order, one task at a time.
 
-### Example: 
+### Example:
 
 Imagine a web-crawler, fetching and parsing perhaps the entire Internet.
 The crawler is based on a queue, each task in the queue being a URL
@@ -68,7 +68,7 @@ This tube works the same way as 'fifottl' and 'utube' queues.
 This purpose of this part is to give you an idea how the various
 queues map to Tarantool data structures: spaces, fibers, IPC channels, etc.
 
-The queue metadata (which queues exist, and their properties) are 
+The queue metadata (which queues exist, and their properties) are
 stored in space `_queue`. This space is created automatically upon
 first invocation of `init` call, or is used if it already exists.
 
@@ -91,7 +91,7 @@ Waiting consumers can pile up when there are no taks.
 1. `fid` - client fiber id
 1. `tube_id` - queue id, the client is waiting for a task in this queue
 1. `timeout` - the client wait timeout
-1. `time` - when the client has come for a task 
+1. `time` - when the client has come for a task
 
 #### The list of in progress tasks `_queue_taken`
 
@@ -108,14 +108,14 @@ Waiting consumers can pile up when there are no taks.
 1. task status  - new, in progress, etc
 1. task data (JSON)
 
-Queues with ttl, priority or delay support, obviously, 
+Queues with ttl, priority or delay support, obviously,
 store additional task fields.
 
 Task status is one of the following (different queues support use  different
 sets of status values, so this is a superset):
 
 * `r` - the task is ready for execution (the first `consumer` executing
-`take` will get it) 
+`take` will get it)
 * `t` - the task has been taken by a consumer
 * `-` - the task is executed (a task is pruned from the queue when it's
   executed, so this status may be hard to see)
@@ -255,7 +255,7 @@ queue.tube.tube_name:delete(task_id)
 ```
 
 
-The entire queue can be dropped (if there are no in-progress tasks or 
+The entire queue can be dropped (if there are no in-progress tasks or
 workers) with `drop`:
 
 ```lua
@@ -268,44 +268,43 @@ It's possible to get queue statistics with `statistics` function.
 ```lua
 queue.statistics()
 ---
-- - - test2:
-      tasks:
-        - total: 1
-        - ready: 1
-        - taken: 0
-        - buried: 0
-        - done: 0
-        - delayed: 0
-        calls:
-        - put: 1
-    - test:
-      tasks:
-        - total: 2
-        - ready: 1
-        - taken: 1
-        - buried: 0
-        - done: 0
-        - delayed: 0
-        calls:
-        - put: 2
-        - take: 1
+- foo:
+    tasks:
+      total: 1
+      ready: 1
+      taken: 0
+      buried: 0
+      done: 0
+      delayed: 0
+    calls:
+      put: 1
+  bar:
+    tasks:
+      total: 2
+      ready: 1
+      taken: 1
+      buried: 0
+      done: 0
+      delayed: 0
+    calls:
+      put: 2
+      take: 1
 
 ```
 Get statistics for given tube:
 ```lua
-queue.statistics('queue_fifottl_test')
+queue.statistics('foo')
 ---
-- - - test:
-        tasks:
-        - total: 1
-        - ready: 1
-        - taken: 0
-        - buried: 0
-        - done: 0
-        - delayed: 0
-        calls:
-        - put: 2
-        - take: 1
+- tasks:
+    total: 1
+    ready: 1
+    taken: 0
+    buried: 0
+    done: 0
+    delayed: 0
+  calls:
+    put: 2
+    take: 1
 ...
 
 ```
@@ -319,7 +318,7 @@ The implementation is based on the common functions for all queues:
 1. spaces to support each tube
 1. etc
 
-Each new queue has a "driver" to support it. 
+Each new queue has a "driver" to support it.
 
 ## Queue drivers
 
@@ -328,10 +327,10 @@ Mandatory requirements
 1. The driver works with tuples. The only thing the driver needs
 to know about the tuples is their first two fields: id and state.
 1. Whenever the driver notices that a task state has changed, it must
-notify the framework about the change. 
-1. The driver must not throw execptions, unless the driver API is misused.
+notify the framework about the change.
+1. The driver must not throw exceptions, unless the driver API is misused.
 I.e. for normal operation, even errors during normal operation, there
-should be no exceptions. 
+should be no exceptions.
 
 ## Driver API
 
@@ -347,7 +346,7 @@ Driver class must implement the following API:
  * space options
 
 To sum up, when the user creates a new queue, the queue framework
-passes the request to the driver, asking it to create a space to 
+passes the request to the driver, asking it to create a space to
 support this queue, and then creates a driver instance, passing to it
 the created space object.
 
@@ -357,9 +356,9 @@ Tarantool server restart.
 The driver instance returned by `new` method must provide the following
 API:
 
-* `tube:normalize_task(task)` - converts the task tuple to the object 
+* `tube:normalize_task(task)` - converts the task tuple to the object
 which is passed on to the user (removes the administrative fields)
-* `tube:put(data[, opts])` - puts a task into the queue. 
+* `tube:put(data[, opts])` - puts a task into the queue.
 Returns a normalized task which represents a tuple in the space
 * `tube:take()` - sets task state to 'in progress' and returns the task.
 If there are no `READY` tasks in the queue, returns nil.
@@ -370,4 +369,4 @@ If there are no `READY` tasks in the queue, returns nil.
 * `tube:kick(count)` - digs out `count` tasks
 * `tube:peek(task_id)` - return task state by ID
 
-For Tarantool 1.5 Queue see [stable branch](https://github.com/tarantool/queue/tree/stable/)
+For Tarantool 1.5 Queue see [stable branch](https://github.com/tarantool/queue/tree/stable/).

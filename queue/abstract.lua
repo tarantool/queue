@@ -366,25 +366,25 @@ local function build_stats(space)
         return
     end
 
-    local stat = {tasks={}, calls={}}
+    local stats = {tasks={}, calls={}}
 
     -- add api calls stats
     for name, value in pairs(st) do
         if type(value) ~= 'function' then
-            stat['calls'][tostring(name)] = value
+            stats['calls'][tostring(name)] = value
         end
     end
 
     -- add total tasks count
-    stat['tasks']['total'] = box.space[space].index[idx_tube]:count()
+    stats['tasks']['total'] = box.space[space].index[idx_tube]:count()
 
     -- add tasks by state count
     for i, s in pairs(state) do
         local state = human_states[s]
-        stat['tasks'][state] = box.space[space].index[idx_tube]:count(s)
+        stats['tasks'][state] = box.space[space].index[idx_tube]:count(s)
     end
 
-    return stat
+    return stats
 end
 
 queue.statistics = function(space)
@@ -392,12 +392,12 @@ queue.statistics = function(space)
         return build_stats(space)
     end
 
-    local stat = {}
+    local stats = {}
     for space, spt in pairs(queue.stat) do
-        stat[space] = build_stats(space)
+        stats[space] = build_stats(space)
     end
 
-    return stat
+    return stats
 end
 
 setmetatable(queue.stat, {
