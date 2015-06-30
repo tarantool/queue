@@ -6,16 +6,54 @@ local fiber = require 'fiber'
 local test = (require 'tap').test()
 local tnt  = require 't.tnt'
 local state = require 'queue.abstract.state'
-test:plan(9)
+test:plan(10)
 
 local queue = require 'queue.abstract'
 test:ok(queue.start(), 'queue.start()')
 test:ok(queue, 'queue is loaded')
 
 local tube = queue.create_tube('test', 'fifottl')
+local tube2 = queue.create_tube('test_stat', 'fifottl')
 test:ok(tube, 'test tube created')
 test:is(tube.name, 'test', 'tube.name')
 test:is(tube.type, 'fifottl', 'tube.type')
+
+test:test('Fifottl statistics', function(test)
+    test:plan(13)
+    tube2:put('stat_0')
+    tube2:put('stat_1')
+    tube2:put('stat_2')
+    tube2:put('stat_3')
+    tube2:put('stat_4')
+    tube2:delete(4)
+    tube2:take(.001)
+    tube2:release(0)
+    tube2:take(.001)
+    tube2:ack(0)
+    tube2:bury(1)
+    tube2:bury(2)
+    tube2:kick(1)
+    tube2:take(.001)
+
+   stats = queue.statistics('test_stat')
+
+   -- check tasks statistics
+   test:is(stats.tasks.taken, 1, 'tasks.taken')
+   test:is(stats.tasks.buried, 1, 'tasks.buried')
+   test:is(stats.tasks.ready, 1, 'tasks.ready')
+   test:is(stats.tasks.done, 2, 'tasks.done')
+   test:is(stats.tasks.delayed, 0, 'tasks.delayed')
+   test:is(stats.tasks.total, 3, 'tasks.total')
+
+   -- check function call statistics
+   test:is(stats.calls.delete, 1, 'calls.delete')
+   test:is(stats.calls.ack, 1, 'calls.ack')
+   test:is(stats.calls.take, 3, 'calls.take')
+   test:is(stats.calls.kick, 1, 'calls.kick')
+   test:is(stats.calls.bury, 2, 'calls.bury')
+   test:is(stats.calls.put, 5, 'calls.put')
+   test:is(stats.calls.release, 1, 'calls.release')
+end)
 
 
 test:test('put/take/peek', function(test)

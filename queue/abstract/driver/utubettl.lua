@@ -96,8 +96,8 @@ function tube.new(space, on_task_change, opts)
 end
 
 
-local function process_neighbour(self, task)
-    self:on_task_change(task)
+local function process_neighbour(self, task, operation)
+    self:on_task_change(task, operation)
     if task ~= nil then
         local neighbour = self.space.index.utube:min{state.READY, task[i_utube]}
         if neighbour ~= nil and neighbour[i_status] == state.READY then
@@ -252,7 +252,7 @@ function method.delete(self, id)
     local task = self.space:delete(id)
     if task ~= nil then
         task = task:transform(i_status, 1, state.DONE)
-        return process_neighbour(self, task)
+        return process_neighbour(self, task, 'delete')
     end
     self:on_task_change(task, 'delete')
 end
@@ -270,7 +270,7 @@ function method.release(self, id, opts)
             { '+', i_ttl, opts.delay }
         })
         if task ~= nil then
-            return process_neighbour(self, task)
+            return process_neighbour(self, task, 'release')
         end
     else
         task = self.space:update(id, {
@@ -286,7 +286,9 @@ end
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
     if task ~= nil then
-        return process_neighbour(self, task:transform(i_status, 1, state.BURIED))
+        return process_neighbour(
+            self, task:transform(i_status, 1, state.BURIED), 'bury'
+        )
     end
     self:on_task_change(task, 'bury')
 end

@@ -67,11 +67,19 @@ function tube.ack(self, id)
     if _taken == nil then
         box.error(box.error.PROC_LUA, "Task was not taken in the session")
     end
+    local tube = box.space._queue:get{self.name}
+    local space_name = tube[3]
 
     self:peek(id)
+    -- delete task
     box.space._queue_taken:delete{session.id(), self.tube_id, id}
-    return self.raw:normalize_task(
-        self.raw:delete(id):transform(2, 1, state.DONE))
+    local result = self.raw:normalize_task(
+        self.raw:delete(id):transform(2, 1, state.DONE)
+    )
+    -- swap delete and ack call counters
+    queue.stat[space_name]:inc('ack')
+    queue.stat[space_name]:dec('delete')
+    return result
 end
 
 function tube.release(self, id, opts)
@@ -197,6 +205,9 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         end
         if stats_data ~= nil then
             queue.stat[space.name]:inc(stats_data)
+        end
+        if stats_data == 'delete' then
+            queue.stat[space.name]:inc('done')
         end
     end
 
@@ -370,7 +381,7 @@ local function build_stats(space)
 
     -- add api calls stats
     for name, value in pairs(st) do
-        if type(value) ~= 'function' then
+        if type(value) ~= 'function' and name ~= 'done' then
             stats['calls'][tostring(name)] = value
         end
     end
@@ -383,6 +394,7 @@ local function build_stats(space)
         local state = human_states[s]
         stats['tasks'][state] = box.space[space].index[idx_tube]:count(s)
     end
+    stats['tasks']['done'] = st.done
 
     return stats
 end
@@ -405,6 +417,10 @@ setmetatable(queue.stat, {
             local spt = {
                 inc = function(t, cnt)
                     t[cnt] = t[cnt] + 1
+                    return t[cnt]
+                end,
+                dec = function(t, cnt)
+                    t[cnt] = t[cnt] - 1
                     return t[cnt]
                 end
             }
