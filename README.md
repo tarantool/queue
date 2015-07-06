@@ -105,20 +105,20 @@ Waiting consumers can pile up when there are no taks.
 ## Each task is represented as a tuple with 3 fields:
 
 1. task id - numeric
-1. task status  - new, in progress, etc
-1. task data (JSON)
+2. task state  - `READY`, `TAKEN`, etc
+3. task data
 
 Queues with ttl, priority or delay support, obviously,
 store additional task fields.
 
-Task status is one of the following (different queues support use  different
-sets of status values, so this is a superset):
+Task state is one of the following (different queues support different
+sets of state values, so this is a superset):
 
 * `r` - the task is ready for execution (the first `consumer` executing
 `take` will get it)
 * `t` - the task has been taken by a consumer
 * `-` - the task is executed (a task is pruned from the queue when it's
-  executed, so this status may be hard to see)
+  executed, so this state may be hard to see)
 * `!` - the task is buried (disabled temporarily until further changes)
 * `~` - the task is delayed for some time
 
@@ -128,7 +128,7 @@ simple integers for `fifo` и `fifottl` queues.
 ## Using a queue module
 
 ```lua
-    local queue = require 'queue'
+local queue = require 'queue'
 ```
 
 When invoking `require`, a supporting space `_queue` is created (unless
@@ -137,8 +137,8 @@ etc.
 
 ## Creating a new queue
 
-```
-    queue.create_tube(name, type, { ... })
+```lua
+queue.create_tube(name, type, { ... })
 ```
 
 Creates a queue.
@@ -223,9 +223,7 @@ again.
 To look at a task without changing its state, use:
 
 ```lua
-
 local task = queue.tube.tube_name:peek(task_id)
-
 ```
 
 If a worker suddenly realized that a task is somehow poisoned, can
@@ -233,25 +231,19 @@ not be executed in the current circumstances, it can **bury** it,
 in other words, disable it until its restored again:
 
 ```lua
-
 queue.tube.tube_name:bury(task_id)
-
 ```
 
 To reset back to `READY` a bunch of buried task one can use `kick`:
 
 ```lua
-
 queue.tube.tube_name:kick(count)
-
 ```
 
 A task (in any state) can be deleted permanently with `delete`:
 
 ```lua
-
 queue.tube.tube_name:delete(task_id)
-
 ```
 
 
@@ -259,12 +251,11 @@ The entire queue can be dropped (if there are no in-progress tasks or
 workers) with `drop`:
 
 ```lua
-
 queue.tube.tube_name:drop()
-
 ```
 
 It's possible to get queue statistics with `statistics` function.
+
 ```lua
 queue.statistics()
 ---
@@ -289,9 +280,10 @@ queue.statistics()
     calls:
       put: 2
       take: 1
-
 ```
+
 Get statistics for given tube:
+
 ```lua
 queue.statistics('foo')
 ---
@@ -306,7 +298,6 @@ queue.statistics('foo')
     put: 2
     take: 1
 ...
-
 ```
 
 # Implementation details
