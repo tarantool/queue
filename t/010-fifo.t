@@ -37,7 +37,7 @@ test:test('Fifo statistics', function(test)
     tube2:kick(1)
     tube2:take(.001)
 
-   stats = queue.statistics('test_stat')
+   local stats = queue.statistics('test_stat')
 
    -- check tasks statistics
    test:is(stats.tasks.taken, 1, 'tasks.taken')
@@ -84,17 +84,17 @@ test:test('fifo', function(test)
         test:ok(task1, 'task 1 was taken')
         test:is(task1[2], 't', 'task1 status')
         test:is(task1[3], 'first', 'task1.data')
-        
+
         local task2 = tube:take()
         test:ok(task2, 'task 2 was taken')
         test:is(task2[2], 't', 'task2 status')
         test:is(task2[3], 2, 'task2.data')
-        
+
         local task3 = tube:take()
         test:ok(task3, 'task 3 was taken')
         test:is(task3[2], 't', 'task3 status')
         test:is(task3[3], 'third', 'task3.data')
-        
+
         local task4 = tube:take()
         test:ok(task4, 'task 4 was taken')
         test:is(task4[2], 't', 'task4 status')
@@ -126,15 +126,15 @@ test:test('fifo', function(test)
         test:ok(task1, 'task 1 was taken')
         test:is(task1[2], 't', 'task1 status')
         test:is(task1[3], 'first', 'task1.data')
-        
+
         local task2 = tube:take()
         test:ok(task2, 'task 2 was taken')
         test:is(task2[2], 't', 'task2 status')
         test:is(task2[3], 2, 'task2.data')
-        
+
 
         test:ok(tube:release(task1[1]), 'task1 was released')
-        
+
         local task1a = tube:take()
         test:ok(task1a, 'task 1 was taken again')
         test:is(task1a[2], 't', 'task1 status')
@@ -144,13 +144,13 @@ test:test('fifo', function(test)
         test:ok(task3, 'task 3 was taken')
         test:is(task3[2], 't', 'task3 status')
         test:is(task3[3], 'third', 'task3.data')
-        
+
         local task4 = tube:take()
         test:ok(task4, 'task 4 was taken')
         test:is(task4[2], 't', 'task4 status')
         test:is(task4[3], 4, 'task4.data')
     end)
-    
+
     test:test('release timeouts', function(test)
         test:plan(5)
 

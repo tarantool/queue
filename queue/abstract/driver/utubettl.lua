@@ -59,8 +59,8 @@ function tube.create_space(space_name, opts)
         { type = 'tree',
             parts = { i_status, 'str', i_pri, 'num', i_id, 'num' }})
     space:create_index('watch',
-        { type = 'tree', parts = { i_status, 'str', i_next_event, 'num' }})
-
+        { type = 'tree', parts = { i_status, 'str', i_next_event, 'num' },
+            unique = false})
     space:create_index('utube',
         { type = 'tree',
             parts = { i_status, 'str', i_utube, 'str', i_id, 'num' }})

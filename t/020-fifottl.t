@@ -36,7 +36,7 @@ test:test('Fifottl statistics', function(test)
     tube2:kick(1)
     tube2:take(.001)
 
-   stats = queue.statistics('test_stat')
+   local stats = queue.statistics('test_stat')
 
    -- check tasks statistics
    test:is(stats.tasks.taken, 1, 'tasks.taken')
@@ -64,7 +64,7 @@ test:test('put/take/peek', function(test)
 
     test:ok(task, "task was put")
     test:is(task[2], state.READY, "task.state")
-    
+
     local peek = tube:peek(task[1])
     test:is_deeply(task[1], peek[1], "put and peek tasks are the same")
     test:is_deeply(task[2], peek[2], "put and peek tasks are the same")
@@ -75,7 +75,7 @@ test:test('put/take/peek', function(test)
 
     test:is(task[1], taken[1], 'task.id')
     test:is(taken[2], state.TAKEN, 'task.status')
-    
+
     local ack = tube:ack(taken[1])
     test:ok(ack, 'task was acked')
 
