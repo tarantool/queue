@@ -33,6 +33,11 @@ local function event_time(timeout)
     return 0ULL + ((fiber.time() + timeout) * 1000000)
 end
 
+local function is_expired(task)
+    local dead_event = task[i_created] + task[i_ttl]
+    return (dead_event <= fiber.time())
+end
+
 -- create space
 function tube.create_space(space_name, opts)
     if opts.ttl == nil then
@@ -232,16 +237,17 @@ function method.take(self)
     for s, t in self.space.index.status:pairs(state.READY, {iterator = 'GE'}) do
         if t[2] ~= state.READY then
             break
-        end
-        local next_event = time() + t[i_ttr]
-        local taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
-        if taken == nil or taken[i_status] ~= state.TAKEN then
-            t = self.space:update(t[1], { 
-                { '=', i_status, state.TAKEN },
-                { '=', i_next_event, next_event }
-            })
-            self:on_task_change(t, 'take')
-            return t
+        elseif not is_expired(t) then
+            local next_event = time() + t[i_ttr]
+            local taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
+            if taken == nil or taken[i_status] ~= state.TAKEN then
+                t = self.space:update(t[1], {
+                    { '=', i_status, state.TAKEN },
+                    { '=', i_next_event, next_event }
+                })
+                self:on_task_change(t, 'take')
+                return t
+            end
         end
     end
 end
@@ -314,6 +320,5 @@ end
 function method.peek(self, id)
     return self.space:get{id}
 end
-
 
 return tube

@@ -32,6 +32,11 @@ local function event_time(timeout)
     return 0ULL + ((fiber.time() + timeout) * 1000000)
 end
 
+local function is_expired(task)
+    local dead_event = task[i_created] + task[i_ttl]
+    return (dead_event <= fiber.time())
+end
+
 -- create space
 function tube.create_space(space_name, opts)
     if opts.ttl == nil then
@@ -211,9 +216,18 @@ end
 
 -- take task
 function method.take(self)
-    local task = self.space.index.status:min{state.READY}
-    if task == nil or task[i_status] ~= state.READY then
-        return
+    local offset = 0
+    local task = nil
+    while true do
+        task = self.space.index.status:select({state.READY},
+                {offset=offset, limit=1, iterator='GE'})[1]
+        if task == nil or task[i_status] ~= state.READY then
+            return
+        elseif is_expired(task) then
+            offset = offset + 1
+        else
+            break;
+        end
     end
 
     local next_event = time() + task[i_ttr]
