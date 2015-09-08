@@ -1,4 +1,4 @@
-all: init fifo fifottl utube utubettl
+all: init fifo fifottl utube utubettl ttl
 
 tarantool = tarantool
 
@@ -12,5 +12,7 @@ utube:
 	$(tarantool) t/030-utube.t
 utubettl:
 	$(tarantool) t/040-utubettl.t
+ttl:
+	$(tarantool) t/050-ttl.t
 help:
-	@echo "Only tests are avalable [ init | fifo | fifottl | utube | utubettl ]"
+	@echo "Only tests are avalable [ init | fifo | fifottl | utube | utubettl | ttl ]"

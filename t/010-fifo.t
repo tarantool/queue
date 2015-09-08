@@ -8,6 +8,8 @@ local state = require 'queue.abstract.state'
 local yaml = require 'yaml'
 test:plan(12)
 
+tnt.cfg{}
+
 test:ok(rawget(box, 'space'), 'box started')
 
 local queue = require 'queue.abstract'

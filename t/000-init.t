@@ -21,6 +21,7 @@ local tnt  = require 't.tnt'
 local state = require 'queue.abstract.state'
 local yaml = require 'yaml'
 
+tnt.cfg{}
 
 test:test('access to queue after box.cfg{}', function(test)
     test:plan(9)

@@ -7,6 +7,7 @@ local test = (require 'tap').test()
 local tnt  = require 't.tnt'
 local state = require 'queue.abstract.state'
 test:plan(10)
+tnt.cfg{}
 
 local queue = require 'queue.abstract'
 test:ok(queue.start(), 'queue.start()')

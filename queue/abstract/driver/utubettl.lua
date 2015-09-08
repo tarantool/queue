@@ -35,7 +35,7 @@ end
 
 local function is_expired(task)
     local dead_event = task[i_created] + task[i_ttl]
-    return (dead_event <= fiber.time())
+    return (dead_event <= fiber.time64())
 end
 
 -- create space
