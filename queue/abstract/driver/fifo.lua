@@ -1,7 +1,7 @@
 local state = require 'queue.abstract.state'
+
 local tube = {}
 local method = {}
-
 
 -- create space
 function tube.create_space(space_name, opts)
@@ -16,42 +16,29 @@ function tube.create_space(space_name, opts)
     return space
 end
 
-
-
 -- start tube on space
 function tube.new(space, on_task_change)
-    if on_task_change == nil then
-        on_task_change = function() end
-    end
-    local self = {
-        space       = space,
+    on_task_change = on_task_change or (function() end)
+    local self = setmetatable({
+        space          = space,
         on_task_change = on_task_change,
-    }
-    setmetatable(self, { __index = method })
+    }, { __index = method })
     return self
 end
 
-
 -- normalize task: cleanup all internal fields
 function method.normalize_task(self, task)
-    if task ~= nil then
-        return task
-    end
+    return task
 end
-
 
 -- put task in space
 function method.put(self, data, opts)
     local max = self.space.index.task_id:max()
-    local id = 0
-    if max ~= nil then
-        id = max[1] + 1
-    end
+    local id = max and max[1] + 1 or 0
     local task = self.space:insert{id, state.READY, data}
     self.on_task_change(task, 'put')
     return task
 end
-
 
 -- take task
 function method.take(self)
@@ -110,6 +97,5 @@ end
 function method.peek(self, id)
     return self.space:get{id}
 end
-
 
 return tube

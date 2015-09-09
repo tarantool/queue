@@ -200,7 +200,6 @@ test:test('release[delay] in utube', function(test)
     test:is(state, 2, 'state was changed')
 end)
 
-
 tnt.finish()
 test:check()
 os.exit()

@@ -71,7 +71,7 @@ test:test('put/take/peek', function(test)
     test:is_deeply(task[2], peek[2], "put and peek tasks are the same")
     test:is_deeply(task[3], peek[3], "put and peek tasks are the same")
 
-    local taken = tube:take{ timeout =  .1 }
+    local taken = tube:take( .1 )
     test:ok(taken, 'task was taken')
 
     test:is(task[1], taken[1], 'task.id')

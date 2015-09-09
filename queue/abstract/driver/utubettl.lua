@@ -1,12 +1,11 @@
+local log   = require 'log'
+local fiber = require 'fiber'
 local state = require 'queue.abstract.state'
+
 local tube = {}
 local method = {}
-local log = require 'log'
-local json = require 'json'
-local fiber = require 'fiber'
 
 local TIMEOUT_INFINITY  = 365 * 86400 * 500
-
 
 local i_id              = 1
 local i_status          = 2
@@ -18,19 +17,16 @@ local i_created         = 7
 local i_utube           = 8
 local i_data            = 9
 
-
 local function time(tm)
-    if tm == nil then
-        tm = fiber.time()
-    end
-    return 0ULL + (tm * 1000000)
+    tm = tm and tm * 1000000 or fiber.time64()
+    return 0ULL + tm
 end
 
 local function event_time(timeout)
     if timeout == nil then
         box.error(box.error.PROC_LUA, debug.traceback())
     end
-    return 0ULL + ((fiber.time() + timeout) * 1000000)
+    return fiber.time64() + time(timeout)
 end
 
 local function is_expired(task)
@@ -40,17 +36,9 @@ end
 
 -- create space
 function tube.create_space(space_name, opts)
-    if opts.ttl == nil then
-        opts.ttl = TIMEOUT_INFINITY
-    end
-
-    if opts.ttr == nil then
-        opts.ttr = opts.ttl
-    end
-
-    if opts.pri == nil then
-        opts.pri = 0
-    end
+    opts.ttl = opts.ttl or TIMEOUT_INFINITY
+    opts.ttr = opts.ttr or opts.ttl
+    opts.pri = opts.pri or 0
 
     local space_opts = {}
     space_opts.temporary = opts.temporary
@@ -72,13 +60,10 @@ function tube.create_space(space_name, opts)
     return space
 end
 
-
 -- start tube on space
 function tube.new(space, on_task_change, opts)
-    if on_task_change == nil then
-        on_task_change = function() end
-    end
-    local self = {
+    on_task_change = on_task_change or (function() end)
+    local self = setmetatable({
         space           = space,
         on_task_change  = function(self, task, stat_data)
             -- wakeup fiber
@@ -92,14 +77,12 @@ function tube.new(space, on_task_change, opts)
             on_task_change(task, stat_data)
         end,
         opts            = opts,
-    }
-    setmetatable(self, { __index = method })
+    }, { __index = method})
 
     self.fiber = fiber.create(self._fiber, self)
 
     return self
 end
-
 
 local function process_neighbour(self, task, operation)
     self:on_task_change(task, operation)
@@ -111,7 +94,6 @@ local function process_neighbour(self, task, operation)
     end
     return task
 end
-
 
 -- watch fiber
 function method._fiber(self)
@@ -150,9 +132,7 @@ function method._fiber(self)
                     estimated = 0
                 else
                     local et = tonumber(task[i_next_event] - now) / 1000000
-                    if et < estimated then
-                        estimated = et
-                    end
+                    estimated = et < estimated and et or estimated
                 end
             end
         end
@@ -169,12 +149,9 @@ function method._fiber(self)
                 estimated = 0
             else
                 local et = tonumber(task[i_next_event] - now) / 1000000
-                if et < estimated then
-                    estimated = et
-                end
+                estimated = et < estimated and et or estimated
             end
         end
-
 
         if estimated > 0 then
             -- free refcounter
@@ -184,21 +161,15 @@ function method._fiber(self)
     end
 end
 
-
 -- cleanup internal fields in task
 function method.normalize_task(self, task)
-    if task ~= nil then
-        return task:transform(i_next_event, i_data - i_next_event)
-    end
+    return task and task:transform(i_next_event, i_data - i_next_event)
 end
 
 -- put task in space
 function method.put(self, data, opts)
     local max = self.space.index.task_id:max()
-    local id = 0
-    if max ~= nil then
-        id = max[i_id] + 1
-    end
+    local id = max and max[i_id] + 1 or 0
 
     local status
     local ttl = opts.ttl or self.opts.ttl
@@ -231,7 +202,6 @@ function method.put(self, data, opts)
     return task
 end
 
-
 -- take task
 function method.take(self)
     for s, t in self.space.index.status:pairs(state.READY, {iterator = 'GE'}) do
@@ -251,7 +221,6 @@ function method.take(self)
         end
     end
 end
-
 
 -- delete task
 function method.delete(self, id)
@@ -281,7 +250,7 @@ function method.release(self, id, opts)
     else
         task = self.space:update(id, {
             { '=', i_status, state.READY },
-            { '=', i_next_event, task[i_created] + task[i_ttl] }
+            { '=', i_next_event, time(task[i_created] + task[i_ttl]) }
         })
     end
     self:on_task_change(task, 'release')

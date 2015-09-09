@@ -6,12 +6,14 @@ local state = require 'queue.abstract.state'
 local TIMEOUT_INFINITY  = 365 * 86400 * 1000
 local json = require 'json'
 
-local function time()
-    return 0ULL + fiber.time() * 1000000
+local function time(tm)
+    log.info('%s', json.encode(tm))
+    tm = tm and tm * 1000000 or fiber.time64()
+    return 0ULL + tm
 end
 
 local function event_time(timeout)
-    return 0ULL + (fiber.time() + timeout) * 1000000
+    return fiber.time64() + time(timeout)
 end
 
 -- load all drivers
@@ -26,30 +28,26 @@ queue.driver = {
 local tube = {}
 
 function tube.put(self, data, opts)
-    if opts == nil then
-        opts = {}
-    end
+    opts = opts or {}
     local task = self.raw:put(data, opts)
     return self.raw:normalize_task(task)
 end
 
 function tube.take(self, timeout)
-    if timeout == nil then
-        timeout = TIMEOUT_INFINITY
-    end
+    timeout = time(timeout or TIMEOUT_INFINITY)
     local task = self.raw:take()
     if task ~= nil then
         return self.raw:normalize_task(task)
     end
 
     while timeout > 0 do
-        local started = fiber.time()
+        local started = fiber.time64()
         local time = event_time(timeout)
         local tube_id = self.tube_id
 
         box.space._queue_consumers:insert{
-                session.id(), fiber.id(), tube_id, time, fiber.time() }
-        fiber.sleep(timeout)
+                session.id(), fiber.id(), tube_id, time, fiber.time64() }
+        fiber.sleep(tonumber(timeout/1000000))
         box.space._queue_consumers:delete{ session.id(), fiber.id() }
 
         task = self.raw:take()
@@ -58,7 +56,8 @@ function tube.take(self, timeout)
             return self.raw:normalize_task(task)
         end
 
-        timeout = timeout - (fiber.time() - started)
+        local elapsed = fiber.time64() - started
+        timeout = timeout > elapsed and timeout - elapsed or 0
     end
 end
 
@@ -83,9 +82,7 @@ function tube.ack(self, id)
 end
 
 function tube.release(self, id, opts)
-    if opts == nil then
-        opts = {}
-    end
+    opts = opts or {}
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
         box.error(box.error.PROC_LUA, "Task was not taken in the session")
@@ -117,11 +114,8 @@ function tube.bury(self, id)
     return self.raw:normalize_task(self.raw:bury(id))
 end
 
-
 function tube.kick(self, count)
-    if count == nil then
-        count = 1
-    end
+    count = count or 1
     return self.raw:kick(count)
 end
 
@@ -168,9 +162,7 @@ end
 local method = {}
 
 local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
-    if opts == nil then
-        opts = {}
-    end
+    opts = opts or {}
     local self
 
     -- wakeup consumer if queue have new task
@@ -201,7 +193,7 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         -- task swicthed to taken - registry in taken space
         elseif task[2] == state.TAKEN then
             box.space._queue_taken
-                :insert{session.id(), self.tube_id, task[1], fiber.time()}
+                :insert{session.id(), self.tube_id, task[1], fiber.time64()}
         end
         if stats_data ~= nil then
             queue.stat[space.name]:inc(stats_data)
@@ -223,7 +215,6 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
 
     return self
 end
-
 
 function method._on_consumer_disconnect()
     local waiter, fb, task, tube, id
@@ -264,11 +255,7 @@ end
 -------------------------------------------------------------------------------
 -- create tube
 function method.create_tube(tube_name, tube_type, opts)
-
-    if opts == nil then
-        opts = {}
-    end
-
+    opts = opts or {}
 
     local driver = queue.driver[tube_type]
     if driver == nil then
@@ -296,11 +283,8 @@ function method.create_tube(tube_name, tube_type, opts)
     return make_self(driver, space, tube_name, tube_type, tube_id, opts)
 end
 
-
-
 -- create or join infrastructure
 function method.start()
-
     -- tube_name, tube_id, space_name, tube_type, opts
     local _queue = box.space._queue
     if _queue == nil then
@@ -322,8 +306,8 @@ function method.start()
     end
 
     local _taken = box.space._queue_taken
-        -- session_id, tube_id, task_id, time
     if _taken == nil then
+        -- session_id, tube_id, task_id, time
         _taken = box.schema.create_space('_queue_taken', { temporary = true })
         _taken:create_index('pk',
             { type = 'tree', parts = { 1, 'num', 2, 'num', 3, 'num'}})
@@ -344,7 +328,6 @@ function method.start()
             box.error(box.error.PROC_LUA,
                 "Unknown tube type " .. tostring(tube_type))
         end
-
 
         local space = box.space[tube_space]
         if space == nil then
