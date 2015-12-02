@@ -1,14 +1,36 @@
-language: cpp
-compiler:
-  - gcc
+sudo: required
+services:
+  - docker
 
-before_script:
-  - uname -a
-  - lsb_release -c -s
-  - curl http://tarantool.org/dist/public.key | sudo apt-key add -
-  - echo "deb http://tarantool.org/dist/master/ubuntu/ `lsb_release -c -s` main" | sudo tee -a /etc/apt/sources.list.d/tarantool.list
-  - sudo apt-get update > /dev/null
-  - sudo apt-get -q install tarantool tarantool-dev
+env:
+    global:
+      - OUT_REPO=tarantool/modules
+      - GIT_REPO=https://github.com/$TRAVIS_REPO_SLUG.git
+      - PROJECT=queue
+    matrix:
+      - OS=el DIST=6 PACK=rpm
+      - OS=el DIST=7 PACK=rpm
+      - OS=fedora DIST=20 PACK=rpm
+      - OS=fedora DIST=21 PACK=rpm
+      - OS=fedora DIST=22 PACK=rpm
+      - OS=fedora DIST=23 PACK=rpm
+      - OS=ubuntu DIST=trusty PACK=deb
+      - OS=ubuntu DIST=precise PACK=deb
+      - OS=ubuntu DIST=vivid PACK=deb
+      - OS=debian DIST=jessie PACK=deb
+      - OS=debian DIST=wheezy PACK=deb
+      - OS=debian DIST=stretch PACK=deb
+      - PACK=none
+
+before_install:
+  - git submodule update --init --recursive
+  - sudo apt-get update
+  - gem install package_cloud
 
 script:
-  - make all
+  - git clone https://github.com/tarantool/build.git
+  - bash build/pack/travis.sh
+
+notifications:
+  email: true
+  irc: false
