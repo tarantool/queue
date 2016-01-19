@@ -289,7 +289,8 @@ function method.start()
     local _queue = box.space._queue
     if _queue == nil then
         _queue = box.schema.create_space('_queue')
-        _queue:create_index('tube', { type = 'tree', parts = { 1, 'str' }})
+        _queue:create_index('tube',
+            { type = 'tree', parts = { 1, 'str' }, unique = true})
         _queue:create_index('tube_id',
             { type = 'tree', parts = { 2, 'num' }, unique = true })
     end
@@ -300,9 +301,9 @@ function method.start()
         _cons = box.schema
             .create_space('_queue_consumers', { temporary = true })
         _cons:create_index('pk',
-            { type = 'tree', parts = { 1, 'num', 2, 'num' }})
+            { type = 'tree', parts = { 1, 'num', 2, 'num' }, unique = true })
         _cons:create_index('consumer',
-            { type = 'tree', parts = { 3, 'num', 4, 'num' }})
+            { type = 'tree', parts = { 3, 'num', 4, 'num' }, unique = false})
     end
 
     local _taken = box.space._queue_taken
@@ -310,10 +311,10 @@ function method.start()
         -- session_id, tube_id, task_id, time
         _taken = box.schema.create_space('_queue_taken', { temporary = true })
         _taken:create_index('pk',
-            { type = 'tree', parts = { 1, 'num', 2, 'num', 3, 'num'}})
+            { type = 'tree', parts = { 1, 'num', 2, 'num', 3, 'num'}, unique = true})
 
         _taken:create_index('task',
-            { type = 'tree', parts = { 2, 'num', 3, 'num' } })
+            { type = 'tree', parts = { 2, 'num', 3, 'num' }, unique = true })
     end
 
     for _, tube_rc in _queue:pairs() do
