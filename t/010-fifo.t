@@ -229,7 +229,7 @@ test:test('tempspace', function(test)
     tube = queue.create_tube('test1', 'fifo', { temporary = true })
     test:ok(tube, 'tube was created')
     local space_r = box.space._space:get{queue.tube.test1.raw.space.id}
-    test:ok(string.match(space_r[6], 'temporary') ~= nil, 'really tempspace')
+    test:ok(space_r[6].temporary, 'really tempspace')
 end)
 
 test:test('disconnect test', function(test)
@@ -257,4 +257,4 @@ end)
 
 tnt.finish()
 test:check()
-os.exit()
+os.exit(0)

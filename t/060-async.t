@@ -57,5 +57,4 @@ end)
 
 tnt.finish()
 test:check()
-os.exit()
-
+os.exit(0)

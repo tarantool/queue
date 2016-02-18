@@ -178,4 +178,3 @@ end)
 test:check()
 tnt.finish()
 os.exit(0)
-
