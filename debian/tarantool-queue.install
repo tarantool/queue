@@ -1,0 +1,3 @@
+queue/*.lua usr/share/tarantool/queue/
+queue/abstract/*.lua usr/share/tarantool/queue/abstract/
+queue/abstract/driver/*.lua usr/share/tarantool/queue/abstract/driver/

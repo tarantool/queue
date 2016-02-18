@@ -1,0 +1,5 @@
+tarantool-queue/
+files
+stamp-*
+*.substvars
+*.log

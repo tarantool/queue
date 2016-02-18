@@ -1,0 +1,18 @@
+Source: tarantool-queue
+Priority: optional
+Section: database
+Maintainer: Roman Tsisyk <roman@tarantool.org>
+Build-Depends: debhelper (>= 9),
+               tarantool (>= 1.6.8.0),
+# For /usr/bin/prove
+               perl (>= 5.10.0)
+Standards-Version: 3.9.6
+Homepage: https://github.com/tarantool/queue
+Vcs-Git: git://github.com/tarantool/queue.git
+Vcs-Browser: https://github.com/tarantool/queue
+
+Package: tarantool-queue
+Architecture: all
+Depends: tarantool (>= 1.6.8.0), ${misc:Depends}
+Description: Persistent in-memory queues for Tarantool
+ A collection of persistent queue implementations for Tarantool.
