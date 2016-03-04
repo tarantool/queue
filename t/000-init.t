@@ -1,9 +1,8 @@
 #!/usr/bin/env tarantool
--- vim: set ft=lua :
-
-
 local queue = require 'queue'
 local fiber = require 'fiber'
+local yaml = require 'yaml'
+
 local test = (require 'tap').test()
 test:plan(2)
 
@@ -16,11 +15,9 @@ test:test('access to queue until box.cfg is started', function(test)
     test:ok(string.match(e, 'Please run box.cfg') ~= nil, 'Exception text')
 end)
 
+local state = require 'queue.abstract.state'
 
 local tnt  = require 't.tnt'
-local state = require 'queue.abstract.state'
-local yaml = require 'yaml'
-
 tnt.cfg{}
 
 test:test('access to queue after box.cfg{}', function(test)
@@ -42,8 +39,6 @@ test:test('access to queue after box.cfg{}', function(test)
     test:isnil(queue.tube.test, 'tube is really removed')
 end)
 
-
-
 tnt.finish()
-test:check()
-os.exit(0)
+os.exit(test:check() == true and 0 or -1)
+-- vim: set ft=lua :

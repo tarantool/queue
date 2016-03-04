@@ -1,12 +1,11 @@
 #!/usr/bin/env tarantool
-
--- vim: set ft=lua :
-
 local fiber = require 'fiber'
-local test = (require 'tap').test()
-local tnt  = require 't.tnt'
+
 local state = require 'queue.abstract.state'
+local test = (require 'tap').test()
 test:plan(10)
+
+local tnt  = require 't.tnt'
 tnt.cfg{}
 
 local queue = require 'queue.abstract'
@@ -175,6 +174,6 @@ test:test('bury/peek/kick', function(test)
     fiber.sleep(0.1)
 end)
 
-test:check()
 tnt.finish()
-os.exit(0)
+os.exit(test:check() == true and 0 or -1)
+-- vim: set ft=lua :

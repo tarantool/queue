@@ -1,6 +1,4 @@
 #!/usr/bin/env tarantool
--- vim: set ft=lua :
-
 local fiber = require('fiber')
 
 local test  = require('tap').test()
@@ -10,6 +8,7 @@ local tnt  = require 't.tnt'
 tnt.cfg{
     wal_mode = 'none'
 }
+
 local ttl = 0.1
 
 local queue = require('queue')
@@ -58,5 +57,5 @@ test:test('many messages, one queue utttl', function (test)
 end)
 
 tnt.finish()
-test:check()
-os.exit(0)
+os.exit(test:check() == true and 0 or -1)
+-- vim: set ft=lua :
