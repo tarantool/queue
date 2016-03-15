@@ -22,7 +22,7 @@ build = {
         ['queue.abstract.driver.utubettl'] = 'queue/abstract/driver/utubettl.lua',
         ['queue.abstract.driver.fifo']     = 'queue/abstract/driver/fifo.lua',
         ['queue.abstract.driver.utube']    = 'queue/abstract/driver/utube.lua',
-        ['queue']                          = 'queue.lua'
+        ['queue']                          = 'queue/init.lua'
     }
 }
 
