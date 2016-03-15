@@ -1,5 +1,11 @@
+<a href="http://tarantool.org">
+  <img src="https://avatars2.githubusercontent.com/u/2344919?v=2&s=250" align="right">
+</a>
+<a href="https://travis-ci.org/tarantool/queue">
+  <img src="https://travis-ci.org/tarantool/queue.png?branch=master" align="right">
+</a>
+
 # A collection of persistent queue implementations for Tarantool 1.6
-[![Build Status](https://travis-ci.org/tarantool/queue.svg?branch=master)](https://travis-ci.org/tarantool/queue)
 ## `fifo` - a simple queue
 
 Features:
