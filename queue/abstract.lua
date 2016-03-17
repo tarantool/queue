@@ -7,7 +7,6 @@ local TIMEOUT_INFINITY  = 365 * 86400 * 1000
 local json = require 'json'
 
 local function time(tm)
-    log.info('%s', json.encode(tm))
     tm = tm and tm * 1000000 or fiber.time64()
     return 0ULL + tm
 end
