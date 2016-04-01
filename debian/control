@@ -3,7 +3,7 @@ Priority: optional
 Section: database
 Maintainer: Roman Tsisyk <roman@tarantool.org>
 Build-Depends: debhelper (>= 9),
-               tarantool (>= 1.6.8.0),
+               tarantool-dev (>= 1.6.8.0),
 # For /usr/bin/prove
                perl (>= 5.10.0)
 Standards-Version: 3.9.6
