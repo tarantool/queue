@@ -22,6 +22,7 @@ if rawget(box, 'space') == nil then
     end
 else
     queue = require 'queue.abstract'
+    queue.start()
 end
 
 return queue

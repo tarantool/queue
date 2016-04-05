@@ -17,7 +17,7 @@ A collection of persistent queue implementations for Tarantool.
 %setup -q -n %{name}-%{version}
 
 %check
-make test
+make check
 
 %define luapkgdir %{_datadir}/tarantool/queue/
 %install

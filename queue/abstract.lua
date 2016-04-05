@@ -356,9 +356,7 @@ local function build_stats(space)
     end
 
     local st = rawget(queue.stat, space)
-    if st == nil then
-        return
-    end
+    st = st or {}
 
     local stats = {tasks={}, calls={}}
 
@@ -388,8 +386,9 @@ queue.statistics = function(space)
     end
 
     local stats = {}
-    for space, spt in pairs(queue.stat) do
-        stats[space] = build_stats(space)
+    for _, tube_rc in box.space._queue:pairs() do
+        local tube_name = tube_rc[1]
+        stats[tube_name] = build_stats(tube_name)
     end
 
     return stats

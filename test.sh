@@ -3,4 +3,4 @@ echo "deb http://tarantool.org/dist/1.6/ubuntu/ `lsb_release -c -s` main" | sudo
 sudo apt-get update > /dev/null
 sudo apt-get -q -y install tarantool tarantool-dev
 cmake .
-make test
+make check
