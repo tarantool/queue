@@ -5,13 +5,13 @@ services:
 env:
     global:
       - PRODUCT=tarantool-queue
+
     matrix:
       - PACK=none
       - OS=el DIST=6 PACK=rpm
       - OS=el DIST=7 PACK=rpm
       - OS=fedora DIST=22 PACK=rpm
       - OS=fedora DIST=23 PACK=rpm
-#      - OS=fedora DIST=rawhide PACK=rpm
       - OS=ubuntu DIST=precise PACK=deb
       - OS=ubuntu DIST=trusty PACK=deb
       - OS=ubuntu DIST=wily PACK=deb
@@ -19,7 +19,20 @@ env:
       - OS=debian DIST=wheezy PACK=deb
       - OS=debian DIST=jessie PACK=deb
       - OS=debian DIST=stretch PACK=deb
-#      - OS=debian DIST=sid PACK=deb
+
+matrix:
+    allow_failures:
+      - env: OS=el DIST=6 PACK=rpm
+      - env: OS=el DIST=7 PACK=rpm
+      - env: OS=fedora DIST=22 PACK=rpm
+      - env: OS=fedora DIST=23 PACK=rpm
+      - env: OS=ubuntu DIST=precise PACK=deb
+      - env: OS=ubuntu DIST=trusty PACK=deb
+      - env: OS=ubuntu DIST=wily PACK=deb
+      - env: OS=ubuntu DIST=xenial PACK=deb
+      - env: OS=debian DIST=jessie PACK=deb
+      - env: OS=debian DIST=wheezy PACK=deb
+      - env: OS=debian DIST=stretch PACK=deb
 
 script:
   - git clone https://github.com/tarantool/build.git
