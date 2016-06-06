@@ -274,7 +274,13 @@ queue.statistics()
       done: 0
       delayed: 0
     calls:
+      ack: 0
+      bury: 0
+      delete: 0
+      kick: 0
       put: 1
+      release: 0
+      take: 0
   bar:
     tasks:
       total: 2
@@ -284,7 +290,12 @@ queue.statistics()
       done: 0
       delayed: 0
     calls:
+      ack: 0
+      bury: 0
+      delete: 0
+      kick: 0
       put: 2
+      release: 0
       take: 1
 ```
 
@@ -301,7 +312,12 @@ queue.statistics('foo')
     done: 0
     delayed: 0
   calls:
+    ack: 0
+    bury: 0
+    delete: 0
+    kick: 0
     put: 2
+    release: 0
     take: 1
 ...
 ```

@@ -351,14 +351,17 @@ human_states[state.DONE]       = 'done'
 local idx_tube = 1
 
 local function build_stats(space)
-    if space == nil then
-        return
-    end
+    local stats = {tasks={}, calls={
+        ack = 0,
+        bury = 0,
+        delete = 0,
+        kick = 0,
+        put = 0,
+        release = 0,
+        take = 0
+    }}
 
-    local st = rawget(queue.stat, space)
-    st = st or {}
-
-    local stats = {tasks={}, calls={}}
+    local st = rawget(queue.stat, space) or {}
 
     -- add api calls stats
     for name, value in pairs(st) do
@@ -375,7 +378,7 @@ local function build_stats(space)
         local state = human_states[s]
         stats['tasks'][state] = box.space[space].index[idx_tube]:count(s)
     end
-    stats['tasks']['done'] = st.done
+    stats['tasks']['done'] = st.done or 0
 
     return stats
 end
