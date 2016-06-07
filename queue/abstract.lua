@@ -4,7 +4,6 @@ local session = box.session
 local queue = { tube = {}, stat = {} }
 local state = require 'queue.abstract.state'
 local TIMEOUT_INFINITY  = 365 * 86400 * 1000
-local json = require 'json'
 
 local function time(tm)
     tm = tm and tm * 1000000 or fiber.time64()
@@ -341,17 +340,8 @@ function method.start()
     return queue
 end
 
-local human_states = {}
-human_states[state.READY]      = 'ready'
-human_states[state.DELAYED]    = 'delayed'
-human_states[state.TAKEN]      = 'taken'
-human_states[state.BURIED]     = 'buried'
-human_states[state.DONE]       = 'done'
-
-local idx_tube = 1
-
 local function build_stats(space)
-    local stats = {tasks={}, calls={
+    local stats = {tasks = {}, calls = {
         ack = 0,
         bury = 0,
         delete = 0,
@@ -362,11 +352,12 @@ local function build_stats(space)
     }}
 
     local st = rawget(queue.stat, space) or {}
+    local idx_tube = 1
 
     -- add api calls stats
     for name, value in pairs(st) do
         if type(value) ~= 'function' and name ~= 'done' then
-            stats['calls'][tostring(name)] = value
+            stats['calls'][name] = value
         end
     end
 
@@ -375,8 +366,7 @@ local function build_stats(space)
 
     -- add tasks by state count
     for i, s in pairs(state) do
-        local state = human_states[s]
-        stats['tasks'][state] = box.space[space].index[idx_tube]:count(s)
+        stats['tasks'][i:lower()] = box.space[space].index[idx_tube]:count(s)
     end
     stats['tasks']['done'] = st.done or 0
 
