@@ -23,7 +23,7 @@ end
 
 local function event_time(timeout)
     if timeout == nil then
-        box.error(box.error.PROC_LUA, debug.traceback())
+        error(debug.traceback())
     end
     return 0ULL + ((fiber.time() + timeout) * 1000000)
 end

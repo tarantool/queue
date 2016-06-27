@@ -1,18 +1,17 @@
 #!/usr/bin/env tarantool
-local fiber = require 'fiber'
-local yaml = require 'yaml'
+local yaml  = require('yaml')
+local fiber = require('fiber')
 
-local state = require 'queue.abstract.state'
-local test = (require 'tap').test()
+local test = require('tap').test()
 test:plan(12)
 
-local tnt  = require 't.tnt'
+local queue = require('queue')
+local state = require('queue.abstract.state')
+
+local tnt = require('t.tnt')
 tnt.cfg{}
 
 test:ok(rawget(box, 'space'), 'box started')
-
-local queue = require 'queue.abstract'
-test:ok(queue.start(), 'queue.start()')
 test:ok(queue, 'queue is loaded')
 
 local tube = queue.create_tube('test', 'fifo')
@@ -220,7 +219,7 @@ test:test('creating existing tube', function(test)
     test:plan(2)
     local s, e = pcall(function() queue.create_tube('test', 'fifo') end)
     test:ok(not s, 'exception was thrown')
-    test:is(e, 'Space test already exists', 'text of exception')
+    test:ok(e:match("Space 'test' already exists") ~= nil, 'text of exception')
 end)
 
 test:test('tempspace', function(test)
@@ -251,6 +250,12 @@ test:test('disconnect test', function(test)
     test:is(tube:peek(task1[1])[2], state.READY, 'task1 was marked as READY')
     test:is(tube:peek(task2[1])[2], state.READY, 'task2 was marked as READY')
     test:is(tube:peek(task3[1])[2], state.READY, 'task3 was marked as READY')
+end)
+
+test:test('if not exists tests', function(test)
+    test:plan(1)
+    local tube_dup = queue.create_tube('test1', 'fifo', { if_not_exists = true })
+    test:is(tube_dup, tube, '')
 end)
 
 tnt.finish()

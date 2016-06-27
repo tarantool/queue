@@ -1,5 +1,5 @@
 local function index_unconfigured()
-    box.error(box.error.PROC_LUA, "Please run box.cfg{} first")
+    error("Please run box.cfg{} first")
 end
 
 local queue = {}

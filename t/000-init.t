@@ -1,10 +1,11 @@
 #!/usr/bin/env tarantool
-local queue = require 'queue'
-local fiber = require 'fiber'
-local yaml = require 'yaml'
+local yaml  = require('yaml')
+local fiber = require('fiber')
 
-local test = (require 'tap').test()
+local test = require('tap').test()
 test:plan(2)
+
+local queue = require('queue')
 
 test:test('access to queue until box.cfg is started', function(test)
     test:plan(3)
@@ -15,9 +16,9 @@ test:test('access to queue until box.cfg is started', function(test)
     test:ok(string.match(e, 'Please run box.cfg') ~= nil, 'Exception text')
 end)
 
-local state = require 'queue.abstract.state'
+local state = require('queue.abstract.state')
 
-local tnt  = require 't.tnt'
+local tnt  = require('t.tnt')
 tnt.cfg{}
 
 test:test('access to queue after box.cfg{}', function(test)

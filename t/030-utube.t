@@ -1,18 +1,17 @@
 #!/usr/bin/env tarantool
-local fiber = require 'fiber'
-local yaml = require 'yaml'
+local yaml  = require('yaml')
+local fiber = require('fiber')
 
-local state = require 'queue.abstract.state'
-local test = (require 'tap').test()
-test:plan(11)
+local test = (require('tap')).test()
+test:plan(10)
 
-local tnt  = require 't.tnt'
+local queue = require('queue')
+local state = require('queue.abstract.state')
+
+local tnt  = require('t.tnt')
 tnt.cfg{}
 
 test:ok(rawget(box, 'space'), 'box started')
-
-local queue = require 'queue.abstract'
-test:ok(queue.start(), 'queue.start()')
 test:ok(queue, 'queue is loaded')
 
 local tube = queue.create_tube('test', 'utube')

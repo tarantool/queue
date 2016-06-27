@@ -62,7 +62,7 @@ end
 function tube.ack(self, id)
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
-        box.error(box.error.PROC_LUA, "Task was not taken in the session")
+        error("Task was not taken in the session")
     end
     local tube = box.space._queue:get{self.name}
     local space_name = tube[3]
@@ -83,7 +83,7 @@ function tube.release(self, id, opts)
     opts = opts or {}
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
-        box.error(box.error.PROC_LUA, "Task was not taken in the session")
+        error("Task was not taken in the session")
     end
 
     box.space._queue_taken:delete{session.id(), self.tube_id, id}
@@ -94,8 +94,7 @@ end
 function tube.peek(self, id)
     local task = self.raw:peek(id)
     if task == nil then
-        box.error(box.error.PROC_LUA,
-            string.format("Task %s not found", tostring(id)))
+        error(("Task %s not found"):format(tostring(id)))
     end
     return self.raw:normalize_task(task)
 end
@@ -129,7 +128,7 @@ function tube.drop(self)
 
     local tube = box.space._queue:get{tube_name}
     if tube == nil then
-        box.error(box.error.PROC_LUA, "Tube not found")
+        error("Tube not found")
     end
 
     local tube_id = tube[2]
@@ -137,12 +136,12 @@ function tube.drop(self)
     local cons = box.space._queue_consumers.index.consumer:min{tube_id}
 
     if cons ~= nil and cons[3] == tube_id then
-        box.error(box.error.PROC_LUA, "There are consumers connected the tube")
+        error("There are consumers connected the tube")
     end
 
     local taken = box.space._queue_taken.index.task:min{tube_id}
     if taken ~= nil and taken[2] == tube_id then
-        box.error(box.error.PROC_LUA, "There are taken tasks in the tube")
+        error("There are taken tasks in the tube")
     end
 
     local space_name = tube[3]
@@ -254,18 +253,22 @@ end
 -- create tube
 function method.create_tube(tube_name, tube_type, opts)
     opts = opts or {}
+    if opts.if_not_exists == nil then
+        opts.if_not_exists = false
+    end
+    if opts.if_not_exists == true and queue.tube[tube_name] ~= nil then
+        return queue.tube[tube_name]
+    end
 
     local driver = queue.driver[tube_type]
     if driver == nil then
-        box.error(box.error.PROC_LUA,
-            "Unknown tube type " .. tostring(tube_type))
+        error("Unknown tube type " .. tostring(tube_type))
     end
     -- space name must be equal to tube name
     -- https://github.com/tarantool/queue/issues/9#issuecomment-83019109
     local space_name = tube_name
-    if box.space[space_name] ~= nil then
-        box.error(box.error.PROC_LUA,
-            "Space " .. space_name .. " already exists")
+    if box.space[space_name] ~= nil and opts.if_not_exists == false then
+        error(("Space '%s' already exists"):format(space_name))
     end
 
     -- create tube record
@@ -324,14 +327,12 @@ function method.start()
 
         local driver = queue.driver[tube_type]
         if driver == nil then
-            box.error(box.error.PROC_LUA,
-                "Unknown tube type " .. tostring(tube_type))
+            error("Unknown tube type " .. tostring(tube_type))
         end
 
         local space = box.space[tube_space]
         if space == nil then
-            box.error(box.error.PROC_LUA,
-                "Space " .. tube_space .. " is not exists")
+            error(("Space '%s' is not exists"):format(tube_space))
         end
         make_self(driver, space, tube_name, tube_type, tube_id, tube_opts)
     end

@@ -2,19 +2,18 @@
 local fiber = require('fiber')
 
 local test  = require('tap').test()
-test:plan(6)
+test:plan(5)
 
-local tnt  = require 't.tnt'
+local queue = require('queue')
+
+local tnt = require('t.tnt')
 tnt.cfg{
     wal_mode = 'none'
 }
 
 local ttl = 0.1
 
-local queue = require('queue')
-test:ok(queue.start(), 'queue.start()')
 test:ok(queue, 'queue is loaded')
-
 
 test:test('one message per queue ffttl', function (test)
     test:plan(20)
