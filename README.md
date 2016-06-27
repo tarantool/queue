@@ -381,5 +381,13 @@ If there are no `READY` tasks in the queue, returns nil.
 * `tube:bury(task_id)` - buries a task
 * `tube:kick(count)` - digs out `count` tasks
 * `tube:peek(task_id)` - return task state by ID
+* `tube:truncate()` - delete all tasks from tube
+
+## NOTE on `truncate`
+
+`tube:truncate` method must be called only with the user, that've created this
+tube (have space ownership) OR must be called under `setuid` function for now.
+Read more about setuid functions [here](http://tarantool.org/doc/book/box/authentication.html?highlight=function#functions-and-the-func-space)
+
 
 For Tarantool 1.5 Queue see [stable branch](https://github.com/tarantool/queue/tree/stable/).

@@ -1,9 +1,16 @@
-local fiber = require 'fiber'
-local log = require 'log'
+local log   = require('log')
+local fun   = require('fun')
+local fiber = require('fiber')
+
+local state = require('queue.abstract.state')
+
 local session = box.session
-local queue = { tube = {}, stat = {} }
-local state = require 'queue.abstract.state'
-local TIMEOUT_INFINITY  = 365 * 86400 * 1000
+
+local queue = {
+    tube = {},
+    stat = {}
+}
+local TIMEOUT_INFINITY = 365 * 86400 * 1000
 
 local function time(tm)
     tm = tm and tm * 1000000 or fiber.time64()
@@ -153,6 +160,12 @@ function tube.drop(self)
     -- drop statistics
     queue.stat[tube_name] = nil
     return true
+end
+
+-- truncate tube
+-- (delete everything from tube)
+function tube.truncate(self)
+    self.raw:truncate()
 end
 
 -- methods

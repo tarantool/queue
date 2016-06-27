@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(12)
+test:plan(13)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -256,6 +256,14 @@ test:test('if not exists tests', function(test)
     test:plan(1)
     local tube_dup = queue.create_tube('test1', 'fifo', { if_not_exists = true })
     test:is(tube_dup, tube, '')
+end)
+
+test:test('truncate test', function(test)
+    test:plan(3)
+    local len = tube.raw.space:count()
+    test:ok(len > 0, 'we have something in tube')
+    test:ok(len, tube:truncate(), 'we delete everything from tube')
+    test:is(tube.raw.space:count(), 0, 'nothing in tube after it')
 end)
 
 tnt.finish()

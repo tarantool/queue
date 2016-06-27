@@ -290,4 +290,8 @@ function method.peek(self, id)
     return self.space:get{id}
 end
 
+function method.truncate(self)
+    self.space:truncate()
+end
+
 return tube
