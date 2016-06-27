@@ -388,6 +388,8 @@ queue.statistics = function(space)
     return stats
 end
 
+queue.stats = queue.statistics
+
 setmetatable(queue.stat, {
         __index = function(tbs, space)
             local spt = {
