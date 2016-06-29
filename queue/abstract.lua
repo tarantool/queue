@@ -173,6 +173,8 @@ local method = {}
 
 local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     opts = opts or {}
+
+    local on_task_change_cb = opts.on_task_change or (function() end)
     local self
 
     -- wakeup consumer if queue have new task
@@ -181,6 +183,8 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         if task == nil then
             return
         end
+
+        on_task_change_cb(task, stats_data)
 
         -- if task was taken and become other state
         local taken = box.space._queue_taken.index.task:get{tube_id, task[1]}
@@ -436,5 +440,12 @@ setmetatable(queue.stat, {
     }
 )
 
-setmetatable(queue, { __index = method })
-return queue
+queue.register_driver = function(driver_name, tube_ctr)
+    if type(tube_ctr.create_space) ~= 'function' or
+       type(tube_ctr.new) ~= 'function' then
+        error('tube control methods must contain functions "create_space" and "new"')
+    end
+    queue.driver[driver_name] = tube_ctr
+end
+
+return setmetatable(queue, { __index = method })
