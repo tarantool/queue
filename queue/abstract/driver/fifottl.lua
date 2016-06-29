@@ -88,6 +88,7 @@ function method._fiber(self)
     local estimated
     local ttl_statuses = { state.READY, state.BURIED }
     local now, task
+    local processed = 0
 
     while true do
         estimated = TIMEOUT_INFINITY
@@ -103,6 +104,7 @@ function method._fiber(self)
                 })
                 self:on_task_change(task)
                 estimated = 0
+                processed = processed + 1
             else
                 estimated = tonumber(task[i_next_event] - now) / 1000000
             end
@@ -116,6 +118,7 @@ function method._fiber(self)
                     self.space:delete(task[i_id])
                     self:on_task_change(task:transform(2, 1, state.DONE))
                     estimated = 0
+                    processed = processed + 1
                 else
                     local et = tonumber(task[i_next_event] - now) / 1000000
                     estimated = et < estimated and et or estimated
@@ -133,6 +136,7 @@ function method._fiber(self)
                 })
                 self:on_task_change(task)
                 estimated = 0
+                processed = processed + 1
             else
                 local et = tonumber(task[i_next_event] - now) / 1000000
                 estimated = et < estimated and et or estimated
@@ -140,8 +144,10 @@ function method._fiber(self)
         end
 
 
-        if estimated > 0 then
+        if estimated > 0 or processed > 1000 then
             -- free refcounter
+            estimated = estimated > 0 and estimated or 0
+            processed = 0
             task = nil
             fiber.sleep(estimated)
         end
