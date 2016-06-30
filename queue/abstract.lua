@@ -175,6 +175,12 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     opts = opts or {}
 
     local on_task_change_cb = opts.on_task_change or (function() end)
+    if type(on_task_change_cb) == 'string' then
+        on_task_change_cb = loadstring(on_task_change_cb)
+    end
+    if type(opts.on_task_change) == 'function' then
+        opts.on_task_change = string.dump(opts.on_task_change)
+    end
     local self
 
     -- wakeup consumer if queue have new task
@@ -297,8 +303,9 @@ function method.create_tube(tube_name, tube_type, opts)
 
     -- create tube space
     local space = driver.create_space(space_name, opts)
+    local self = make_self(driver, space, tube_name, tube_type, tube_id, opts)
     box.space._queue:insert{ tube_name, tube_id, space_name, tube_type, opts }
-    return make_self(driver, space, tube_name, tube_type, tube_id, opts)
+    return self
 end
 
 -- create or join infrastructure

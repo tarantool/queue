@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(13)
+test:plan(14)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -264,6 +264,22 @@ test:test('truncate test', function(test)
     test:ok(len > 0, 'we have something in tube')
     test:ok(len, tube:truncate(), 'we delete everything from tube')
     test:is(tube.raw.space:count(), 0, 'nothing in tube after it')
+end)
+
+test:test('on_task_change callback', function(test)
+    test:plan(1)
+    local cnt = 0
+    local function cb(t1, t2)
+        cnt = cnt + 1
+    end
+
+    local tube = queue.create_tube('test2', 'fifo', {
+        on_task_change = cb
+    })
+    tube:put{123}
+    local task = tube:take(0)
+    tube:ack(task[1])
+    test:is(cnt, 3, 'check counter')
 end)
 
 tnt.finish()
