@@ -144,7 +144,7 @@ etc.
 ## Creating a new queue
 
 ```lua
-queue.create_tube(name, type, { ... })
+queue.create_tube(name, type, { <opts> })
 ```
 
 Creates a queue.
@@ -162,6 +162,15 @@ each task in its options can supersede the defaults. The default defaults
 are infinity.
 1. `utube` - a queue of micro-queues, or partitioned queue
 1. `utubettl` - a queue of micro-queues with `ttl`, `ttr` and so on
+
+`opts` may be one of:
+
+* `if_not_exists` (`boolean`) - won't return error, if tube already exists.
+* `on_task_change` (`function`) - callback, that'll be executed on every operation.
+  layout is `function(task, stats_data)`, where `stats_data` is type of operation,
+  and `task` is normalized task data.
+* `temporary` (`boolean`) - will be created space temporary (won't be restored
+  after server restart)
 
 ## Producer API
 
@@ -382,6 +391,8 @@ If there are no `READY` tasks in the queue, returns nil.
 * `tube:kick(count)` - digs out `count` tasks
 * `tube:peek(task_id)` - return task state by ID
 * `tube:truncate()` - delete all tasks from tube
+
+For registering drivers use `queue.register_driver(name, tube_control)` function
 
 ## NOTE on `truncate`
 
