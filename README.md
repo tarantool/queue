@@ -8,6 +8,40 @@ align="right">
 </a>
 
 # A collection of persistent queue implementations for Tarantool 1.6 and 1.7
+
+#Table of Contents
+
+  * [A collection of persistent queue implementations for Tarantool 1\.6 and 1\.7](#a-collection-of-persistent-queue-implementations-for-tarantool-16-and-17)
+  * [Table of Contents](#table-of-contents)
+  * [Queue types](#queue-types)
+    * [fifo \- a simple queue](#fifo---a-simple-queue)
+    * [fifottl \- a simple priority queue with support for task time to live](#fifottl---a-simple-priority-queue-with-support-for-task-time-to-live)
+    * [utube \- a queue with sub\-queues inside](#utube---a-queue-with-sub-queues-inside)
+    * [utubettl \- extension of utube to support ttl](#utubettl---extension-of-utube-to-support-ttl)
+  * [The underlying spaces](#the-underlying-spaces)
+    * [Fields of the \_queue space](#fields-of-the-_queue-space)
+    * [Fields of the \_queue\_consumers space](#fields-of-the-_queue_consumers-space)
+    * [Fields of the \_queue\_taken space](#fields-of-the-_queue_taken-space)
+    * [Fields of the space associated with each queue](#fields-of-the-space-associated-with-each-queue)
+  * [Installing](#installing)
+  * [Using the queue module](#using-the-queue-module)
+    * [Creating a new queue](#creating-a-new-queue)
+    * [Putting a task in a queue](#putting-a-task-in-a-queue)
+    * [Taking a task from the queue ("consuming")](#taking-a-task-from-the-queue-consuming)
+    * [Acknowledging the completion of a task](#acknowledging-the-completion-of-a-task)
+    * [Releasing a task](#releasing-a-task)
+    * [Peeking at a task](#peeking-at-a-task)
+    * [Burying a task](#burying-a-task)
+    * [Kicking a number of tasks](#kicking-a-number-of-tasks)
+    * [Deleting a task](#deleting-a-task)
+    * [Dropping a queue](#dropping-a-queue)
+    * [Getting statistics](#getting-statistics)
+  * [Implementation details](#implementation-details)
+    * [Queue drivers](#queue-drivers)
+    * [Driver API](#driver-api)
+    
+# Queue types
+
 ## `fifo` - a simple queue
 
 Features:
@@ -18,19 +52,52 @@ average, but is less strict: concurrent consumers may complete tasks in
 a different order.
 
 The following options can be specified when creating a `fifo` queue:
-  * `temporary` - boolean - if true, the queue is in-memory only (the 
-contents do not persist on disk)
+  * `temporary` - boolean - if true, the contents do not persist on disk
+(the queue is in-memory only)
+  * `if_not_exists` - boolean - if true, no error will be returned if the tube
+already exists
+  * `on_task_change` - function name - a callback to be executed on every
+operation; the expected function syntax is `function(task, stats_data)`, where
+`stats_data` is the operation type, and `task` is normalized task data
 
 `fifo` queue does not support:
-  * task priorities
-  * task time to live (`ttl`), execute (`ttr`), delayed tasks (`delay` 
-option)
+  * task priorities (`pri`)
+  * task time to live (`ttl`)
+  * task time to execute (`ttr`)
+  * delayed execution (`delay`) 
 
+Example:
+
+```lua
+
+-- add a log record on task completion
+local function otc_cb(task, stats_data)
+    if stats_data == 'delete' then
+        log.info("task %s is done", task[1])
+    end
+end
+
+queue.create_tube('tube_name', 'fifo', {temporary = true, on_task_change = otc_cb})
+queue.tube.tube_name:put('my_task_data_1')
+queue.tube.tube_name:put('my_task_data_2')
+
+```
+
+In the example above, the `otc_cb` function will be called 2 times, on each task
+completion. Values for the callback arguments will be taken from the queue.
 
 ## `fifottl` - a simple priority queue with support for task time to live
 
 The following options can be specified when creating a `fifottl` queue:
-  * `temporary` - if true, the contents of the queue do not persist on disk
+  * `temporary` - boolean - if true, the contents of the queue do not persist
+on disk
+  * `if_not_exists` - boolean - if true, no error will be returned if the tube
+already exists
+  * `on_task_change` - function name - a callback to be executed on every
+operation
+
+The following options can be specified when putting a task in a `fifottl` queue:
+  * `pri` - task priority (`0` is the highest priority and is the default)
   * `ttl` - numeric - time to live for a task put into the queue, in 
 seconds. if `ttl` is not specified, it is set to infinity
     (if a task exists in a queue for longer than ttl seconds, it is removed)
@@ -38,17 +105,13 @@ seconds. if `ttl` is not specified, it is set to infinity
 seconds; if `ttr` is not specified, it is set to the same as `ttl`
     (if a task is being worked on for more than `ttr` seconds, its status 
 is changed to 'ready' so another worker may take it)
-  * `pri` - task priority (`0` is the highest priority and is the default)
-
-The following options can be specified when putting a task in a 
-`fifottl` queue:
-`ttl`, `ttr`, `pri`, and `delay`
+  * `delay` - time to wait before starting to execute the task, in seconds
 
 Example:
 
 ```lua
 
-queue.create('tube_name', {temporary = true})
+queue.create_tube('tube_name', 'fifottl', {temporary = true})
 queue.tube.tube_name:put('my_task_data', { ttl = 60.1, delay = 80 })
 
 ```
@@ -68,7 +131,12 @@ the tasks are executed in FIFO order.
 However, tasks may be grouped into sub-queues.
 
 The following options can be specified when creating a `utube` queue:
-  * `temporary` - if true, the contents of the queue do not persist on disk
+  * `temporary` - boolean - if true, the contents of the queue do not persist
+on disk
+  * `if_not_exists` - boolean - if true, no error will be returned if the tube
+already exists
+  * `on_task_change` - function name - a callback to be executed on every
+operation
 
 The following options can be specified when putting a task in a `utube` 
 queue:
@@ -80,23 +148,22 @@ FIFO order, one task at a time.
 
 `utube` queue does not support:
   * task priorities (`pri`)
-  * task time to live (`ttl`), execute (`ttr`), delayed execution (`delay`)
+  * task time to live (`ttl`)
+  * task time to execute (`ttr`)
+  * delayed execution (`delay`)
 
-### Example:
+Example:
 
 Imagine a web crawler, fetching pages from the Internet and finding URLs 
 to fetch more pages.
 The web crawler is based on a queue, and each task in the queue refers 
-to a URL
-which the web crawler must download and process.
-If the web crawler is split into many worker processes,
-then the same URL may show up in the queue many times,
-because a single URL may be referred to by many linking pages. And the 
-worker processes,
-working in parallel, can cause a denial-of-service on the site of the 
-URL. As a result, the web crawler
-can end up in the web server's user-agent ban list -- not a desirable 
-outcome.
+to a URL which the web crawler must download and process.
+If the web crawler is split into many worker processes, then the same URL may
+show up in the queue many times, because a single URL may be referred to by many
+linking pages.
+And the worker processes, working in parallel, can cause a denial-of-service on
+the site of the  URL. As a result, the web crawler can end up in the web
+server's user-agent ban list -- not a desirable outcome.
 
 If the URL's domain name is used as a sub-queue name, this problem can be
 solved: all the URLs with the same domain name can be fetched and processed
@@ -107,7 +174,12 @@ in strict FIFO order.
 This queue type is effectively a combination of `fifottl` and `utube`.
 
 The following options can be specified when creating a `utubettl` queue:
-  * `temporary` - if true, the contents of the queue do not persist on disk
+  * `temporary` - boolean - if true, the contents of the queue do not persist
+on disk
+  * `if_not_exists` - boolean - if true, no error will be returned if the tube
+already exists
+  * `on_task_change` - function name - a callback to be executed on every
+operation
 
 The following options can be specified when putting a task in a 
 `utubettl` queue:
@@ -125,7 +197,7 @@ This space is created automatically when the queue system is initialized for
 the first time (for example, by "require 'queue'"), and is re-used on 
 later occasions.
 
-#### Fields of the `_queue` space
+## Fields of the `_queue` space
 
 1. `tube` - the name of the queue
 1. `tube_id` - queue ID, numeric
@@ -139,7 +211,7 @@ The `_queue_consumers` temporary space contains tuples for each job
 which is working on a queue.
 Consumers may be simply waiting for tasks to be put in the queues.
 
-#### Fields of the `_queue_consumers` space
+## Fields of the `_queue_consumers` space
 
 1. `session` - session (connection) ID of the client
 1. `fid` - client fiber ID
@@ -151,7 +223,7 @@ space; the client waits for tasks in this queue
 The `_queue_taken` temporary space contains tuples for each job which is 
 processing a task in the queue.
 
-#### Fields of the `_queue_taken` space
+## Fields of the `_queue_taken` space
 
 1. `session` - session (connection) ID of the client, referring to the 
 `session_id` field of the `_queue_consumers` space
@@ -159,11 +231,11 @@ processing a task in the queue.
 1. `task_id` - task ID (of the task being taken)
 1. `time` - the time when the client began to execute the task
 
-Also there is a space which is associated with each queue,
+Also, there is a space which is associated with each queue,
 which is named in the `space` field of the `_queue` space.
 The associated space contains one tuple for each task.
 
-#### Fields of the space associated with each queue
+## Fields of the space associated with each queue
 
 1. task_id - numeric - see below
 2. task_state - 'r' for ready, 't' for taken, etc. - see below
@@ -188,16 +260,16 @@ after it
 * '!' - the task is buried (disabled temporarily until further changes)
 * '~' - the task is delayed for some time
 
-## Installing
+# Installing
 
-There are three alternative ways to install.
+There are three alternative ways of installation.
 * Get the `tarantool_queue` package from a repository. For example, on 
 Ubuntu, say: sudo apt-get install tarantool-queue
 * Take the Lua rock from rocks.tarantool.org.
 * Take the source files from https://github.com/tarantool/queue, then 
 build and install.
 
-## Using the `queue` module
+# Using the `queue` module
 
 ```lua
 queue = require 'queue'
@@ -218,7 +290,7 @@ Creates a queue.
 
 The queue name must be alphanumeric and be up to 32 characters long.
 
-The queue type must be "fifo", "fifottl", "utube", or "utubettl".
+The queue type must be 'fifo', 'fifottl', 'utube', or 'utubettl'.
 
 The options, if specified, must be one or more of the options described 
 above
@@ -417,7 +489,7 @@ Reverse the effect of a `create` request.
 Effect: remove the tuple from the `_queue` space,
 and drop the space associated with the queue.
 
-## Getting statistics:
+## Getting statistics
 
 ```lua
 queue.statistics( [queue name] )
@@ -513,4 +585,7 @@ If there are no 'ready' tasks in the queue, returns nil.
 * `tube:bury(task_id)` - buries a task
 * `tube:kick(count)` - digs out `count` tasks
 * `tube:peek(task_id)` - return the task state by ID
-
+* `tube:truncate()` - delete all tasks from the tube. Note that `tube:truncate`
+must be called only by the user who created this tube (has space ownership) OR
+under a `setuid` function. Read more about `setuid` functions
+[here](http://tarantool.org/doc/book/box/authentication.html?highlight=function#functions-and-the-func-space).
