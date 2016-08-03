@@ -10,8 +10,8 @@ env:
       - PACK=none
       - OS=el DIST=6 PACK=rpm
       - OS=el DIST=7 PACK=rpm
-      - OS=fedora DIST=22 PACK=rpm
       - OS=fedora DIST=23 PACK=rpm
+      - OS=fedora DIST=24 PACK=rpm
       - OS=ubuntu DIST=precise PACK=deb
       - OS=ubuntu DIST=trusty PACK=deb
       - OS=ubuntu DIST=wily PACK=deb
@@ -24,8 +24,8 @@ matrix:
     allow_failures:
       - env: OS=el DIST=6 PACK=rpm
       - env: OS=el DIST=7 PACK=rpm
-      - env: OS=fedora DIST=22 PACK=rpm
       - env: OS=fedora DIST=23 PACK=rpm
+      - env: OS=fedora DIST=24 PACK=rpm
       - env: OS=ubuntu DIST=precise PACK=deb
       - env: OS=ubuntu DIST=trusty PACK=deb
       - env: OS=ubuntu DIST=wily PACK=deb
