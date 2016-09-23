@@ -36,7 +36,8 @@ matrix:
 
 script:
   - git clone https://github.com/tarantool/build.git
-  - ./build/pack/travis.sh
+  - PACKAGECLOUD_REPO=tarantool/1_6 REPO_PREFIX=1.6 ./build/pack/travis.sh
+  - PACKAGECLOUD_REPO=tarantool/1_7 REPO_PREFIX=1.7 ./build/pack/travis.sh
 
 notifications:
   email: true
