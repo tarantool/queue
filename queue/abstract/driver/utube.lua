@@ -1,4 +1,5 @@
 local state = require 'queue.abstract.state'
+local num = require('queue.abstract.num')
 
 local tube = {}
 local method = {}
@@ -14,11 +15,11 @@ function tube.create_space(space_name, opts)
 
     -- id, status, utube, data
     local space = box.schema.create_space(space_name, space_opts)
-    space:create_index('task_id', { type = 'tree', parts = { 1, 'num' }})
+    space:create_index('task_id', { type = 'tree', parts = { 1, num.get_type() }})
     space:create_index('status',
-        { type = 'tree', parts = { 2, 'str', 1, 'num' }})
+        { type = 'tree', parts = { 2, 'str', 1, num.get_type() }})
     space:create_index('utube',
-        { type = 'tree', parts = { 2, 'str', 3, 'str', 1, 'num' }})
+        { type = 'tree', parts = { 2, 'str', 3, 'str', 1, num.get_type() }})
     return space
 end
 
