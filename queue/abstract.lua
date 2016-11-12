@@ -3,6 +3,7 @@ local fun   = require('fun')
 local fiber = require('fiber')
 
 local state = require('queue.abstract.state')
+local num = require('queue.abstract.num')
 
 local session = box.session
 
@@ -317,7 +318,7 @@ function method.start()
         _queue:create_index('tube',
             { type = 'tree', parts = { 1, 'str' }, unique = true})
         _queue:create_index('tube_id',
-            { type = 'tree', parts = { 2, 'num' }, unique = true })
+            { type = 'tree', parts = { 2, num.get_type() }, unique = true })
     end
 
     local _cons = box.space._queue_consumers
@@ -326,9 +327,9 @@ function method.start()
         _cons = box.schema
             .create_space('_queue_consumers', { temporary = true })
         _cons:create_index('pk',
-            { type = 'tree', parts = { 1, 'num', 2, 'num' }, unique = true })
+            { type = 'tree', parts = { 1, num.get_type(), 2, num.get_type() }, unique = true })
         _cons:create_index('consumer',
-            { type = 'tree', parts = { 3, 'num', 4, 'num' }, unique = false})
+            { type = 'tree', parts = { 3, num.get_type(), 4, num.get_type() }, unique = false})
     end
 
     local _taken = box.space._queue_taken
@@ -336,10 +337,10 @@ function method.start()
         -- session_id, tube_id, task_id, time
         _taken = box.schema.create_space('_queue_taken', { temporary = true })
         _taken:create_index('pk',
-            { type = 'tree', parts = { 1, 'num', 2, 'num', 3, 'num'}, unique = true})
+            { type = 'tree', parts = { 1, num.get_type(), 2, num.get_type(), 3, num.get_type()}, unique = true})
 
         _taken:create_index('task',
-            { type = 'tree', parts = { 2, 'num', 3, 'num' }, unique = true })
+            { type = 'tree', parts = { 2, num.get_type(), 3, num.get_type() }, unique = true })
     end
 
     for _, tube_rc in _queue:pairs() do
