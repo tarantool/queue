@@ -169,52 +169,48 @@ function tube.truncate(self)
     self.raw:truncate()
 end
 
+function tube.on_task_change(self, cb)
+    local old_cb = self.on_task_change_cb
+    self.on_task_change_cb = cb or (function() end)
+    return old_cb
+end
+
 -- methods
 local method = {}
 
 local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     opts = opts or {}
-
-    local on_task_change_cb = opts.on_task_change or (function() end)
-    if type(on_task_change_cb) == 'string' then
-        on_task_change_cb = loadstring(on_task_change_cb)
-    end
-    if type(opts.on_task_change) == 'function' then
-        opts.on_task_change = string.dump(opts.on_task_change)
-    end
     local self
 
     -- wakeup consumer if queue have new task
     local on_task_change = function(task, stats_data)
-        -- task was removed
-        if task == nil then
-            return
-        end
+        self.on_task_change_cb(task, stats_data)
 
-        on_task_change_cb(task, stats_data)
+        -- task was removed
+        if task == nil then return end
+
+        local queue_consumers = box.space._queue_consumers
+        local queue_taken     = box.space._queue_taken
 
         -- if task was taken and become other state
-        local taken = box.space._queue_taken.index.task:get{tube_id, task[1]}
+        local taken = queue_taken.index.task:get{tube_id, task[1]}
         if taken ~= nil then
-            box.space._queue_taken:delete{ taken[1], taken[2], taken[3] }
+            queue_taken:delete{taken[1], taken[2], taken[3]}
         end
         -- task swicthed to ready (or new task)
         if task[2] == state.READY then
             local tube_id = self.tube_id
-            local consumer =
-                box.space._queue_consumers.index.consumer:min{ tube_id }
+            local consumer = queue_consumers.index.consumer:min{tube_id}
 
             if consumer ~= nil then
                 if consumer[3] == tube_id then
-                    fiber.find( consumer[2] ):wakeup()
-                    box.space._queue_consumers
-                        :delete{ consumer[1], consumer[2] }
+                    fiber.find(consumer[2]):wakeup()
+                    queue_consumers:delete{consumer[1], consumer[2]}
                 end
             end
         -- task swicthed to taken - registry in taken space
         elseif task[2] == state.TAKEN then
-            box.space._queue_taken
-                :insert{session.id(), self.tube_id, task[1], fiber.time64()}
+            queue_taken:insert{session.id(), self.tube_id, task[1], fiber.time64()}
         end
         if stats_data ~= nil then
             queue.stat[space.name]:inc(stats_data)
@@ -224,14 +220,16 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         end
     end
 
-    self = {
+    self = setmetatable({
         raw     = driver.new(space, on_task_change, opts),
         name    = tube_name,
         type    = tube_type,
         tube_id = tube_id,
         opts    = opts,
-    }
-    setmetatable(self, {__index = tube})
+    }, {
+        __index = tube
+    })
+    self:on_task_change(opts.on_task_change)
     queue.tube[tube_name] = self
 
     return self
@@ -305,7 +303,7 @@ function method.create_tube(tube_name, tube_type, opts)
     -- create tube space
     local space = driver.create_space(space_name, opts)
     local self = make_self(driver, space, tube_name, tube_type, tube_id, opts)
-    box.space._queue:insert{ tube_name, tube_id, space_name, tube_type, opts }
+    box.space._queue:insert{ tube_name, tube_id, space_name, tube_type }
     return self
 end
 

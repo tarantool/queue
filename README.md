@@ -37,7 +37,7 @@ align="right">
 * [Implementation details](#implementation-details)
   * [Queue drivers](#queue-drivers)
   * [Driver API](#driver-api)
-    
+
 # Queue types
 
 ## `fifo` - a simple queue
@@ -56,7 +56,8 @@ The following options can be specified when creating a `fifo` queue:
 already exists
   * `on_task_change` - function name - a callback to be executed on every
 operation; the expected function syntax is `function(task, stats_data)`, where
-`stats_data` is the operation type, and `task` is normalized task data
+`stats_data` is the operation type, and `task` is normalized task data.
+    NOTE: It's better to use `:on_task_change()` function.
 
 `fifo` queue does not support:
   * task priorities (`pri`)
@@ -290,15 +291,16 @@ The queue name must be alphanumeric and be up to 32 characters long.
 
 The queue type must be 'fifo', 'fifottl', 'utube', or 'utubettl'.
 
-The options, if specified, must be one or more of the options described 
-above
-(`temporary` and/or `ttl` and/or `ttr` and/or `pri`, depending on the queue type).
-The `ttr` and `ttl` options can be regarded as defaults,
-which may be overridden when a task is put in a queue.
+The options, if specified, must be one or more of the options described above
+(`temporary` and/or `ttl` and/or `ttr` and/or `pri`, depending on the queue
+type).
+The `ttr` and `ttl` options can be regarded as defaults, which may be overridden
+when a task is put in a queue.
 
-Effect: a tuple is added in the `_queue` space, and a new associated space is created.
+Effect: a tuple is added in the `_queue` space, and a new associated space is
+created.
 
-Example: queue.create_tube('list_of_sites', 'fifo', {temporary = true})
+Example: `queue.create_tube('list_of_sites', 'fifo', {temporary = true})`
 
 ## Putting a task in a queue
 
@@ -493,16 +495,21 @@ and drop the space associated with the queue.
 queue.statistics( [queue name] )
 ```
 
-Show the number of tasks in a queue
-broken down by `task_state`, and the number
-of requests broken down by the type of request.
-If the queue name is not specified, show these
-numbers for all queues.
-Statistics are temporary, they are reset whenever the Tarantool server 
-restarts.
+Show the number of tasks in a queue broken down by `task_state`, and the number
+of requests broken down by the type of request. If the queue name is not
+specified, show these numbers for all queues.
+Statistics are temporary, they are reset whenever the Tarantool server restarts.
 
 Example:
 
+```lua
+queue.tube.tube_name:on_task_change(callback)
+```
+
+Replace old `on_task_change` callback or set the new one. Previously set
+callback is returned.
+
+Get statistics for given tube:
 
 ```lua
 queue.statistics('list_of_sites')
