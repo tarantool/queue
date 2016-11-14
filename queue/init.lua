@@ -5,7 +5,6 @@ end
 local queue = {}
 setmetatable(queue, { __index = index_unconfigured })
 
-
 if rawget(box, 'space') == nil then
     local orig_cfg = box.cfg
     box.cfg = function(...)

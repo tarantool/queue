@@ -1,18 +1,29 @@
-local state = require 'queue.abstract.state'
+local state    = require('queue.abstract.state')
+
+local num_type = require('queue.compat').num_type
+local str_type = require('queue.compat').str_type
 
 local tube = {}
 local method = {}
 
 -- create space
 function tube.create_space(space_name, opts)
-    local space_opts = {}
-    if opts.temporary then
-        space_opts.temporary = true
-    end
+    local space_opts         = {}
+    local if_not_exists      = opts.if_not_exists or false
+    space_opts.temporary     = opts.temporary or false
+    space_opts.if_not_exists = if_not_exists
 
     local space = box.schema.create_space(space_name, space_opts)
-    space:create_index('task_id', { type = 'tree', parts = { 1, 'num' }})
-    space:create_index('status', { type = 'tree', parts = { 2, 'str', 1, 'num' }})
+    space:create_index('task_id', {
+        type = 'tree',
+        parts = {1, num_type()},
+        if_not_exists = if_not_exists
+    })
+    space:create_index('status',  {
+        type = 'tree',
+        parts = {2, str_type(), 1, num_type()},
+        if_not_exists = if_not_exists
+    })
     return space
 end
 

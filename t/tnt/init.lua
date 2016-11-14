@@ -1,10 +1,12 @@
-local fio = require 'fio'
-local errno = require 'errno'
-local yaml = require 'yaml'
-local log = require 'log'
+local fio   = require('fio')
+local log   = require('log')
+local yaml  = require('yaml')
+local errno = require('errno')
 
-local dir = os.getenv('QUEUE_TMP')
+local dir     = os.getenv('QUEUE_TMP')
 local cleanup = false
+
+local vinyl_name = require('queue.compat').vinyl_name
 
 if dir == nil then
     dir = fio.tempdir()
@@ -21,10 +23,10 @@ local function tnt_prepare(cfg_args)
         end
     end
 
-    cfg_args['wal_dir']    = dir
-    cfg_args['snap_dir']   = dir
-    cfg_args['sophia_dir'] = dir
-    cfg_args['logger']     = fio.pathjoin(dir, 'tarantool.log')
+    cfg_args['wal_dir']              = dir
+    cfg_args['snap_dir']             = dir
+    cfg_args[vinyl_name() .. '_dir'] = dir
+    cfg_args['logger']               = fio.pathjoin(dir, 'tarantool.log')
 
     box.cfg (cfg_args)
 end

@@ -1,6 +1,9 @@
-local log   = require 'log'
-local fiber = require 'fiber'
-local state = require 'queue.abstract.state'
+local log      = require('log')
+local fiber    = require('fiber')
+
+local state    = require('queue.abstract.state')
+local num_type = require('queue.compat').num_type
+local str_type = require('queue.compat').str_type
 
 local tube = {}
 local method = {}
@@ -40,23 +43,36 @@ function tube.create_space(space_name, opts)
     opts.ttr = opts.ttr or opts.ttl
     opts.pri = opts.pri or 0
 
-    local space_opts = {}
-    space_opts.temporary = opts.temporary
+    local space_opts         = {}
+    local if_not_exists      = opts.if_not_exists or false
+    space_opts.temporary     = opts.temporary or false
+    space_opts.if_not_exists = if_not_exists
 
     -- 1        2       3           4    5    6    7,       8
     -- task_id, status, next_event, ttl, ttr, pri, created, data
     local space = box.schema.create_space(space_name, space_opts)
 
-    space:create_index('task_id', { type = 'tree', parts = { i_id, 'num' }})
-    space:create_index('status',
-        { type = 'tree',
-            parts = { i_status, 'str', i_pri, 'num', i_id, 'num' }})
-    space:create_index('watch',
-        { type = 'tree', parts = { i_status, 'str', i_next_event, 'num' },
-            unique = false})
-    space:create_index('utube',
-        { type = 'tree',
-            parts = { i_status, 'str', i_utube, 'str', i_id, 'num' }})
+    space:create_index('task_id', {
+        type = 'tree',
+        parts = {i_id, num_type()},
+        if_not_exists = if_not_exists
+    })
+    space:create_index('status', {
+        type = 'tree',
+        parts = {i_status, str_type(), i_pri, num_type(), i_id, num_type()},
+        if_not_exists = if_not_exists
+    })
+    space:create_index('watch', {
+        type = 'tree',
+        parts = {i_status, str_type(), i_next_event, num_type()},
+        unique = false,
+        if_not_exists = if_not_exists
+    })
+    space:create_index('utube', {
+        type = 'tree',
+        parts = {i_status, str_type(), i_utube, str_type(), i_id, num_type()},
+        if_not_exists = if_not_exists
+    })
     return space
 end
 
