@@ -17,26 +17,35 @@ local function opge(l, r)
     return l >= r
 end
 
-local function check_version(expected)
-    local vtable  = split(_TARANTOOL, '.')
+local function split_version(version_string)
+    local vtable  = split(version_string, '.')
     local vtable2 = split(vtable[3],  '-')
     vtable[3], vtable[4] = vtable2[1], vtable2[2]
-    return iter(vtable):zip(expected):every(opge)
+    return vtable
 end
 
-local function get_actual_numtype()
-    return check_version{1, 7, 2} and 'unsigned' or 'num'
+local function check_version(expected, version)
+    version = version or _TARANTOOL
+    if type(version) == 'string' then
+        version = split_version(version)
+    end
+    return iter(version):zip(expected):every(opge)
 end
 
-local function get_actual_strtype()
-    return check_version{1, 7, 2} and 'string' or 'str'
+local function get_actual_numtype(version)
+    return check_version({1, 7, 2}, version) and 'unsigned' or 'num'
 end
 
-local function get_actual_vinylname()
-    return check_version{1, 7} and 'vinyl' or 'sophia'
+local function get_actual_strtype(version)
+    return check_version({1, 7, 2}, version) and 'string' or 'str'
+end
+
+local function get_actual_vinylname(version)
+    return check_version({1, 7}, version) and 'vinyl' or 'sophia'
 end
 
 return {
+    split_version = split_version,
     check_version = check_version,
     vinyl_name = get_actual_vinylname,
     num_type = get_actual_numtype,

@@ -4,6 +4,7 @@ local fiber    = require('fiber')
 
 local state    = require('queue.abstract.state')
 local num_type = require('queue.compat').num_type
+local str_type = require('queue.compat').str_type
 
 local session = box.session
 
@@ -271,6 +272,22 @@ function method._on_consumer_disconnect()
     end
 end
 
+-- function takes tuples and recreates tube
+local function recreate_tube(tube_tuple)
+    local name, id, space, tube_type, opts = tube_tuple:unpack()
+
+    local driver = queue.driver[tube_type]
+    if driver == nil then
+        error("Unknown tube type " .. tostring(tube_type))
+    end
+
+    local space = box.space[space]
+    if space == nil then
+        error(("Space '%s' doesn't exists"):format(space))
+    end
+    return make_self(driver, space, name, tube_type, id, opts)
+end
+
 -------------------------------------------------------------------------------
 -- create tube
 function method.create_tube(tube_name, tube_type, opts)
@@ -293,6 +310,14 @@ function method.create_tube(tube_name, tube_type, opts)
         error(("Space '%s' already exists"):format(space_name))
     end
 
+    -- if tube tuple was already presented, then recreate old tube
+    local ptube = box.space._queue:get{tube_name}
+    if ptube ~= nil then
+        local self = recreate_tube(ptube)
+        self:on_task_change(opts.on_task_change)
+        return self
+    end
+
     -- create tube record
     local last = box.space._queue.index.tube_id:max()
     local tube_id = 0
@@ -303,7 +328,8 @@ function method.create_tube(tube_name, tube_type, opts)
     -- create tube space
     local space = driver.create_space(space_name, opts)
     local self = make_self(driver, space, tube_name, tube_type, tube_id, opts)
-    box.space._queue:insert{ tube_name, tube_id, space_name, tube_type }
+    opts.on_task_change = nil
+    box.space._queue:insert{tube_name, tube_id, space_name, tube_type, opts}
     return self
 end
 
@@ -313,57 +339,51 @@ function method.start()
     local _queue = box.space._queue
     if _queue == nil then
         _queue = box.schema.create_space('_queue')
-        _queue:create_index('tube',
-            { type = 'tree', parts = { 1, 'str' }, unique = true})
-        _queue:create_index('tube_id',
-            { type = 'tree', parts = { 2, num_type() }, unique = true })
+        _queue:create_index('tube', {
+            type = 'tree',
+            parts = {1, str_type()},
+            unique = true
+        })
+        _queue:create_index('tube_id', {
+            type = 'tree',
+            parts = {2, num_type()},
+            unique = true
+        })
     end
 
     local _cons = box.space._queue_consumers
     if _cons == nil then
         -- session, fid, tube, time
-        _cons = box.schema
-            .create_space('_queue_consumers', { temporary = true })
-        _cons:create_index('pk',
-            { type = 'tree', parts = { 1, num_type(),
-                                       2, num_type() }, unique = true })
-        _cons:create_index('consumer',
-            { type = 'tree', parts = { 3, num_type(),
-                                       4, num_type() }, unique = false})
+        _cons = box.schema.create_space('_queue_consumers', {temporary = true})
+        _cons:create_index('pk', {
+            type = 'tree',
+            parts = {1, num_type(), 2, num_type()},
+            unique = true
+        })
+        _cons:create_index('consumer', {
+            type = 'tree',
+            parts = {3, num_type(), 4, num_type()},
+            unique = false
+        })
     end
 
     local _taken = box.space._queue_taken
     if _taken == nil then
         -- session_id, tube_id, task_id, time
-        _taken = box.schema.create_space('_queue_taken', { temporary = true })
-        _taken:create_index('pk',
-            { type = 'tree', parts = { 1, num_type(),
-                                       2, num_type(),
-                                       3, num_type() }, unique = true})
+        _taken = box.schema.create_space('_queue_taken', {temporary = true})
+        _taken:create_index('pk', {
+            type = 'tree',
+            parts = {1, num_type(), 2, num_type(), 3, num_type()},
+            unique = true})
 
-        _taken:create_index('task',
-            { type = 'tree', parts = { 2, num_type(),
-                                       3, num_type() }, unique = true })
+        _taken:create_index('task',{
+            type = 'tree',
+            parts = {2, num_type(), 3, num_type()},
+            unique = true
+        })
     end
 
-    for _, tube_rc in _queue:pairs() do
-        local tube_name     = tube_rc[1]
-        local tube_id       = tube_rc[2]
-        local tube_space    = tube_rc[3]
-        local tube_type     = tube_rc[4]
-        local tube_opts     = tube_rc[5]
-
-        local driver = queue.driver[tube_type]
-        if driver == nil then
-            error("Unknown tube type " .. tostring(tube_type))
-        end
-
-        local space = box.space[tube_space]
-        if space == nil then
-            error(("Space '%s' is not exists"):format(tube_space))
-        end
-        make_self(driver, space, tube_name, tube_type, tube_id, tube_opts)
-    end
+    _queue:pairs():each(recreate_tube)
 
     session.on_disconnect(queue._on_consumer_disconnect)
     return queue
@@ -420,7 +440,7 @@ queue.stats = queue.statistics
 
 setmetatable(queue.stat, {
         __index = function(tbs, space)
-            local spt = {
+            local spt = setmetatable({
                 inc = function(t, cnt)
                     t[cnt] = t[cnt] + 1
                     return t[cnt]
@@ -429,14 +449,12 @@ setmetatable(queue.stat, {
                     t[cnt] = t[cnt] - 1
                     return t[cnt]
                 end
-            }
-            setmetatable(spt, {
+            }, {
                 __index = function(t, cnt)
                     rawset(t, cnt, 0)
                     return 0
                 end
             })
-
             rawset(tbs, space, spt)
             return spt
         end,

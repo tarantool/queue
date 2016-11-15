@@ -266,20 +266,21 @@ test:test('truncate test', function(test)
     test:is(tube.raw.space:count(), 0, 'nothing in tube after it')
 end)
 
-test:test('on_task_change callback', function(test)
-    test:plan(1)
-    local cnt = 0
-    local function cb(t1, t2)
-        cnt = cnt + 1
-    end
-
-    local tube = queue.create_tube('test2', 'fifo', {
-        on_task_change = cb
+test:test('if_not_exists test', function(test)
+    test:plan(2)
+    local tube = queue.create_tube('test_ine', 'fifo', {
+        if_not_exists = true
     })
-    tube:put{123}
-    local task = tube:take(0)
-    tube:ack(task[1])
-    test:is(cnt, 3, 'check counter')
+    local tube_new = queue.create_tube('test_ine', 'fifo', {
+        if_not_exists = true
+    })
+    test:is(tube, tube_new, "if_not_exists if tube exists")
+
+    queue.tube['test_ine'] = nil
+    local tube_new = queue.create_tube('test_ine', 'fifo', {
+        if_not_exists = true
+    })
+    test:isnt(tube, tube_new, "if_not_exists if tube doesn't exists")
 end)
 
 tnt.finish()
