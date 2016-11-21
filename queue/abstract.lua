@@ -54,7 +54,7 @@ function tube.take(self, timeout)
 
         box.space._queue_consumers:insert{
                 session.id(), fiber.id(), tube_id, time, fiber.time64() }
-        fiber.sleep(tonumber(timeout/1000000))
+        fiber.sleep(tonumber(timeout) / 1000000)
         box.space._queue_consumers:delete{ session.id(), fiber.id() }
 
         task = self.raw:take()
