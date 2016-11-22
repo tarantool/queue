@@ -1,7 +1,7 @@
 local log   = require 'log'
 local fiber = require 'fiber'
 local state = require 'queue.abstract.state'
-local num = require('queue.abstract.num')
+local num = require 'queue.abstract.num'
 
 local tube = {}
 local method = {}
@@ -48,16 +48,16 @@ function tube.create_space(space_name, opts)
     -- task_id, status, next_event, ttl, ttr, pri, created, data
     local space = box.schema.create_space(space_name, space_opts)
 
-    space:create_index('task_id', { type = 'tree', parts = { i_id, num.get_type() }})
+    space:create_index('task_id', { type = 'tree', parts = { i_id, num.get_type(box.info.version) }})
     space:create_index('status',
         { type = 'tree',
-            parts = { i_status, 'str', i_pri, num.get_type(), i_id, num.get_type() }})
+            parts = { i_status, 'str', i_pri, num.get_type(box.info.version), i_id, num.get_type(box.info.version) }})
     space:create_index('watch',
-        { type = 'tree', parts = { i_status, 'str', i_next_event, num.get_type() },
+        { type = 'tree', parts = { i_status, 'str', i_next_event, num.get_type(box.info.version) },
             unique = false})
     space:create_index('utube',
         { type = 'tree',
-            parts = { i_status, 'str', i_utube, 'str', i_id, num.get_type() }})
+            parts = { i_status, 'str', i_utube, 'str', i_id, num.get_type(box.info.version) }})
     return space
 end
 

@@ -23,7 +23,6 @@ local function tnt_prepare(cfg_args)
 
     cfg_args['wal_dir']    = dir
     cfg_args['snap_dir']   = dir
-    cfg_args['sophia_dir'] = dir
     cfg_args['logger']     = fio.pathjoin(dir, 'tarantool.log')
 
     box.cfg (cfg_args)
