@@ -48,16 +48,16 @@ function tube.create_space(space_name, opts)
     -- task_id, status, next_event, ttl, ttr, pri, created, data
     local space = box.schema.create_space(space_name, space_opts)
 
-    space:create_index('task_id', { type = 'tree', parts = { i_id, num.get_type(box.info.version) }})
+    space:create_index('task_id', { type = 'tree', parts = { i_id, num.get_num_or_unsigned(box.info.version) }})
     space:create_index('status',
         { type = 'tree',
-            parts = { i_status, 'str', i_pri, num.get_type(box.info.version), i_id, num.get_type(box.info.version) }})
+            parts = { i_status, 'str', i_pri, num.get_num_or_unsigned(box.info.version), i_id, num.get_num_or_unsigned(box.info.version) }})
     space:create_index('watch',
-        { type = 'tree', parts = { i_status, 'str', i_next_event, num.get_type(box.info.version) },
+        { type = 'tree', parts = { i_status, 'str', i_next_event, num.get_num_or_unsigned(box.info.version) },
             unique = false})
     space:create_index('utube',
         { type = 'tree',
-            parts = { i_status, 'str', i_utube, 'str', i_id, num.get_type(box.info.version) }})
+            parts = { i_status, 'str', i_utube, 'str', i_id, num.get_num_or_unsigned(box.info.version) }})
     return space
 end
 

@@ -12,8 +12,8 @@ function tube.create_space(space_name, opts)
     end
 
     local space = box.schema.create_space(space_name, space_opts)
-    space:create_index('task_id', { type = 'tree', parts = { 1, num.get_type(box.info.version) }})
-    space:create_index('status', { type = 'tree', parts = { 2, 'str', 1, num.get_type(box.info.version) }})
+    space:create_index('task_id', { type = 'tree', parts = { 1, num.get_num_or_unsigned(box.info.version) }})
+    space:create_index('status', { type = 'tree', parts = { 2, 'str', 1, num.get_num_or_unsigned(box.info.version) }})
     return space
 end
 

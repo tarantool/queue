@@ -1,4 +1,4 @@
-local function get_type(version_string)
+local function get_num_or_unsigned(version_string)
     local version = require('queue/abstract/version').parse(version_string)
 
     if version.major == 1 and version.minor < 7 then
@@ -9,5 +9,5 @@ local function get_type(version_string)
 end
 
 return {
-    get_type = get_type
+    get_num_or_unsigned = get_num_or_unsigned
 }
