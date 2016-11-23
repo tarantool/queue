@@ -26,6 +26,8 @@ local function parse_version(version)
     }
 end
 
-return {
+local exports = {
     parse = parse_version
 }
+
+return exports

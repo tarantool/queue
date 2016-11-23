@@ -8,6 +8,8 @@ local function get_num_or_unsigned(version_string)
     end
 end
 
-return {
+local exports = {
     get_num_or_unsigned = get_num_or_unsigned
 }
+
+return exports
