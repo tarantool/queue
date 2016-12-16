@@ -211,17 +211,49 @@ function method.put(self, data, opts)
     end
 
     local task = self.space:insert{
-            id,
-            status,
-            next_event,
-            time(ttl),
-            time(ttr),
-            pri,
-            time(),
-            tostring(opts.utube),
-            data
+        id,
+        status,
+        next_event,
+        time(ttl),
+        time(ttr),
+        pri,
+        time(),
+        tostring(opts.utube),
+        data
     }
     self:on_task_change(task, 'put')
+    return task
+end
+
+local TIMEOUT_INFINITY_TIME = time(TIMEOUT_INFINITY)
+
+-- touch task
+function method.touch(self, id, increment_seconds)
+    if increment_seconds < 0 then
+        error("Increment can't be less than zero")
+    elseif increment_seconds > TIMEOUT_INFINITY then
+        increment_seconds = TIMEOUT_INFINITY
+    end
+
+    local task = self:peek{id}
+    if increment_seconds == 0 or task[i_ttr] >= TIMEOUT_INFINITY_TIME then
+        return task
+    end
+
+    local increment = 0ULL
+    if increment_seconds == nil then
+        increment = task[i_ttr] or task[i_ttr]
+    else
+        increment = time(increment_seconds)
+    end
+
+    task = self.space:update{
+        id,
+        {{i_ttl, '+', increment}},
+        {{i_ttr, '+', increment}}
+    }
+
+    self:on_task_change(task, 'touch')
     return task
 end
 

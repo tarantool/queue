@@ -68,6 +68,25 @@ function tube.take(self, timeout)
     end
 end
 
+function tube.touch(self, id, increment)
+    if increment < 0 then
+        error("Increment can't be less than zero")
+    end
+
+    if increment == 0 then
+        return
+    end
+
+    local task = self:peek(id)
+    local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
+    if _taken == nil then
+        error("Task was not taken in the session")
+    end
+
+    queue.stat[space_name]:inc('touch')
+    return self.raw:normalize_task(self.raw:touch(id, increment))
+end
+
 function tube.ack(self, id)
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
@@ -401,7 +420,8 @@ local function build_stats(space)
         kick = 0,
         put = 0,
         release = 0,
-        take = 0
+        take = 0,
+        touch = 0
     }}
 
     local st = rawget(queue.stat, space) or {}
