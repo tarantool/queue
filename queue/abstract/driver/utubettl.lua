@@ -225,6 +225,20 @@ function method.put(self, data, opts)
     return task
 end
 
+-- extend TTR of task
+function method.extend_ttr(self, id, ttr)
+    if ttr <= 0 then
+        error('ttr should be greater that zero to extend ttr')
+    end
+
+    local task = self.space:update{
+        id,
+        {{5, '+', time(ttr)}}
+    }
+    self:on_task_change(task, 'extend_ttr')
+    return task
+end
+
 -- take task
 function method.take(self)
     for s, t in self.space.index.status:pairs(state.READY, {iterator = 'GE'}) do

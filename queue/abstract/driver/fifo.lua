@@ -61,6 +61,11 @@ function method.take(self)
     end
 end
 
+-- extend TTR of task
+function method.extend_ttr(self, id, ttr)
+    error('fifo queue does not support ttr')
+end
+
 -- delete task
 function method.delete(self, id)
     local task = self.space:delete(id)
