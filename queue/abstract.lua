@@ -245,6 +245,10 @@ function method._on_consumer_disconnect()
         if waiter == nil then
             break
         end
+        -- Don't touch the other consumers
+        if waiter[1] ~= id then
+            break
+        end
         box.space._queue_consumers:delete{ waiter[1], waiter[2] }
         fb = fiber.find(waiter[2])
         if fb ~= nil and fb:status() ~= 'dead' then
