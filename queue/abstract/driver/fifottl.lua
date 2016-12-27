@@ -209,16 +209,34 @@ function method.put(self, data, opts)
     return task
 end
 
--- touch TTR of task
-function method.touch(self, id, ttr)
-    if ttr <= 0 then
-        error('ttr should be greater that zero to touch')
+local TIMEOUT_INFINITY_TIME = time(TIMEOUT_INFINITY)
+
+-- touch task
+function method.touch(self, id, increment_seconds)
+    if increment_seconds < 0 then
+        error("Increment can't be less than zero")
+    elseif increment_seconds > TIMEOUT_INFINITY then
+        increment_seconds = TIMEOUT_INFINITY
     end
 
-    local task = self.space:update{
+    local task = self:peek{id}
+    if increment_seconds == 0 or task[i_ttr] >= TIMEOUT_INFINITY_TIME then
+        return task
+    end
+
+    local increment = 0ULL
+    if increment_seconds == nil then
+        increment = task[i_ttr] or task[i_ttr]
+    else
+        increment = time(increment_seconds)
+    end
+
+    task = self.space:update{
         id,
-        {{5, '+', time(ttr)}}
+        {{i_ttl, '+', increment}},
+        {{i_ttr, '+', increment}}
     }
+
     self:on_task_change(task, 'touch')
     return task
 end
