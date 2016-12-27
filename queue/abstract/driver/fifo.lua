@@ -61,9 +61,9 @@ function method.take(self)
     end
 end
 
--- extend TTR of task
-function method.extend_ttr(self, id, ttr)
-    error('fifo queue does not support ttr')
+-- touch task
+function method.touch(self, id, ttr)
+    error('fifo queue does not support touch')
 end
 
 -- delete task

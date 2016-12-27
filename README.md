@@ -374,19 +374,20 @@ instructions for what to do with the task.
 
 Example: t_value = queue.tube.list_of_sites:take(15)
 
-## Extending TTR for tasks
+## Increasing TTR and/or TTL for tasks
 
 ```lua
-queue.tube.tube_name:extend_ttr(task_id, ttr_change)
+queue.tube.tube_name:touch(task_id, increment)
 ```
 
-Extend `ttr` of running task. Useful if you can't predict in advance
+Increase `ttr` of running task. Useful if you can't predict in advance
 time needed to work on task.
 
-Effect: the value of `ttr` increased by `ttr_change` seconds. If queue
-does not support ttr, error will be thrown.
+Effect: the value of `ttr` and `ttl` increased by `increment` seconds. If queue
+does not support ttr, error will be thrown. If `increment` is lower than zero,
+error will be thrown.
 
-Example: t_value = queue.tube.list_of_sites:extend_ttr(15, 60)
+Example: t_value = queue.tube.list_of_sites:touch(15, 60)
 
 ## Acknowledging the completion of a task
 

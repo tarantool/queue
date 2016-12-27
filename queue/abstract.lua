@@ -68,15 +68,15 @@ function tube.take(self, timeout)
     end
 end
 
-function tube.extend_ttr(self, id, ttr)
+function tube.touch(self, id, ttr)
     local task = self:peek(id)
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
         error("Task was not taken in the session")
     end
 
-    queue.stat[space_name]:inc('extend_ttr')
-    return self.raw:normalize_task(self.raw:extend_ttr(id, ttr))
+    queue.stat[space_name]:inc('touch')
+    return self.raw:normalize_task(self.raw:touch(id, ttr))
 end
 
 function tube.ack(self, id)
@@ -409,7 +409,7 @@ local function build_stats(space)
         put = 0,
         release = 0,
         take = 0,
-        extend_ttr = 0
+        touch = 0
     }}
 
     local st = rawget(queue.stat, space) or {}

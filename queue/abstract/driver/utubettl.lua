@@ -225,17 +225,17 @@ function method.put(self, data, opts)
     return task
 end
 
--- extend TTR of task
-function method.extend_ttr(self, id, ttr)
+-- touch task
+function method.touch(self, id, ttr)
     if ttr <= 0 then
-        error('ttr should be greater that zero to extend ttr')
+        error('ttr should be greater that zero to touch')
     end
 
     local task = self.space:update{
         id,
         {{5, '+', time(ttr)}}
     }
-    self:on_task_change(task, 'extend_ttr')
+    self:on_task_change(task, 'touch')
     return task
 end
 
