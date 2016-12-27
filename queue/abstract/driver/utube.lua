@@ -75,6 +75,11 @@ function method.take(self)
     end
 end
 
+-- touch task
+function method.touch(self, id, ttr)
+    error('utube queue does not support touch')
+end
+
 -- delete task
 function method.delete(self, id)
     local task = self.space:delete(id)
