@@ -12,15 +12,29 @@ local queue = {
     tube = {},
     stat = {}
 }
-local TIMEOUT_INFINITY = 365 * 86400 * 1000
-
+local MAX_TIMEOUT      = 365 * 86400 * 100       -- MAX_TIMEOUT == 100 years
+local TIMEOUT_INFINITY = 18446744073709551615ULL -- Set to TIMEOUT_INFINITY
+                                                 -- instead
+-- returns time for next event
 local function time(tm)
-    tm = tm and tm * 1000000 or fiber.time64()
+    if tm == nil then
+        tm = fiber.time64()
+    elseif tm < 0 then
+        tm = 0
+    else
+        tm = tm * 1000000
+    end
     return 0ULL + tm
 end
 
-local function event_time(timeout)
-    return fiber.time64() + time(timeout)
+local function event_time(tm)
+    if tm == nil or tm < 0 then
+        tm = 0
+    elseif tm > MAX_TIMEOUT then
+        return TIMEOUT_INFINITY
+    end
+    tm = 0ULL + tm * 1000000 + fiber.time64()
+    return tm
 end
 
 -- load all drivers
@@ -68,23 +82,27 @@ function tube.take(self, timeout)
     end
 end
 
-function tube.touch(self, id, increment)
-    if increment < 0 then
-        error("Increment can't be less than zero")
+function tube.touch(self, id, delta)
+    if delta < 0 then -- if delta is lesser then 0, then it's zero
+        delta = 0
+    elseif delta > MAX_TIMEOUT then -- no ttl/ttr for this task
+        delta = TIMEOUT_INFINITY
+    else -- convert to usec
+        delta = delta * 1000000
     end
-
-    if increment == 0 then
+    if delta == 0 then
         return
     end
 
-    local task = self:peek(id)
     local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
     if _taken == nil then
         error("Task was not taken in the session")
     end
 
+    local space_name = box.space._queue:get{self.name}[3]
     queue.stat[space_name]:inc('touch')
-    return self.raw:normalize_task(self.raw:touch(id, increment))
+
+    return self.raw:normalize_task(self.raw:touch(id, delta))
 end
 
 function tube.ack(self, id)

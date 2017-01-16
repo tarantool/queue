@@ -2,7 +2,7 @@
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(11)
+test:plan(12)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -190,6 +190,18 @@ test:test('if_not_exists test', function(test)
         if_not_exists = true
     })
     test:isnt(tube, tube_new, "if_not_exists if tube doesn't exists")
+end)
+
+test:test('touch test', function(test)
+    test:plan(3)
+    tube:put('abc', {ttl=0.2, ttr=0.1})
+    local task = tube:take()
+    tube:touch(task[1], 0.3)
+    fiber.sleep(0.1)
+    test:is(task[2], 't')
+    task = tube:ack(task[1])
+    test:is(task[2], '-')
+    test:isnt(task, nil)
 end)
 
 tnt.finish()

@@ -20,15 +20,21 @@ local i_created         = 7
 local i_data            = 8
 
 local function time(tm)
-    tm = tm and tm * 1000000 or fiber.time64()
+    if tm == nil then
+        tm = fiber.time64()
+    elseif tm < 0 then
+        tm = 0
+    else
+        tm = tm * 1000000
+    end
     return 0ULL + tm
 end
 
-local function event_time(timeout)
-    if timeout == nil then
-        error(debug.traceback())
+local function event_time(tm)
+    if tm == nil or tm < 0 then
+        tm = 0
     end
-    return 0ULL + ((fiber.time() + timeout) * 1000000)
+    return 0ULL + tm * 1000000 + fiber.time64()
 end
 
 local function is_expired(task)
@@ -209,33 +215,21 @@ function method.put(self, data, opts)
     return task
 end
 
-local TIMEOUT_INFINITY_TIME = time(TIMEOUT_INFINITY)
-
 -- touch task
-function method.touch(self, id, increment_seconds)
-    if increment_seconds < 0 then
-        error("Increment can't be less than zero")
-    elseif increment_seconds > TIMEOUT_INFINITY then
-        increment_seconds = TIMEOUT_INFINITY
-    end
-
-    local task = self:peek{id}
-    if increment_seconds == 0 or task[i_ttr] >= TIMEOUT_INFINITY_TIME then
-        return task
-    end
-
-    local increment = 0ULL
-    if increment_seconds == nil then
-        increment = task[i_ttr] or task[i_ttr]
-    else
-        increment = time(increment_seconds)
-    end
-
-    task = self.space:update{
-        id,
-        {{i_ttl, '+', increment}},
-        {{i_ttr, '+', increment}}
+function method.touch(self, id, delta)
+    local ops = {
+        {'+', i_next_event, delta},
+        {'+', i_ttl,        delta},
+        {'+', i_ttr,        delta}
     }
+    if delta == TIMEOUT_INFINITY then
+        ops = {
+            {'=', i_next_event, delta},
+            {'=', i_ttl,        delta},
+            {'=', i_ttr,        delta}
+        }
+    end
+    local task = self.space:update(id, ops)
 
     self:on_task_change(task, 'touch')
     return task
