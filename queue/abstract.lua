@@ -359,15 +359,15 @@ function method.create_tube(tube_name, tube_type, opts)
         return self
     end
 
+    -- create tube space
+    local space = driver.create_space(space_name, opts)
+
     -- create tube record
     local last = box.space._queue.index.tube_id:max()
     local tube_id = 0
     if last ~= nil then
         tube_id = last[2] + 1
     end
-
-    -- create tube space
-    local space = driver.create_space(space_name, opts)
     local self = make_self(driver, space, tube_name, tube_type, tube_id, opts)
     opts.on_task_change = nil
     box.space._queue:insert{tube_name, tube_id, space_name, tube_type, opts}
