@@ -138,7 +138,7 @@ function method._fiber(self)
                     { '=', i_status, state.READY },
                     { '=', i_next_event, task[i_created] + task[i_ttl] }
                 })
-                self:on_task_change(task)
+                self:on_task_change(task, 'delayed')
                 estimated = 0
                 processed = processed + 1
             else
@@ -151,8 +151,8 @@ function method._fiber(self)
             task = self.space.index.watch:min{ state }
             if task ~= nil and task[i_status] == state then
                 if now >= task[i_next_event] then
-                    self.space:delete(task[i_id])
-                    self:on_task_change(task:transform(2, 1, state.DONE))
+                    task = self:delete(task[i_id]):transform(2, 1, state.DONE)
+                    self:on_task_change(task, 'ttl')
                     estimated = 0
                     processed = processed + 1
                 else
@@ -170,7 +170,7 @@ function method._fiber(self)
                     { '=', i_status, state.READY },
                     { '=', i_next_event, task[i_created] + task[i_ttl] }
                 })
-                self:on_task_change(task)
+                self:on_task_change(task, 'ttr')
                 estimated = 0
                 processed = processed + 1
             else

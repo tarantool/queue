@@ -432,14 +432,11 @@ end
 
 local function build_stats(space)
     local stats = {tasks = {}, calls = {
-        ack = 0,
-        bury = 0,
-        delete = 0,
-        kick = 0,
-        put = 0,
-        release = 0,
-        take = 0,
-        touch = 0
+        ack  = 0, bury  = 0, delete  = 0,
+        kick = 0, put   = 0, release = 0,
+        take = 0, touch = 0,
+        -- for *ttl queues only
+        ttl  = 0, ttr   = 0, delay   = 0,
     }}
 
     local st = rawget(queue.stat, space) or {}
