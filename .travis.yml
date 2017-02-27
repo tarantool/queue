@@ -1,44 +1,109 @@
 sudo: required
+language: C
+compiler:
+    - clang
+    - gcc
+
 services:
   - docker
+
+cache:
+    directories:
+      - $HOME/.cache
 
 env:
     global:
       - PRODUCT=tarantool-queue
-
     matrix:
-      - PACK=none
-      - OS=el DIST=6 PACK=rpm
-      - OS=el DIST=7 PACK=rpm
-      - OS=fedora DIST=23 PACK=rpm
-      - OS=fedora DIST=24 PACK=rpm
-      - OS=ubuntu DIST=precise PACK=deb
-      - OS=ubuntu DIST=trusty PACK=deb
-      - OS=ubuntu DIST=wily PACK=deb
-      - OS=ubuntu DIST=xenial PACK=deb
-      - OS=debian DIST=wheezy PACK=deb
-      - OS=debian DIST=jessie PACK=deb
-      - OS=debian DIST=stretch PACK=deb
+      - TARGET=test
+      - OS=el DIST=6
+      - OS=el DIST=7
+      - OS=fedora DIST=24
+      - OS=fedora DIST=25
+      - OS=ubuntu DIST=precise
+      - OS=ubuntu DIST=trusty
+      - OS=ubuntu DIST=xenial
+      - OS=ubuntu DIST=yakkety
+      - OS=debian DIST=wheezy
+      - OS=debian DIST=jessie
+      - OS=debian DIST=stretch
 
 matrix:
     allow_failures:
-      - env: OS=el DIST=6 PACK=rpm
-      - env: OS=el DIST=7 PACK=rpm
-      - env: OS=fedora DIST=23 PACK=rpm
-      - env: OS=fedora DIST=24 PACK=rpm
-      - env: OS=ubuntu DIST=precise PACK=deb
-      - env: OS=ubuntu DIST=trusty PACK=deb
-      - env: OS=ubuntu DIST=wily PACK=deb
-      - env: OS=ubuntu DIST=xenial PACK=deb
-      - env: OS=debian DIST=jessie PACK=deb
-      - env: OS=debian DIST=wheezy PACK=deb
-      - env: OS=debian DIST=stretch PACK=deb
+#      - env: OS=el DIST=6
+#      - env: OS=el DIST=7
+#      - env: OS=fedora DIST=24
+#      - env: OS=fedora DIST=25
+#      - env: OS=ubuntu DIST=precise
+#      - env: OS=ubuntu DIST=trusty
+#      - env: OS=ubuntu DIST=xenial
+#      - env: OS=ubuntu DIST=yakkety
+#      - env: OS=debian DIST=wheezy
+#      - env: OS=debian DIST=jessie
+#      - env: OS=debian DIST=stretch
+    exclude:
+      - env: OS=el DIST=6
+        compiler: clang
+      - env: OS=el DIST=7
+        compiler: clang
+      - env: OS=fedora DIST=24
+        compiler: clang
+      - env: OS=fedora DIST=25
+        compiler: clang
+      - env: OS=ubuntu DIST=precise
+        compiler: clang
+      - env: OS=ubuntu DIST=trusty
+        compiler: clang
+      - env: OS=ubuntu DIST=xenial
+        compiler: clang
+      - env: OS=ubuntu DIST=yakkety
+        compiler: clang
+      - env: OS=debian DIST=wheezy
+        compiler: clang
+      - env: OS=debian DIST=jessie
+        compiler: clang
+      - env: OS=debian DIST=stretch
+        compiler: clang
 
 script:
-  - git clone https://github.com/tarantool/build.git
-  - PACKAGECLOUD_REPO=tarantool/1_6 REPO_PREFIX=1.6 ./build/pack/travis.sh
-  - PACKAGECLOUD_REPO=tarantool/1_7 REPO_PREFIX=1.7 ./build/pack/travis.sh
+  - git describe --long
+  - |
+    if [ "${TARGET}" = "test" ]; then
+        ./test.sh;
+    else
+        git clone https://github.com/packpack/packpack.git packpack;
+        packpack/packpack;
+    fi;
+
+before_deploy:
+  - ls -l build/
+
+deploy:
+  # Deploy packages to PackageCloud
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_6"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_7"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
 
 notifications:
-  email: true
-  irc: false
+  email:
+    recipients:
+      - build@tarantool.org
+    on_success: change
+    on_failure: always

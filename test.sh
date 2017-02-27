@@ -1,3 +1,5 @@
+#!/bin/bash
+
 curl https://packagecloud.io/tarantool/1_6/gpgkey | sudo apt-key add -
 release=`lsb_release -c -s`
 
