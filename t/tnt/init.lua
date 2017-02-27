@@ -25,7 +25,9 @@ local function tnt_prepare(cfg_args)
 
     cfg_args['wal_dir']              = dir
     cfg_args['snap_dir']             = dir
-    cfg_args[vinyl_name() .. '_dir'] = dir
+    if vinyl_name() then
+        cfg_args[vinyl_name() .. '_dir'] = dir
+    end
     cfg_args['logger']               = fio.pathjoin(dir, 'tarantool.log')
 
     box.cfg (cfg_args)

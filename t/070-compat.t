@@ -35,14 +35,13 @@ test:test('*_version', function(test)
 end)
 
 test:test("check compatibility names", function(test)
-    test:plan(8)
+    test:plan(7)
 
     local vinyl_name = qcompat.vinyl_name
     local num_name   = qcompat.num_type
     local str_name   = qcompat.str_type
 
     test:is(vinyl_name("1.7.1-168"), "vinyl",    "check new name (vinyl)")
-    test:is(vinyl_name("1.6.9-168"), "sophia",   "check old name (sophia)")
     test:is(num_name("1.7.2-1"),     "unsigned", "check new name (unsigned)")
     test:is(num_name("1.6.9-168"),   "num",      "check old name (num)")
     test:is(num_name("1.7.1-168"),   "num",      "check old name (num)")

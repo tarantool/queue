@@ -41,7 +41,7 @@ local function get_actual_strtype(version)
 end
 
 local function get_actual_vinylname(version)
-    return check_version({1, 7}, version) and 'vinyl' or 'sophia'
+    return check_version({1, 7}, version) and 'vinyl' or nil
 end
 
 return {
