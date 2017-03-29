@@ -53,9 +53,20 @@ function tube.create_space(space_name, opts)
     local if_not_exists      = opts.if_not_exists or false
     space_opts.temporary     = opts.temporary or false
     space_opts.if_not_exists = if_not_exists
+    space_opts.format = {
+        [1] = {name = 'task_id', type = num_type()},
+        [2] = {name = 'status', type = str_type()},
+        [3] = {name = 'next_event', type = num_type()},
+        [4] = {name = 'ttl', type = num_type()},
+        [5] = {name = 'ttr', type = num_type()},
+        [6] = {name = 'pri', type = num_type()},
+        [7] = {name = 'created', type = num_type()},
+        [8] = {name = 'utube', type = str_type()},
+        [9] = {name = 'data', type = '*'}
+    }
 
-    -- 1        2       3           4    5    6    7,       8
-    -- task_id, status, next_event, ttl, ttr, pri, created, data
+    -- 1        2       3           4    5    6    7,       8      9
+    -- task_id, status, next_event, ttl, ttr, pri, created, utube, data
     local space = box.schema.create_space(space_name, space_opts)
 
     space:create_index('task_id', {
