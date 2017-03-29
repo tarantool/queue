@@ -13,6 +13,12 @@ function tube.create_space(space_name, opts)
     local if_not_exists      = opts.if_not_exists or false
     space_opts.temporary     = opts.temporary or false
     space_opts.if_not_exists = if_not_exists
+    space_opts.format = {
+        [1] = {name = 'task_id', type = num_type()},
+        [2] = {name = 'status', type = str_type()},
+        [3] = {name = 'utube', type = str_type()},
+        [4] = {name = 'data', type = '*'}
+    }
 
     -- id, status, utube, data
     local space = box.schema.create_space(space_name, space_opts)

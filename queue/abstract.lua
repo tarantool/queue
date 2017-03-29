@@ -379,7 +379,15 @@ function method.start()
     -- tube_name, tube_id, space_name, tube_type, opts
     local _queue = box.space._queue
     if _queue == nil then
-        _queue = box.schema.create_space('_queue')
+        _queue = box.schema.create_space('_queue', {
+            format = {
+                [1] = {name = 'tube_name', type = str_type()},
+                [2] = {name = 'tube_id', type = num_type()},
+                [3] = {name = 'space_name', type = str_type()},
+                [4] = {name = 'tube_type', type = str_type()},
+                [5] = {name = 'opts', type = '*'}
+            }
+        })
         _queue:create_index('tube', {
             type = 'tree',
             parts = {1, str_type()},
@@ -395,7 +403,16 @@ function method.start()
     local _cons = box.space._queue_consumers
     if _cons == nil then
         -- session, fid, tube, time
-        _cons = box.schema.create_space('_queue_consumers', {temporary = true})
+        _cons = box.schema.create_space('_queue_consumers', {
+            temporary = true,
+            format = {
+                [1] = {name = 'session_id', type = num_type()},
+                [2] = {name = 'fiber_id', type = num_type()},
+                [3] = {name = 'tube_id', type = num_type()},
+                [4] = {name = 'event_time', type = num_type()},
+                [5] = {name = 'fiber_time', type = num_type()}
+            }
+        })
         _cons:create_index('pk', {
             type = 'tree',
             parts = {1, num_type(), 2, num_type()},
@@ -411,7 +428,14 @@ function method.start()
     local _taken = box.space._queue_taken
     if _taken == nil then
         -- session_id, tube_id, task_id, time
-        _taken = box.schema.create_space('_queue_taken', {temporary = true})
+        _taken = box.schema.create_space('_queue_taken', {
+            temporary = true,
+            format = {
+                [1] = {name = 'session_id', type = num_type()},
+                [2] = {name = 'tube_id', type = num_type()},
+                [3] = {name = 'task_id', type = num_type()},
+                [4] = {name = 'taken_time', type = num_type()}
+            }})
         _taken:create_index('pk', {
             type = 'tree',
             parts = {1, num_type(), 2, num_type(), 3, num_type()},
