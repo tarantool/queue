@@ -93,6 +93,96 @@ function tube.create_space(space_name, opts)
     return space
 end
 
+local delayed_state = { state.DELAYED }
+local ttl_states    = { state.READY, state.BURIED }
+local ttr_state     = { state.TAKEN }
+
+local function utubettl_fiber_iteration(self, processed)
+    local now       = time()
+    local task      = nil
+    local estimated = TIMEOUT_INFINITY
+
+    -- delayed tasks
+    task = self.space.index.watch:min(delayed_state)
+    if task and task[i_status] == state.DELAYED then
+        if now >= task[i_next_event] then
+            task = self.space:update(task[i_id], {
+                { '=', i_status, state.READY },
+                { '=', i_next_event, task[i_created] + task[i_ttl] }
+            })
+            self:on_task_change(task, 'delayed')
+            estimated = 0
+            processed = processed + 1
+        else
+            estimated = tonumber(task[i_next_event] - now) / 1000000
+        end
+    end
+
+    -- ttl tasks
+    for _, state in pairs(ttl_states) do
+        task = self.space.index.watch:min{ state }
+        if task ~= nil and task[i_status] == state then
+            if now >= task[i_next_event] then
+                task = self:delete(task[i_id]):transform(2, 1, state.DONE)
+                self:on_task_change(task, 'ttl')
+                estimated = 0
+                processed = processed + 1
+            else
+                local et = tonumber(task[i_next_event] - now) / 1000000
+                estimated = et < estimated and et or estimated
+            end
+        end
+    end
+
+    -- ttr tasks
+    task = self.space.index.watch:min(ttr_state)
+    if task and task[i_status] == state.TAKEN then
+        if now >= task[i_next_event] then
+            task = self.space:update(task[i_id], {
+                { '=', i_status, state.READY },
+                { '=', i_next_event, task[i_created] + task[i_ttl] }
+            })
+            self:on_task_change(task, 'ttr')
+            estimated = 0
+            processed = processed + 1
+        else
+            local et = tonumber(task[i_next_event] - now) / 1000000
+            estimated = et < estimated and et or estimated
+        end
+    end
+
+    if estimated > 0 or processed > 1000 then
+        -- free refcounter
+        estimated = processed > 1000 and 0 or estimated
+        estimated = estimated > 0 and estimated or 0
+        fiber.sleep(estimated)
+    end
+
+    return processed
+end
+
+-- watch fiber
+local function utubettl_fiber(self)
+    fiber.name('utubettl')
+    log.info("Started queue utubettl fiber")
+    local processed = 0
+
+    while true do
+        if not box.cfg.read_only then
+            local stat, err = pcall(utubettl_fiber_iteration, self, processed)
+            if not stat and not err.code == box.error.READONLY then
+                log.error("error catched: %s", tostring(err))
+                log.error("exiting fiber '%s'", fiber.name())
+                return 1
+            elseif stat then
+                processed = err
+            end
+        else
+            fiber.sleep(0.1)
+        end
+    end
+end
+
 -- start tube on space
 function tube.new(space, on_task_change, opts)
     on_task_change = on_task_change or (function() end)
@@ -110,95 +200,11 @@ function tube.new(space, on_task_change, opts)
             on_task_change(task, stat_data)
         end,
         opts            = opts,
-    }, { __index = method})
+    }, { __index = method })
 
-    self.fiber = fiber.create(self._fiber, self)
+    self.fiber = fiber.create(utubettl_fiber, self)
 
     return self
-end
-
-local function process_neighbour(self, task, operation)
-    self:on_task_change(task, operation)
-    if task ~= nil then
-        local neighbour = self.space.index.utube:min{state.READY, task[i_utube]}
-        if neighbour ~= nil and neighbour[i_status] == state.READY then
-            self:on_task_change(neighbour)
-        end
-    end
-    return task
-end
-
--- watch fiber
-function method._fiber(self)
-    fiber.name('fifottl')
-    log.info("Started queue utubettl fiber")
-    local estimated
-    local ttl_statuses = { state.READY, state.BURIED }
-    local now, task
-    local processed = 0
-
-    while true do
-        estimated = TIMEOUT_INFINITY
-        now = time()
-
-        -- delayed tasks
-        task = self.space.index.watch:min{ state.DELAYED }
-        if task and task[i_status] == state.DELAYED then
-            if now >= task[i_next_event] then
-                task = self.space:update(task[i_id], {
-                    { '=', i_status, state.READY },
-                    { '=', i_next_event, task[i_created] + task[i_ttl] }
-                })
-                self:on_task_change(task, 'delayed')
-                estimated = 0
-                processed = processed + 1
-            else
-                estimated = tonumber(task[i_next_event] - now) / 1000000
-            end
-        end
-
-        -- ttl tasks
-        for _, state in pairs(ttl_statuses) do
-            task = self.space.index.watch:min{ state }
-            if task ~= nil and task[i_status] == state then
-                if now >= task[i_next_event] then
-                    task = self:delete(task[i_id]):transform(2, 1, state.DONE)
-                    self:on_task_change(task, 'ttl')
-                    estimated = 0
-                    processed = processed + 1
-                else
-                    local et = tonumber(task[i_next_event] - now) / 1000000
-                    estimated = et < estimated and et or estimated
-                end
-            end
-        end
-
-        -- ttr tasks
-        task = self.space.index.watch:min{ state.TAKEN }
-        if task and task[i_status] == state.TAKEN then
-            if now >= task[i_next_event] then
-                task = self.space:update(task[i_id], {
-                    { '=', i_status, state.READY },
-                    { '=', i_next_event, task[i_created] + task[i_ttl] }
-                })
-                self:on_task_change(task, 'ttr')
-                estimated = 0
-                processed = processed + 1
-            else
-                local et = tonumber(task[i_next_event] - now) / 1000000
-                estimated = et < estimated and et or estimated
-            end
-        end
-
-        if estimated > 0 or processed > 1000 then
-            -- free refcounter
-            estimated = processed > 1000 and 0 or estimated
-            estimated = estimated > 0 and estimated or 0
-            processed = 0
-            task = nil
-            fiber.sleep(estimated)
-        end
-    end
 end
 
 -- cleanup internal fields in task
@@ -282,6 +288,17 @@ function method.take(self)
             end
         end
     end
+end
+
+local function process_neighbour(self, task, operation)
+    self:on_task_change(task, operation)
+    if task ~= nil then
+        local neighbour = self.space.index.utube:min{state.READY, task[i_utube]}
+        if neighbour ~= nil and neighbour[i_status] == state.READY then
+            self:on_task_change(neighbour)
+        end
+    end
+    return task
 end
 
 -- delete task

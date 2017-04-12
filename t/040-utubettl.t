@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = (require('tap')).test()
-test:plan(14)
+test:plan(15)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -215,6 +215,25 @@ test:test('if_not_exists test', function(test)
     })
     test:isnt(tube, tube_new, "if_not_exists if tube doesn't exists")
 end)
+
+test:test('read_only test', function(test)
+    test:plan(4)
+    tube:put('abc', { delay = 0.1 })
+    box.cfg{ read_only = true }
+    fiber.sleep(0.11)
+    local task = tube:take(0.2)
+    test:isnil(task, "check that task wasn't moved to ready state")
+    print(task)
+    test:is(tube.raw.fiber:status(), 'suspended',
+            "check that background fiber isn't dead")
+    box.cfg{ read_only = false }
+    test:is(tube.raw.fiber:status(), 'suspended',
+            "check that background fiber isn't dead again")
+    local task = tube:take()
+    test:isnt(task, nil, "check that we can take task")
+    tube:ack(task[1])
+end)
+
 
 tnt.finish()
 os.exit(test:check() == true and 0 or -1)

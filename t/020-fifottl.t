@@ -2,7 +2,7 @@
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(12)
+test:plan(13)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -202,6 +202,24 @@ test:test('touch test', function(test)
     task = tube:ack(task[1])
     test:is(task[2], '-')
     test:isnt(task, nil)
+end)
+
+test:test('read_only test', function(test)
+    test:plan(4)
+    tube:put('abc', { delay = 0.1 })
+    box.cfg{ read_only = true }
+    fiber.sleep(0.11)
+    local task = tube:take(0.2)
+    test:isnil(task, "check that task wasn't moved to ready state")
+    print(task)
+    test:is(tube.raw.fiber:status(), 'suspended',
+            "check that background fiber isn't dead")
+    box.cfg{ read_only = false }
+    test:is(tube.raw.fiber:status(), 'suspended',
+            "check that background fiber isn't dead again")
+    local task = tube:take()
+    test:isnt(task, nil, "check that we can take task")
+    tube:ack(task[1])
 end)
 
 tnt.finish()
