@@ -99,6 +99,9 @@ function tube.take(self, timeout)
 end
 
 function tube.touch(self, id, delta)
+    if delta == nil then
+        return
+    end
     if delta < 0 then -- if delta is lesser then 0, then it's zero
         delta = 0
     elseif delta > MAX_TIMEOUT then -- no ttl/ttr for this task

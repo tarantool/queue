@@ -385,9 +385,8 @@ time needed to work on task.
 
 Effect: the value of `ttr` and `ttl` increased by `increment` seconds. If queue
 does not support ttr, error will be thrown. If `increment` is lower than zero,
-error will be thrown. If `increment` is zero effect is no op. If `increment` is
-`nil` it will be equal to current `ttr` of task. If current `ttr` of task is
-500 years or greater then operation is noop.
+error will be thrown. If `increment` is zero or nil effect is noop. If current
+`ttr` of task is 500 years or greater then operation is noop.
 
 Example: t_value = queue.tube.list_of_sites:touch(15, 60)
 
