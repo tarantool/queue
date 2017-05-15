@@ -1,4 +1,3 @@
-*~
 t/var
 VERSION
 # cmake
@@ -10,3 +9,10 @@ Makefile
 # ctest
 Testing
 CTestTestfile.cmake
+# tarantool garbage
+*.snap
+*.xlog
+*.vylog
+# vim
+*~
+.*.swp

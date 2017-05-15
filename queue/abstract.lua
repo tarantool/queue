@@ -9,7 +9,23 @@ local str_type = require('queue.compat').str_type
 local session = box.session
 
 local queue = {
-    tube = {},
+    tube = setmetatable({}, {
+        __call = function(self, tube_name)
+            if tube_name and type(tube_name) ~= 'string' then
+                error('argument #1 should be string or nil')
+            end
+            -- return all names of tubes
+            if tube_name == nil then
+                local rv = {}
+                for name, _ in pairs(self) do
+                    table.insert(rv, name)
+                end
+                return rv
+            end
+            -- return true/false if tube name is provided
+            return not (self[tube_name] == nil)
+        end
+    }),
     stat = {}
 }
 local MAX_TIMEOUT      = 365 * 86400 * 100       -- MAX_TIMEOUT == 100 years

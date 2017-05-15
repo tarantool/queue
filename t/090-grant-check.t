@@ -1,6 +1,6 @@
 #!/usr/bin/env tarantool
 local test = require('tap').test()
-test:plan(2)
+test:plan(3)
 
 local test_user = 'test'
 local test_pass = '1234'
@@ -109,6 +109,37 @@ test:test('check for call grants', function(test)
 
     _G.queue = nil
     tube:drop()
+end)
+
+test:test('check tube existence', function(test)
+    test:plan(14)
+    local queue = require('queue')
+    test:is(#queue.tube(), 0, 'checking for empty tube list')
+    assert(#queue.tube() == 0)
+
+    local tube1 = queue.create_tube('test1', 'fifo')
+    test:is(#queue.tube(), 1, 'checking for not empty tube list')
+
+    local tube2 = queue.create_tube('test2', 'fifo')
+    test:is(#queue.tube(), 2, 'checking for not empty tube list')
+
+    test:is(queue.tube('test1'), true, 'checking for tube existence')
+    test:is(queue.tube('test2'), true, 'checking for tube existence')
+    test:is(queue.tube('test3'), false, 'checking for tube nonexistence')
+
+    tube2:drop()
+    test:is(#queue.tube(), 1, 'checking for not empty tube list')
+
+    test:is(queue.tube('test1'), true, 'checking for tube existence')
+    test:is(queue.tube('test2'), false, 'checking for tube nonexistence')
+    test:is(queue.tube('test3'), false, 'checking for tube nonexistence')
+
+    tube1:drop()
+    test:is(#queue.tube(), 0, 'checking for empty tube list')
+
+    test:is(queue.tube('test1'), false, 'checking for tube nonexistence')
+    test:is(queue.tube('test2'), false, 'checking for tube nonexistence')
+    test:is(queue.tube('test3'), false, 'checking for tube nonexistence')
 end)
 
 tnt.finish()
