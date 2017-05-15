@@ -6,7 +6,10 @@ local errno = require('errno')
 local dir     = os.getenv('QUEUE_TMP')
 local cleanup = false
 
-local vinyl_name = require('queue.compat').vinyl_name
+local qc              = require('queue.compat')
+local vinyl_name      = qc.vinyl_name
+local snapdir_optname = qc.snapdir_optname
+local logger_optname  = qc.logger_optname
 
 if dir == nil then
     dir = fio.tempdir()
@@ -23,14 +26,15 @@ local function tnt_prepare(cfg_args)
         end
     end
 
-    cfg_args['wal_dir']              = dir
-    cfg_args['snap_dir']             = dir
+    cfg_args['wal_dir']         = dir
+    cfg_args[snapdir_optname()] = dir
+    cfg_args[logger_optname()]  = fio.pathjoin(dir, 'tarantool.log')
     if vinyl_name() then
-        cfg_args[vinyl_name() .. '_dir'] = dir
+        local vinyl_optname     = vinyl_name() .. '_dir'
+        cfg_args[vinyl_optname] = dir
     end
-    cfg_args['logger']               = fio.pathjoin(dir, 'tarantool.log')
 
-    box.cfg (cfg_args)
+    box.cfg(cfg_args)
 end
 
 return {
@@ -75,5 +79,3 @@ return {
 
     cfg = tnt_prepare
 }
-
-

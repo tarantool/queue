@@ -44,10 +44,25 @@ local function get_actual_vinylname(version)
     return check_version({1, 7}, version) and 'vinyl' or nil
 end
 
+local function get_optname_snapdir(version)
+    return check_version({1, 7}, version) and 'memtx_dir' or 'snap_dir'
+end
+
+local function get_optname_logger(version)
+    return check_version({1, 7}, version) and 'log' or 'logger'
+end
+
+local function pack_args(...)
+    return check_version({1, 7}) and { ... } or ...
+end
+
 return {
-    split_version = split_version,
-    check_version = check_version,
-    vinyl_name = get_actual_vinylname,
-    num_type = get_actual_numtype,
-    str_type = get_actual_strtype
+    split_version   = split_version,
+    check_version   = check_version,
+    vinyl_name      = get_actual_vinylname,
+    num_type        = get_actual_numtype,
+    str_type        = get_actual_strtype,
+    snapdir_optname = get_optname_snapdir,
+    logger_optname  = get_optname_logger,
+    pack_args       = pack_args,
 }

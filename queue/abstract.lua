@@ -213,6 +213,40 @@ function tube.on_task_change(self, cb)
     return old_cb
 end
 
+function tube.grant(self, user, args)
+    local function tube_grant_space(user, name, tp)
+        box.schema.user.grant(user, tp or 'read,write', 'space', name, {
+            if_not_exists = true,
+        })
+    end
+
+    local function tube_grant_func(user, name)
+        box.schema.func.create(name, { if_not_exists = true })
+        box.schema.user.grant(user, 'execute', 'function', name, {
+            if_not_exists = true
+        })
+    end
+
+    args = args or {}
+
+    tube_grant_space(user, '_queue', 'read')
+    tube_grant_space(user, '_queue_consumers')
+    tube_grant_space(user, '_queue_taken')
+    tube_grant_space(user, self.name)
+
+    if args.call then
+        local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
+        tube_grant_func(user, prefix .. 'take')
+        tube_grant_func(user, prefix .. 'touch')
+        tube_grant_func(user, prefix .. 'ack')
+        tube_grant_func(user, prefix .. 'release')
+        tube_grant_func(user, prefix .. 'peek')
+        tube_grant_func(user, prefix .. 'bury')
+        tube_grant_func(user, prefix .. 'kick')
+        tube_grant_func(user, prefix .. 'delete')
+    end
+end
+
 -- methods
 local method = {}
 
