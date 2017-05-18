@@ -3,8 +3,10 @@ local fun      = require('fun')
 local fiber    = require('fiber')
 
 local state    = require('queue.abstract.state')
-local num_type = require('queue.compat').num_type
-local str_type = require('queue.compat').str_type
+
+local qc       = require('queue.compat')
+local num_type = qc.num_type
+local str_type = qc.str_type
 
 local session = box.session
 
@@ -70,6 +72,8 @@ function tube.put(self, data, opts)
     return self.raw:normalize_task(task)
 end
 
+local conds = {}
+
 function tube.take(self, timeout)
     timeout = time(timeout or TIMEOUT_INFINITY)
     local task = self.raw:take()
@@ -80,12 +84,15 @@ function tube.take(self, timeout)
     while timeout > 0 do
         local started = fiber.time64()
         local time = event_time(timeout)
-        local tube_id = self.tube_id
+        local tid = self.tube_id
+        local fid = fiber.id()
+        local sid = session.id()
 
-        box.space._queue_consumers:insert{
-                session.id(), fiber.id(), tube_id, time, fiber.time64() }
-        fiber.sleep(tonumber(timeout) / 1000000)
-        box.space._queue_consumers:delete{ session.id(), fiber.id() }
+        box.space._queue_consumers:insert{sid, fid, tid, time, started}
+        conds[fid] = qc.waiter()
+        conds[fid]:wait(tonumber(timeout) / 1000000)
+        conds[fid]:free()
+        box.space._queue_consumers:delete{ sid, fid }
 
         task = self.raw:take()
 
@@ -295,8 +302,11 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
 
             if consumer ~= nil then
                 if consumer[3] == tube_id then
-                    fiber.find(consumer[2]):wakeup()
                     queue_consumers:delete{consumer[1], consumer[2]}
+                    local cond = conds[consumer[2]]
+                    if cond then
+                        cond:signal(consumer[2])
+                    end
                 end
             end
         -- task swicthed to taken - registry in taken space
@@ -340,9 +350,9 @@ function method._on_consumer_disconnect()
             break
         end
         box.space._queue_consumers:delete{ waiter[1], waiter[2] }
-        fb = fiber.find(waiter[2])
-        if fb ~= nil and fb:status() ~= 'dead' then
-            fb:wakeup()
+        local cond = conds[waiter[2]]
+        if cond then
+            cond:signal(waiter[2])
         end
     end
 

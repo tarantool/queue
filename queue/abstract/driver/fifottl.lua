@@ -2,8 +2,9 @@ local log      = require('log')
 local fiber    = require('fiber')
 local state    = require('queue.abstract.state')
 
-local num_type = require('queue.compat').num_type
-local str_type = require('queue.compat').str_type
+local qc       = require('queue.compat')
+local num_type = qc.num_type
+local str_type = qc.str_type
 
 local tube = {}
 local method = {}
@@ -147,8 +148,7 @@ local function fifottl_fiber_iteration(self, processed)
     if estimated > 0 or processed > 1000 then
         -- free refcounter
         estimated = estimated > 0 and estimated or 0
-        processed = 0
-        fiber.sleep(estimated)
+        self.cond:wait(estimated)
     end
 
     return processed
@@ -183,18 +183,15 @@ function tube.new(space, on_task_change, opts)
         space           = space,
         on_task_change  = function(self, task, stats_data)
             -- wakeup fiber
-            if task ~= nil then
-                if self.fiber ~= nil then
-                    if self.fiber:id() ~= fiber.id() then
-                        self.fiber:wakeup()
-                    end
-                end
+            if task ~= nil and self.fiber ~= nil then
+                self.cond:signal(self.fiber:id())
             end
             on_task_change(task, stats_data)
         end,
         opts            = opts,
     }, { __index = method })
 
+    self.cond  = qc.waiter()
     self.fiber = fiber.create(fifottl_fiber, self)
 
     return self

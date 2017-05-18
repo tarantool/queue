@@ -1,10 +1,11 @@
-local fun  = require('fun')
-local log  = require('log')
-local json = require('json')
+local fun   = require('fun')
+local log   = require('log')
+local json  = require('json')
+local fiber = require('fiber')
 
 local iter, op  = fun.iter, fun.operator
 
-function split(self, sep)
+local function split(self, sep)
     local sep, fields = sep or ":", {}
     local pattern = string.format("([^%s]+)", sep)
     self:gsub(pattern, function(c) table.insert(fields, c) end)
@@ -56,6 +57,57 @@ local function pack_args(...)
     return check_version({1, 7}) and { ... } or ...
 end
 
+local waiter_list = {}
+
+local function waiter_new()
+    return setmetatable({
+        cond = fiber.cond()
+    }, {
+        __index = {
+            wait = function(self, timeout)
+                self.cond:wait(timeout)
+            end,
+            signal = function(self, wfiber)
+                self.cond:signal()
+            end,
+            free = function(self)
+                if #waiter_list < 100 then
+                    table.insert(waiter_list, self)
+                end
+            end
+        }
+    })
+end
+
+local function waiter_old()
+    return setmetatable({}, {
+        __index = {
+            wait = function(self, timeout)
+                fiber.sleep(timeout)
+            end,
+            signal = function(self, fid)
+                local wfiber = fiber.find(fid)
+                if wfiber ~= nil and
+                   wfiber:status() ~= 'dead' and
+                   wfiber:id() ~= fiber.id() then
+                    wfiber:wakeup()
+                end
+            end,
+            free = function(self)
+                if #waiter_list < 100 then
+                    table.insert(waiter_list, self)
+                end
+            end
+        }
+    })
+end
+
+local waiter_actual = check_version({1, 7, 2}) and waiter_new or waiter_old
+
+local function waiter()
+    return table.remove(waiter_list) or waiter_actual()
+end
+
 return {
     split_version   = split_version,
     check_version   = check_version,
@@ -65,4 +117,5 @@ return {
     snapdir_optname = get_optname_snapdir,
     logger_optname  = get_optname_logger,
     pack_args       = pack_args,
+    waiter          = waiter
 }
