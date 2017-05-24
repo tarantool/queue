@@ -20,9 +20,9 @@ A collection of persistent queue implementations for Tarantool.
 %build
 %cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-%check
-make check
-
+# %check
+# make check
+#
 %define luapkgdir %{_datadir}/tarantool/queue/
 %install
 %make_install

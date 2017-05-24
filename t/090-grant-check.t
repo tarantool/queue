@@ -13,7 +13,8 @@ local netbox = require('net.box')
 local tnt = require('t.tnt')
 
 tnt.cfg{
-    listen = uri.format({ host = test_host, service = test_port })
+    listen = ('%s:%s'):format(test_host, test_port)
+    -- listen = uri.format({ host = test_host, service = test_port })
 }
 
 local qc = require('queue.compat')
@@ -86,23 +87,42 @@ test:test('check for call grants', function(test)
     test:is(a[1], 0, 'we aren\'t getting any error')
     box.session.su('admin')
 
+    local nb_connect = netbox.connect
+    if nb_connect == nil then
+        nb_connect = netbox.new
+    end
+    local con = nb_connect(
+        ('%s:%s@%s:%s'):format(test_user, test_pass, test_host, test_port)
+    )
+    --[[
     local con = netbox.connect(uri.format({
         login = test_user, password = test_pass,
         host  = test_host, service  = test_port,
     }, true))
+    ]]--
 
-    local stat, er = pcall(con.call, con, tube, 'queue.tube.test:take')
+    local stat, err = pcall(con.call, con, 'queue.tube.test:take')
     test:is(stat, false, 'we\'re getting error')
 
     -- granting call
     tube:grant('test', { call = true })
 
+    local qc_arg_unpack = function(arg)
+        if qc.check_version({1, 7}) then
+            return arg
+        end
+        return arg and arg[1]
+    end
+
     local a = con:call('queue.tube.test:take')
-    test:is(a[1], 0, 'we aren\'t getting any error')
+    test:is(qc_arg_unpack(a[1]), 0, 'we aren\'t getting any error')
     local b = con:call('queue.tube.test:take', qc.pack_args(0.1))
-    test:isnil(b, 'we aren\'t getting any error')
-    local c = con:call('queue.tube.test:ack',  qc.pack_args(a[1]))
-    test:is(a[1], 0, 'we aren\'t getting any error')
+    test:isnil(
+        qc_arg_unpack(qc_arg_unpack(b)),
+        'we aren\'t getting any error'
+    )
+    local c = con:call('queue.tube.test:ack',  qc.pack_args(qc_arg_unpack(a[1])))
+    test:is(qc_arg_unpack(a[1]), 0, 'we aren\'t getting any error')
 
     -- check grants again
     tube:grant('test', { call = true })

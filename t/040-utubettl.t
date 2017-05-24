@@ -8,6 +8,8 @@ test:plan(15)
 local queue = require('queue')
 local state = require('queue.abstract.state')
 
+local qc = require('queue.compat')
+
 local tnt  = require('t.tnt')
 tnt.cfg{}
 
@@ -221,9 +223,13 @@ test:test('read_only test', function(test)
     tube:put('abc', { delay = 0.1 })
     box.cfg{ read_only = true }
     fiber.sleep(0.11)
-    local task = tube:take(0.2)
-    test:isnil(task, "check that task wasn't moved to ready state")
-    print(task)
+    if qc.check_version({1, 7}) then
+        local task = tube:take(0.2)
+        test:isnil(task, "check that task wasn't moved to ready state")
+    else
+        local stat, task = pcall(tube.take, tube, 0.2)
+        test:is(stat, false, "check that task wasn't taken")
+    end
     test:is(tube.raw.fiber:status(), 'suspended',
             "check that background fiber isn't dead")
     box.cfg{ read_only = false }
