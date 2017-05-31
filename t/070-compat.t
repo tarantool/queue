@@ -8,30 +8,22 @@ local qcompat = require('queue.compat')
 test:ok(qcompat, 'queue compatibility layer exists')
 
 test:test('*_version', function(test)
-    test:plan(9)
+    test:plan(10)
 
     local split_version = qcompat.split_version
     local check_version = qcompat.check_version
 
-    test:is_deeply(split_version("1.6.8-173"), {"1", "6", "8", "173"},
-                   "check split_version 1")
-    test:is_deeply(split_version("1.7.1-0"), {"1", "7", "1", "0"},
-                   "check split_version 2")
-    test:is_deeply(split_version("1.7.1"), {"1", "7", "1"},
-                   "check split_version 3")
+    test:is_deeply(split_version("1.6.8-173"), {"1", "6", "8", "173"}, "check split_version 1")
+    test:is_deeply(split_version("1.7.1-0"),   {"1", "7", "1", "0"},   "check split_version 2")
+    test:is_deeply(split_version("1.7.1"),     {"1", "7", "1"},        "check split_version 3")
 
-    test:ok(check_version({1, 7, 1}, "1.8.1-0"),
-            "check supported version")
-    test:ok(check_version({1, 7, 1}, "1.7.1-0"),
-            "check supported version")
-    test:ok(check_version({1, 7, 1}, "1.7.1-1"),
-            "check supported version")
-    test:ok(not check_version({1, 7, 1}, "1.6.9"),
-            "check unsupported version")
-    test:ok(not check_version({1, 7, 1}, "1.6.9-100"),
-            "check unsupported version")
-    test:ok(not check_version({1, 7, 1}, "1.6.9-100"),
-            "check unsupported version")
+    test:is(check_version({1, 7, 1}, "1.8.1-0"),   true,  "check supported version")
+    test:is(check_version({1, 7, 1}, "1.7.1-0"),   true,  "check supported version")
+    test:is(check_version({1, 7, 1}, "1.7.1-1"),   true,  "check supported version")
+    test:is(check_version({1, 7, 2}, "1.8.1"),     true,  "check supported version")
+    test:is(check_version({1, 7, 1}, "1.6.9"),     false, "check unsupported version")
+    test:is(check_version({1, 7, 1}, "1.6.9-100"), false, "check unsupported version")
+    test:is(check_version({1, 7, 1}, "1.6.9-100"), false, "check unsupported version")
 end)
 
 test:test("check compatibility names", function(test)

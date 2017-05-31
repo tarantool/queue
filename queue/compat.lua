@@ -12,10 +12,14 @@ local function split(self, sep)
     return fields
 end
 
-local function opge(l, r)
-    l = type(l) == 'string' and tonumber(l) or l
-    r = type(r) == 'string' and tonumber(r) or r
-    return l >= r
+local function reducer(res, l, r)
+    if res ~= nil then
+        return res
+    end
+    if tonumber(l) == tonumber(r) then
+        return nil
+    end
+    return tonumber(l) > tonumber(r)
 end
 
 local function split_version(version_string)
@@ -30,7 +34,9 @@ local function check_version(expected, version)
     if type(version) == 'string' then
         version = split_version(version)
     end
-    return iter(version):zip(expected):every(opge)
+    local res = iter(version):zip(expected):reduce(reducer, nil)
+    if res or res == nil then res = true end
+    return res
 end
 
 local function get_actual_numtype(version)
