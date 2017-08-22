@@ -11,13 +11,15 @@ tnt.cfg{
     wal_mode = 'none'
 }
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 local ttl = 0.1
 
 test:ok(queue, 'queue is loaded')
 
 test:test('one message per queue ffttl', function (test)
     test:plan(20)
-    local tube = queue.create_tube('ompq_ffttl', 'fifottl')
+    local tube = queue.create_tube('ompq_ffttl', 'fifottl', { engine = engine })
     for i = 1, 20 do
         tube:put('ompq_' .. i, {ttl=ttl})
         fiber.sleep(ttl)
@@ -27,7 +29,7 @@ end)
 
 test:test('one message per queue utttl', function (test)
     test:plan(20)
-    local tube = queue.create_tube('ompq_utttl', 'utubettl')
+    local tube = queue.create_tube('ompq_utttl', 'utubettl', { engine = engine })
     for i = 1, 20 do
         tube:put('ompq_' .. i, {ttl=ttl})
         fiber.sleep(ttl)
@@ -38,7 +40,7 @@ end)
 test:test('many messages, one queue ffttl', function (test)
     test:plan(20)
     for i = 1, 20 do
-        local tube = queue.create_tube('mmpq_ffttl_' .. i, 'fifottl')
+        local tube = queue.create_tube('mmpq_ffttl_' .. i, 'fifottl', { engine = engine })
         tube:put('mmpq_' .. i, {ttl=ttl})
         fiber.sleep(ttl)
         test:is(#{tube:take(.1)}, 0, 'no task is taken')
@@ -48,7 +50,7 @@ end)
 test:test('many messages, one queue utttl', function (test)
     test:plan(20)
     for i = 1, 20 do
-        local tube = queue.create_tube('mmpq_utttl_' .. i, 'utubettl')
+        local tube = queue.create_tube('mmpq_utttl_' .. i, 'utubettl', { engine = engine })
         tube:put('mmpq_' .. i, {ttl=ttl})
         fiber.sleep(ttl)
         test:is(#{tube:take(.1)}, 0, 'no task is taken')

@@ -11,10 +11,12 @@ local state = require('queue.abstract.state')
 local tnt   = require('t.tnt')
 tnt.cfg{}
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 test:ok(rawget(box, 'space'), 'box started')
 test:ok(queue, 'queue is loaded')
 
-local tube = queue.create_tube('test', 'fifo')
+local tube = queue.create_tube('test', 'fifo', { engine = engine })
 test:ok(tube, 'test tube created')
 test:is(tube.name, 'test', 'tube.name')
 test:is(tube.type, 'fifo', 'tube.type')

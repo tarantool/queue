@@ -17,6 +17,8 @@ tnt.cfg{
     -- listen = uri.format({ host = test_host, service = test_port })
 }
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 local qc = require('queue.compat')
 
 test:test('check for space grants', function(test)
@@ -26,7 +28,7 @@ test:test('check for space grants', function(test)
 
     test:plan(5)
 
-    local tube = queue.create_tube('test', 'fifo')
+    local tube = queue.create_tube('test', 'fifo', { engine = engine })
     tube:put('help');
     local task = tube:take();
     test:is(task[1], 0, 'we can get record')
@@ -63,7 +65,7 @@ test:test('check for call grants', function(test)
 
     test:plan(9)
 
-    local tube = queue.create_tube('test', 'fifo')
+    local tube = queue.create_tube('test', 'fifo', { engine = engine })
     tube:put('help');
     local task = tube:take();
     test:is(task[1], 0, 'we can get record')
@@ -137,10 +139,10 @@ test:test('check tube existence', function(test)
     test:is(#queue.tube(), 0, 'checking for empty tube list')
     assert(#queue.tube() == 0)
 
-    local tube1 = queue.create_tube('test1', 'fifo')
+    local tube1 = queue.create_tube('test1', 'fifo', { engine = engine })
     test:is(#queue.tube(), 1, 'checking for not empty tube list')
 
-    local tube2 = queue.create_tube('test2', 'fifo')
+    local tube2 = queue.create_tube('test2', 'fifo', { engine = engine })
     test:is(#queue.tube(), 2, 'checking for not empty tube list')
 
     test:is(queue.tube('test1'), true, 'checking for tube existence')

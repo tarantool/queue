@@ -7,6 +7,8 @@ test:plan(2)
 
 local queue = require('queue')
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 test:test('access to queue until box.cfg is started', function(test)
     test:plan(3)
     test:isnil(rawget(box, 'space'), 'box is not started yet')
@@ -26,7 +28,7 @@ test:test('access to queue after box.cfg{}', function(test)
     test:istable(queue.tube, 'queue.tube is table')
     test:is(#queue.tube, 0, 'queue.tube is empty')
 
-    local tube = queue.create_tube('test', 'fifo')
+    local tube = queue.create_tube('test', 'fifo', { engine = engine })
     test:ok(queue.tube.test, 'tube "test" is created')
 
     test:ok(queue.tube.test:put(123), 'put')

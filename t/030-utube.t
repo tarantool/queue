@@ -11,11 +11,13 @@ local state = require('queue.abstract.state')
 local tnt  = require('t.tnt')
 tnt.cfg{}
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 test:ok(rawget(box, 'space'), 'box started')
 test:ok(queue, 'queue is loaded')
 
-local tube = queue.create_tube('test', 'utube')
-local tube2 = queue.create_tube('test_stat', 'utube')
+local tube = queue.create_tube('test', 'utube', { engine = engine })
+local tube2 = queue.create_tube('test_stat', 'utube', { engine = engine })
 test:ok(tube, 'test tube created')
 test:is(tube.name, 'test', 'tube.name')
 test:is(tube.type, 'utube', 'tube.type')
@@ -140,16 +142,16 @@ end)
 test:test('if_not_exists test', function(test)
     test:plan(2)
     local tube = queue.create_tube('test_ine', 'utube', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     local tube_new = queue.create_tube('test_ine', 'utube', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     test:is(tube, tube_new, "if_not_exists if tube exists")
 
     queue.tube['test_ine'] = nil
     local tube_new = queue.create_tube('test_ine', 'utube', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     test:isnt(tube, tube_new, "if_not_exists if tube doesn't exists")
 end)

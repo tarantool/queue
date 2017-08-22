@@ -20,8 +20,12 @@ file(GLOB TEST_LIST ${CMAKE_SOURCE_DIR}/t/*.t)
 
 foreach(TEST ${TEST_LIST})
     get_filename_component(TEST_NAME ${TEST} NAME)
-    add_test(${TEST_NAME} tarantool ${TEST})
-    set_tests_properties(${TEST_NAME} PROPERTIES ENVIRONMENT "${LUA_PATH}")
+    add_test            (memtx-${TEST_NAME} tarantool ${TEST})
+    set_tests_properties(memtx-${TEST_NAME} PROPERTIES ENVIRONMENT "${LUA_PATH}")
+    set_tests_properties(memtx-${TEST_NAME} PROPERTIES ENVIRONMENT "ENGINE=memtx")
+    add_test            (vinyl-${TEST_NAME} tarantool ${TEST})
+    set_tests_properties(vinyl-${TEST_NAME} PROPERTIES ENVIRONMENT "${LUA_PATH}")
+    set_tests_properties(vinyl-${TEST_NAME} PROPERTIES ENVIRONMENT "ENGINE=vinyl")
 endforeach()
 
 add_custom_target(check

@@ -5,6 +5,8 @@ test:plan(1)
 local tnt = require('t.tnt')
 tnt.cfg{}
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 local queue = require('queue')
 
 local function tube_check_simple(tube)
@@ -23,7 +25,7 @@ test:test('on_task_change callback', function(test)
 
     -- init with initial callback
     local tube = queue.create_tube('test2', 'fifo', {
-        on_task_change = cb
+        on_task_change = cb, engine = engine
     })
 
     tube_check_simple(tube)

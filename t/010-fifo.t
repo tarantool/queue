@@ -8,14 +8,16 @@ test:plan(14)
 local queue = require('queue')
 local state = require('queue.abstract.state')
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 local tnt = require('t.tnt')
 tnt.cfg{}
 
 test:ok(rawget(box, 'space'), 'box started')
 test:ok(queue, 'queue is loaded')
 
-local tube = queue.create_tube('test', 'fifo')
-local tube2 = queue.create_tube('test_stat', 'fifo')
+local tube = queue.create_tube('test', 'fifo', { engine = engine })
+local tube2 = queue.create_tube('test_stat', 'fifo', { engine = engine })
 test:ok(tube, 'test tube created')
 test:is(tube.name, 'test', 'tube.name')
 test:is(tube.type, 'fifo', 'tube.type')
@@ -217,17 +219,21 @@ end)
 
 test:test('creating existing tube', function(test)
     test:plan(2)
-    local s, e = pcall(function() queue.create_tube('test', 'fifo') end)
+    local s, e = pcall(function() queue.create_tube('test', 'fifo', { engine = engine }) end)
     test:ok(not s, 'exception was thrown')
     test:ok(e:match("Space 'test' already exists") ~= nil, 'text of exception')
 end)
 
 test:test('tempspace', function(test)
-    test:plan(2)
-    tube = queue.create_tube('test1', 'fifo', { temporary = true })
-    test:ok(tube, 'tube was created')
-    local space_r = box.space._space:get{queue.tube.test1.raw.space.id}
-    test:ok(space_r[6].temporary, 'really tempspace')
+    if engine ~= 'vinyl' then
+        test:plan(2)
+        tube = queue.create_tube('test1', 'fifo', { temporary = true })
+        test:ok(tube, 'tube was created')
+        local space_r = box.space._space:get{queue.tube.test1.raw.space.id}
+        test:ok(space_r[6].temporary, 'really tempspace')
+    else
+        test:plan(0)
+    end
 end)
 
 test:test('disconnect test', function(test)
@@ -244,7 +250,6 @@ test:test('disconnect test', function(test)
     local task3 = tube:take(.1)
     test:ok(task3, 'task3 was taken')
 
-
     queue._on_consumer_disconnect()
 
     test:is(tube:peek(task1[1])[2], state.READY, 'task1 was marked as READY')
@@ -253,9 +258,13 @@ test:test('disconnect test', function(test)
 end)
 
 test:test('if not exists tests', function(test)
-    test:plan(1)
-    local tube_dup = queue.create_tube('test1', 'fifo', { if_not_exists = true })
-    test:is(tube_dup, tube, '')
+    if engine ~= 'vinyl' then
+        test:plan(1)
+        local tube_dup = queue.create_tube('test1', 'fifo', { if_not_exists = true })
+        test:is(tube_dup, tube, '')
+    else
+        test:plan(0)
+    end
 end)
 
 test:test('truncate test', function(test)
@@ -269,16 +278,16 @@ end)
 test:test('if_not_exists test', function(test)
     test:plan(2)
     local tube = queue.create_tube('test_ine', 'fifo', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     local tube_new = queue.create_tube('test_ine', 'fifo', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     test:is(tube, tube_new, "if_not_exists if tube exists")
 
     queue.tube['test_ine'] = nil
     local tube_new = queue.create_tube('test_ine', 'fifo', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     test:isnt(tube, tube_new, "if_not_exists if tube doesn't exists")
 end)

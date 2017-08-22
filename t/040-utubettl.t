@@ -13,11 +13,13 @@ local qc = require('queue.compat')
 local tnt  = require('t.tnt')
 tnt.cfg{}
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 test:ok(rawget(box, 'space'), 'box started')
 test:ok(queue, 'queue is loaded')
 
-local tube = queue.create_tube('test', 'utubettl')
-local tube2 = queue.create_tube('test_stat', 'utubettl')
+local tube = queue.create_tube('test', 'utubettl', { engine = engine })
+local tube2 = queue.create_tube('test_stat', 'utubettl', { engine = engine })
 test:ok(tube, 'test tube created')
 test:is(tube.name, 'test', 'tube.name')
 test:is(tube.type, 'utubettl', 'tube.type')
@@ -85,7 +87,7 @@ end)
 
 test:test('ttr put/take', function(test)
     test:plan(3)
-    local my_queue = queue.create_tube('trr_test', 'utubettl')
+    local my_queue = queue.create_tube('trr_test', 'utubettl', { engine = engine })
     test:ok(my_queue:put('ttr1', { ttr = 1 }), 'put ttr task')
     test:ok(my_queue:take(0.1) ~= nil, 'take this task')
     fiber.sleep(1)
@@ -204,16 +206,16 @@ end)
 test:test('if_not_exists test', function(test)
     test:plan(2)
     local tube = queue.create_tube('test_ine', 'utubettl', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     local tube_new = queue.create_tube('test_ine', 'utubettl', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     test:is(tube, tube_new, "if_not_exists if tube exists")
 
     queue.tube['test_ine'] = nil
     local tube_new = queue.create_tube('test_ine', 'utubettl', {
-        if_not_exists = true
+        if_not_exists = true, engine = engine
     })
     test:isnt(tube, tube_new, "if_not_exists if tube doesn't exists")
 end)
