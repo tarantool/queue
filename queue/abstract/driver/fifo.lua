@@ -14,9 +14,9 @@ function tube.create_space(space_name, opts)
     space_opts.if_not_exists = if_not_exists
     space_opts.engine        = opts.engine or 'memtx'
     space_opts.format = {
-        [1] = {name = 'task_id', type = num_type()},
-        [2] = {name = 'status', type = str_type()},
-        [3] = {name = 'data', type = '*'}
+        {name = 'task_id', type = num_type()},
+        {name = 'status', type = str_type()},
+        {name = 'data', type = '*'}
     }
 
     local space = box.schema.create_space(space_name, space_opts)

@@ -444,11 +444,11 @@ function method.start()
     if _queue == nil then
         _queue = box.schema.create_space('_queue', {
             format = {
-                [1] = {name = 'tube_name', type = str_type()},
-                [2] = {name = 'tube_id', type = num_type()},
-                [3] = {name = 'space_name', type = str_type()},
-                [4] = {name = 'tube_type', type = str_type()},
-                [5] = {name = 'opts', type = '*'}
+                {name = 'tube_name', type = str_type()},
+                {name = 'tube_id', type = num_type()},
+                {name = 'space_name', type = str_type()},
+                {name = 'tube_type', type = str_type()},
+                {name = 'opts', type = '*'}
             }
         })
         _queue:create_index('tube', {
@@ -469,11 +469,11 @@ function method.start()
         _cons = box.schema.create_space('_queue_consumers', {
             temporary = true,
             format = {
-                [1] = {name = 'session_id', type = num_type()},
-                [2] = {name = 'fiber_id', type = num_type()},
-                [3] = {name = 'tube_id', type = num_type()},
-                [4] = {name = 'event_time', type = num_type()},
-                [5] = {name = 'fiber_time', type = num_type()}
+                {name = 'session_id', type = num_type()},
+                {name = 'fiber_id', type = num_type()},
+                {name = 'tube_id', type = num_type()},
+                {name = 'event_time', type = num_type()},
+                {name = 'fiber_time', type = num_type()}
             }
         })
         _cons:create_index('pk', {
@@ -494,10 +494,10 @@ function method.start()
         _taken = box.schema.create_space('_queue_taken', {
             temporary = true,
             format = {
-                [1] = {name = 'session_id', type = num_type()},
-                [2] = {name = 'tube_id', type = num_type()},
-                [3] = {name = 'task_id', type = num_type()},
-                [4] = {name = 'taken_time', type = num_type()}
+                {name = 'session_id', type = num_type()},
+                {name = 'tube_id', type = num_type()},
+                {name = 'task_id', type = num_type()},
+                {name = 'taken_time', type = num_type()}
             }})
         _taken:create_index('pk', {
             type = 'tree',
