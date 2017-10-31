@@ -402,7 +402,7 @@ The current `task_state` of the tuple should be 't' (taken),
 and the worker issuing the `ack` request must have the same ID
 as the worker which issued the `take` request.
 
-Effect: the value of `task_state` changes to '~' (acknowledged).
+Effect: the value of `task_state` changes to '-' (acknowledged).
 Shortly after this, it may be removed from the queue automatically.
 
 If 'take' occurs but is not soon followed by 'ack'
@@ -463,7 +463,7 @@ in the current circumstances, you can "bury" the task
 
 Effect: the value of `task_state` changes to '!' (buried).
 Since '!' is not equal to 'r' (ready), the task can no longer be taken.
-Since '!' is not equal to '~' (complete), the task will not be deleted.
+Since '!' is not equal to '-' (complete), the task will not be deleted.
 The only thing that can affect a buried task is a `kick` request.
 
 Returns: the tuple value.
