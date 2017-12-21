@@ -6,12 +6,12 @@ test:plan(5)
 
 local queue = require('queue')
 
+local engine = os.getenv('ENGINE') or 'memtx'
+
 local tnt = require('t.tnt')
 tnt.cfg{
-    wal_mode = 'none'
+    wal_mode = (engine == 'memtx' and 'none' or nil)
 }
-
-local engine = os.getenv('ENGINE') or 'memtx'
 
 local ttl = 0.1
 
