@@ -222,8 +222,7 @@ end
 
 function tube.delete(self, id)
     self:peek(id)
-    return self.raw:normalize_task(
-        self.raw:delete(id):transform(2, 1, state.DONE))
+    return self.raw:normalize_task(self.raw:delete(id))
 end
 
 -- drop tube
