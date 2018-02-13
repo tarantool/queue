@@ -631,7 +631,8 @@ which is passed on to the user (removes the administrative fields)
 Returns a normalized task which represents a tuple in the space
 * `tube:take()` - sets the task state to 'in progress' and returns the task.
 If there are no 'ready' tasks in the queue, returns nil.
-* `tube:delete(task_id)` - deletes a task from the queue
+* `tube:delete(task_id)` - deletes a task from the queue.
+Returns the original task with a state changed to 'done'
 * `tube:release(task_id, opts)` - puts a task back to the queue (in the 'ready'
    state)
 * `tube:bury(task_id)` - buries a task
