@@ -1,5 +1,4 @@
 local log      = require('log')
-local fun      = require('fun')
 local fiber    = require('fiber')
 
 local state    = require('queue.abstract.state')
