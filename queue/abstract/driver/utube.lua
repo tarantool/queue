@@ -42,10 +42,11 @@ function tube.create_space(space_name, opts)
 end
 
 -- start tube on space
-function tube.new(space, on_task_change)
+function tube.new(space, on_task_change, opts)
     on_task_change = on_task_change or (function() end)
     local self = setmetatable({
         space          = space,
+        concurrent     = opts.concurrent or 1,
         on_task_change = on_task_change,
     }, { __index = method })
     return self
@@ -65,20 +66,45 @@ function method.put(self, data, opts)
     return task
 end
 
--- take task
-function method.take(self)
-    for s, task in self.space.index.status:pairs(state.READY,
-                                                 { iterator = 'GE' }) do
-        if task[2] ~= state.READY then
-            break
-        end
+-- check concurrency of a sub-queue
+function method.is_throttled(self, utube)
+  if self.concurrent == 1 then
+      local taken = self.space.index.utube:min{state.TAKEN, utube}
+      return taken ~= nil and taken[3] == utube
+  elseif self.concurrent ~= 1/0 then
+      local num_taken = self.space.index.utube:count{state.TAKEN, utube}
+      return num_taken == self.concurrent
+  end
+  return false
+end
 
-        local taken = self.space.index.utube:min{state.TAKEN, task[3]}
-        if taken == nil or taken[2] ~= state.TAKEN then
-            task = self.space:update(task[1], { { '=', 2, state.TAKEN } })
-            self.on_task_change(task, 'take')
-            return task
+-- take task
+function method.take(self, opts)
+    local task
+    if opts and opts.utube then
+        if not self:is_throttled(opts.utube) then
+            local t = self.space.index.utube:min{state.READY, opts.utube}
+            if t and t[2] == state.READY and t[3] == opts.utube then
+                task = t
+            end
         end
+    else
+        local utubes = {}
+        for s, t in self.space.index.status:pairs(state.READY) do
+            local utube = t[3]
+            if not utubes[utube] then
+                if not self:is_throttled(utube) then
+                    task = t
+                    break
+                end
+                utubes[utube] = true
+            end
+        end
+    end
+    if task then
+        task = self.space:update(task[1], { { '=', 2, state.TAKEN } })
+        self.on_task_change(task, 'take')
+        return task
     end
 end
 

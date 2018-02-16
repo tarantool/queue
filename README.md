@@ -127,9 +127,14 @@ options are equal.
 
 The main idea of this queue backend is the same as in a `fifo` queue:
 the tasks are executed in FIFO order.
-However, tasks may be grouped into sub-queues.
+
+However, tasks may be grouped into sub-queues. Sub-queues split the task
+stream according to the sub-queue name. Each sub-queue is executed in strict
+FIFO order. By default, only one task per sub-queue may be taken at any time.
 
 The following options can be specified when creating a `utube` queue:
+  * `concurrent` - number - the number of concurrent tasks per sub-queue
+(defaults to 1)
   * `temporary` - boolean - if true, the contents of the queue do not persist
 on disk
   * `if_not_exists` - boolean - if true, no error will be returned if the tube
@@ -137,13 +142,9 @@ already exists
   * `on_task_change` - function name - a callback to be executed on every
 operation
 
-The following options can be specified when putting a task in a `utube`
-queue:
+The following options are supported for the `:put` and `:take` methods of
+a `utube` queue:
   * `utube` - the name of the sub-queue.
-Sub-queues split the task stream according to the sub-queue name: it is
-not possible to take two tasks
-out of a sub-queue concurrently, each sub-queue is executed in strict
-FIFO order, one task at a time.
 
 `utube` queue does not support:
   * task priorities (`pri`)
