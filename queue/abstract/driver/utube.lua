@@ -93,14 +93,12 @@ function method.delete(self, id)
     self.space:delete(id)
     if task ~= nil then
         task = task:transform(2, 1, state.DONE)
+        self.on_task_change(task, 'delete')
 
         local neighbour = self.space.index.utube:min{state.READY, task[3]}
-        self.on_task_change(task, 'delete')
         if neighbour then
             self.on_task_change(neighbour)
         end
-    else
-        self.on_task_change(task, 'delete')
     end
     return task
 end

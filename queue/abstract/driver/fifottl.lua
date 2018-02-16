@@ -294,8 +294,8 @@ function method.delete(self, id)
     self.space:delete(id)
     if task ~= nil then
         task = task:transform(2, 1, state.DONE)
+        self:on_task_change(task, 'delete')
     end
-    self:on_task_change(task, 'delete')
     return task
 end
 

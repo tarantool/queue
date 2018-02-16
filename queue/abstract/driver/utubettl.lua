@@ -309,7 +309,6 @@ function method.delete(self, id)
         task = task:transform(i_status, 1, state.DONE)
         return process_neighbour(self, task, 'delete')
     end
-    self:on_task_change(task, 'delete')
 end
 
 -- release task
