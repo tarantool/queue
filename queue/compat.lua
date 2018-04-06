@@ -59,6 +59,11 @@ local function get_optname_logger(version)
     return check_version({1, 7}, version) and 'log' or 'logger'
 end
 
+local function get_replication_id()
+    -- box.info.server.id is compatible over all versions
+    return box.info.main_replication_id or box.info.server.id
+end
+
 local function pack_args(...)
     return check_version({1, 7}) and { ... } or ...
 end
@@ -122,6 +127,7 @@ return {
     str_type        = get_actual_strtype,
     snapdir_optname = get_optname_snapdir,
     logger_optname  = get_optname_logger,
+    replication_id  = get_replication_id,
     pack_args       = pack_args,
     waiter          = waiter
 }

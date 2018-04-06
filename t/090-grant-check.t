@@ -31,7 +31,7 @@ test:test('check for space grants', function(test)
     local tube = queue.create_tube('test', 'fifo', { engine = engine })
     tube:put('help');
     local task = tube:take();
-    test:is(task[1], 0, 'we can get record')
+    test:ok(task[1] ~= nil, 'we can get record')
     tube:release(task[1])
 
     -- checking without grants
@@ -44,11 +44,11 @@ test:test('check for space grants', function(test)
     tube:grant('test')
     box.session.su('test')
     local a = tube:take()
-    test:is(a[1], 0, 'we aren\'t getting any error')
+    test:ok(a[1] ~= nil, 'we aren\'t getting any error')
     local b = tube:take(0.1)
     test:isnil(b, 'we aren\'t getting any error')
     local c = tube:ack(a[1])
-    test:is(a[1], 0, 'we aren\'t getting any error')
+    test:ok(a[1] ~= nil, 'we aren\'t getting any error')
     box.session.su('admin')
 
     -- checking double grants
@@ -68,7 +68,7 @@ test:test('check for call grants', function(test)
     local tube = queue.create_tube('test', 'fifo', { engine = engine })
     tube:put('help');
     local task = tube:take();
-    test:is(task[1], 0, 'we can get record')
+    test:ok(task[1] ~= nil, 'we can get record')
     tube:release(task[1])
 
     -- checking without grants
@@ -82,11 +82,11 @@ test:test('check for call grants', function(test)
 
     box.session.su('test')
     local a = tube:take()
-    test:is(a[1], 0, 'we aren\'t getting any error')
+    test:ok(a[1] ~= nil, 'we aren\'t getting any error')
     local b = tube:take(0.1)
     test:isnil(b, 'we aren\'t getting any error')
     local c = tube:release(a[1])
-    test:is(a[1], 0, 'we aren\'t getting any error')
+    test:ok(a[1] ~= nil, 'we aren\'t getting any error')
     box.session.su('admin')
 
     local nb_connect = netbox.connect
@@ -117,14 +117,14 @@ test:test('check for call grants', function(test)
     end
 
     local a = con:call('queue.tube.test:take')
-    test:is(qc_arg_unpack(a[1]), 0, 'we aren\'t getting any error')
+    test:ok(qc_arg_unpack(a[1]) ~= nil, 'we aren\'t getting any error')
     local b = con:call('queue.tube.test:take', qc.pack_args(0.1))
     test:isnil(
         qc_arg_unpack(qc_arg_unpack(b)),
         'we aren\'t getting any error'
     )
     local c = con:call('queue.tube.test:ack',  qc.pack_args(qc_arg_unpack(a[1])))
-    test:is(qc_arg_unpack(a[1]), 0, 'we aren\'t getting any error')
+    test:ok(qc_arg_unpack(a[1]) ~= nil, 'we aren\'t getting any error')
 
     -- check grants again
     tube:grant('test', { call = true })
