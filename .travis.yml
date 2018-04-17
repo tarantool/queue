@@ -64,7 +64,18 @@ deploy:
       condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
   - provider: packagecloud
     username: tarantool
-    repository: "1_8"
+    repository: "1_9"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_10"
     token: ${PACKAGECLOUD_TOKEN}
     dist: ${OS}/${DIST}
     package_glob: build/*.{rpm,deb}
