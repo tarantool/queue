@@ -7,10 +7,10 @@ License: BSD
 URL: https://github.com/tarantool/queue
 Source0: https://github.com/tarantool/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
 BuildArch: noarch
-BuildRequires: tarantool >= 1.6.8.0
-BuildRequires: tarantool-devel >= 1.6.8.0
+BuildRequires: tarantool >= 1.7
+BuildRequires: tarantool-devel >= 1.7
 BuildRequires: /usr/bin/prove
-Requires: tarantool >= 1.6.8.0
+Requires: tarantool >= 1.7
 %description
 A collection of persistent queue implementations for Tarantool.
 
@@ -37,6 +37,9 @@ A collection of persistent queue implementations for Tarantool.
 %license LICENSE
 
 %changelog
+* Wed Apr 18 2018 Alexander Turenko <alexander.turenko> 1.0.1
+- Update tarantool dependency to 1.7
+
 * Thu Apr 06 2016 Eugene Blikh <bigbes@tarantool.org> 1.0.1-6
 - RPM spec uses CMake now (depend on tarantool0devel)
 
