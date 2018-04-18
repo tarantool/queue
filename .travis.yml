@@ -12,17 +12,17 @@ env:
     global:
       - PRODUCT=tarantool-queue
     matrix:
-      - TARGET=test VERSION=1_6
       - TARGET=test VERSION=1_7
-      - TARGET=test VERSION=1_8
+      - TARGET=test VERSION=1_9
+      - TARGET=test VERSION=1_10
+      - TARGET=test VERSION=2_0
       - OS=el DIST=6
       - OS=el DIST=7
-      - OS=fedora DIST=24
-      - OS=fedora DIST=25
-      - OS=ubuntu DIST=precise
+      - OS=fedora DIST=26
+      - OS=fedora DIST=27
       - OS=ubuntu DIST=trusty
       - OS=ubuntu DIST=xenial
-      - OS=ubuntu DIST=yakkety
+      - OS=ubuntu DIST=artful
       - OS=debian DIST=wheezy
       - OS=debian DIST=jessie
       - OS=debian DIST=stretch
@@ -41,17 +41,6 @@ before_deploy:
   - ls -l build/
 
 deploy:
-  # Deploy packages to PackageCloud
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_6"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
   - provider: packagecloud
     username: tarantool
     repository: "1_7"
@@ -72,10 +61,19 @@ deploy:
     on:
       branch: master
       condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-
   - provider: packagecloud
     username: tarantool
     repository: "1_10"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: tarantool
+    repository: "2_0"
     token: ${PACKAGECLOUD_TOKEN}
     dist: ${OS}/${DIST}
     package_glob: build/*.{rpm,deb}
