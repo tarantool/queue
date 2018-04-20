@@ -1,10 +1,17 @@
+local fiber    = require('fiber')
 local state    = require('queue.abstract.state')
 
 local num_type = require('queue.compat').num_type
 local str_type = require('queue.compat').str_type
+local replication_id = require('queue.compat').replication_id
 
 local tube = {}
 local method = {}
+
+local last_time = 0
+local last_order = 0
+local time_shift = 21
+local order_shift = 5
 
 -- create space
 function tube.create_space(space_name, opts)
@@ -48,10 +55,20 @@ function method.normalize_task(self, task)
     return task
 end
 
+function method.generate_id(self)
+    local time = (fiber.time64() / 1000000) - 1420059600 -- 2015-01-01
+    if last_time == time then
+        last_order = last_order + 1
+    else
+        last_order = 1
+    end
+    last_time = time
+    return bit.lshift(time, time_shift) + bit.lshift(last_order, order_shift) + replication_id()
+end
+
 -- put task in space
 function method.put(self, data, opts)
-    local max = self.space.index.task_id:max()
-    local id = max and max[1] + 1 or 0
+    local id = self.generate_id()
     local task = self.space:insert{id, state.READY, data}
     self.on_task_change(task, 'put')
     return task
