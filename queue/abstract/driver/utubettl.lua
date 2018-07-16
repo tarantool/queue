@@ -322,7 +322,7 @@ function method.release(self, id, opts)
         task = self.space:update(id, {
             { '=', i_status, state.DELAYED },
             { '=', i_next_event, event_time(opts.delay) },
-            { '+', i_ttl, opts.delay }
+            { '+', i_ttl, time(opts.delay) }
         })
         if task ~= nil then
             return process_neighbour(self, task, 'release')
