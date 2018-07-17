@@ -2,7 +2,7 @@
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(13)
+test:plan(14)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -229,6 +229,22 @@ test:test('read_only test', function(test)
     test:isnt(task, nil, "check that we can take task")
     tube:ack(task[1])
 end)
+
+test:test('ttl after delay test', function(test)
+    local TTL = 10
+    local TTR = 20
+    local DELTA = 5
+    test:plan(2)
+    box.cfg{}
+    local tube = queue.create_tube('test_ttl_release', 'fifottl', { if_not_exists = true })
+    tube:put({'test_task'}, { ttl = 10, ttr = 20 })
+    tube:take()
+    tube:release(0, { delay = DELTA })
+    local task = box.space.test_ttl_release:get(0)
+    test:is(task.ttl, (TTL + DELTA) * 1000000, 'check TTL after release')
+    test:is(task.ttr, TTR * 1000000, 'check TTR after release')
+end)
+
 
 tnt.finish()
 os.exit(test:check() == true and 0 or -1)
