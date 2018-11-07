@@ -74,7 +74,7 @@ deploy:
       condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
   - provider: packagecloud
     username: tarantool
-    repository: "2_0"
+    repository: "2x"
     token: ${PACKAGECLOUD_TOKEN}
     dist: ${OS}/${DIST}
     package_glob: build/*.{rpm,deb}
