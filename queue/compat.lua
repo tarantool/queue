@@ -43,6 +43,10 @@ local function get_actual_numtype(version)
     return check_version({1, 7, 2}, version) and 'unsigned' or 'num'
 end
 
+local function get_actual_signed_numtype(version)
+  return check_version({1, 7, 2}, version) and 'integer' or 'num'
+end
+
 local function get_actual_strtype(version)
     return check_version({1, 7, 2}, version) and 'string' or 'str'
 end
@@ -119,6 +123,7 @@ return {
     check_version   = check_version,
     vinyl_name      = get_actual_vinylname,
     num_type        = get_actual_numtype,
+    signed_num_type = get_actual_signed_numtype,
     str_type        = get_actual_strtype,
     snapdir_optname = get_optname_snapdir,
     logger_optname  = get_optname_logger,

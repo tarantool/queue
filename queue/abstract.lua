@@ -59,7 +59,8 @@ queue.driver = {
     fifo        = require('queue.abstract.driver.fifo'),
     fifottl     = require('queue.abstract.driver.fifottl'),
     utube       = require('queue.abstract.driver.utube'),
-    utubettl    = require('queue.abstract.driver.utubettl')
+    utubettl    = require('queue.abstract.driver.utubettl'),
+    lifottl     = require('queue.abstract.driver.lifottl')
 }
 
 -- tube methods

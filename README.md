@@ -14,6 +14,7 @@ align="right">
 * [Queue types](#queue-types)
   * [fifo \- a simple queue](#fifo---a-simple-queue)
   * [fifottl \- a simple priority queue with support for task time to live](#fifottl---a-simple-priority-queue-with-support-for-task-time-to-live)
+  * [lifottl \- a simple priority queue with support for task time to live](#lifottl---a-simple-priority-queue-with-support-for-task-time-to-live)
   * [utube \- a queue with sub\-queues inside](#utube---a-queue-with-sub-queues-inside)
   * [utubettl \- extension of utube to support ttl](#utubettl---extension-of-utube-to-support-ttl)
 * [The underlying spaces](#the-underlying-spaces)
@@ -123,6 +124,44 @@ A smaller priority value indicates a higher priority, so a task with
 priority 1 will be executed after a task with priority 0, if all other
 options are equal.
 
+## `lifottl` - a simple priority queue with support for task time to live
+
+The following options can be specified when creating a `lifottl` queue:
+  * `temporary` - boolean - if true, the contents of the queue do not persist
+on disk
+  * `if_not_exists` - boolean - if true, no error will be returned if the tube
+already exists
+  * `on_task_change` - function name - a callback to be executed on every
+operation
+
+The following options can be specified when putting a task in a `lifottl` queue:
+  * `pri` - task priority (`0` is the highest priority and is the default)
+  * `ttl` - numeric - time to live for a task put into the queue, in
+seconds. if `ttl` is not specified, it is set to infinity
+    (if a task exists in a queue for longer than ttl seconds, it is removed)
+  * `ttr` - numeric - time allotted to the worker to work on a task, in
+seconds; if `ttr` is not specified, it is set to the same as `ttl`
+    (if a task is being worked on for more than `ttr` seconds, its status
+is changed to 'ready' so another worker may take it)
+  * `delay` - time to wait before starting to execute the task, in seconds
+
+Example:
+
+```lua
+
+queue.create_tube('tube_name', 'lifottl', {temporary = true})
+queue.tube.tube_name:put('my_task_data', { ttl = 60.1, delay = 80 })
+
+```
+
+In the example above, the task has 60.1 seconds to live, but the start
+of execution is delayed for 80 seconds. Thus the task actually will
+exist for up to (60.1 + 80) 140.1 seconds.
+
+A smaller priority value indicates a higher priority, so a task with
+priority 1 will be executed after a task with priority 0, if all other
+options are equal.
+
 ## `utube` - a queue with sub-queues inside
 
 The main idea of this queue backend is the same as in a `fifo` queue:
@@ -208,7 +247,7 @@ later occasions.
 1. `tube_id` - queue ID, numeric
 1. `space` - the name of a space associated with the queue, which
 contains one tuple for each queue task
-1. `type` - the queue type ('fifo', 'fifottl', 'utube', 'utubettl')
+1. `type` - the queue type ('fifo', 'fifottl', 'lifottl', 'utube', 'utubettl')
 1. `opts` - additional options supplied when creating the queue, for
 example 'ttl'
 
@@ -249,8 +288,8 @@ x. (additional fields if the queue type has options for ttl, priority,
 or delay)
 
 The `task_id` value is assigned to a task when it's inserted into a queue.
-Currently, `task_id` values are simple integers for `fifo` and `fifottl`
-queues.
+Currently, `task_id` values are simple integers for `fifo`, `fifottl` and
+`lifottl` queues.
 
 The `task_state` field takes one of the following values
 (different queue types support different
@@ -295,7 +334,7 @@ Creates a queue.
 
 The queue name must be alphanumeric and be up to 32 characters long.
 
-The queue type must be 'fifo', 'fifottl', 'utube', or 'utubettl'.
+The queue type must be 'fifo', 'fifottl', 'lifottl', 'utube', or 'utubettl'.
 
 The options, if specified, must be one or more of the options described above
 (`temporary` and/or `ttl` and/or `ttr` and/or `pri`, depending on the queue
