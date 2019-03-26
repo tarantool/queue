@@ -15,7 +15,8 @@ env:
       - TARGET=test VERSION=1_7
       - TARGET=test VERSION=1_9
       - TARGET=test VERSION=1_10
-      - TARGET=test VERSION=2_0
+      - TARGET=test VERSION=2x
+      - TARGET=test VERSION=2_2
       - OS=el DIST=6
       - OS=el DIST=7
       - OS=fedora DIST=26
