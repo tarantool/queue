@@ -58,6 +58,7 @@ test:test('check for space grants', function(test)
     tube:drop()
 end)
 
+_G.queue = nil
 test:test('check for call grants', function(test)
     -- prepare for tests
     _G.queue = require('queue')
