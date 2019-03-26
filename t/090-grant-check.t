@@ -60,7 +60,7 @@ end)
 
 test:test('check for call grants', function(test)
     -- prepare for tests
-    _G.queue = require('queue')
+    rawset(_G, 'queue', require('queue'))
     box.schema.user.create(test_user, { password = test_pass })
 
     test:plan(9)
@@ -129,7 +129,7 @@ test:test('check for call grants', function(test)
     -- check grants again
     tube:grant('test', { call = true })
 
-    _G.queue = nil
+    rawset(_G, 'queue', nil)
     tube:drop()
 end)
 
