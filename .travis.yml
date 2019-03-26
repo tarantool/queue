@@ -21,11 +21,13 @@ env:
       - OS=el DIST=7
       - OS=fedora DIST=26
       - OS=fedora DIST=27
+      - OS=fedora DIST=28
+      - OS=fedora DIST=29
       - OS=ubuntu DIST=trusty
       - OS=ubuntu DIST=xenial
       - OS=ubuntu DIST=artful
       - OS=ubuntu DIST=bionic
-      - OS=debian DIST=wheezy
+      - OS=ubuntu DIST=cosmic
       - OS=debian DIST=jessie
       - OS=debian DIST=stretch
 
