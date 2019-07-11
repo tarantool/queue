@@ -194,6 +194,11 @@ function tube.delete(self, id)
         self.raw:delete(id):transform(2, 1, state.DONE))
 end
 
+function tube.len(self)
+    local tube_space_name = box.space._queue:get{self.name}[3]
+    return box.space[tube_space_name]:len()
+end
+
 -- drop tube
 function tube.drop(self)
     local tube_name = self.name

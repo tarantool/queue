@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(8)
+test:plan(9)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -43,8 +43,13 @@ test:test('Put after freeing up space', function(test)
     test:is(tube:ack(task[1])[2], state.DONE, 'task 3 is done')
 
     while put_fiber:status() ~= 'dead' do
-        fiber.yield()
+        fiber.sleep(.01)
     end
+end)
+
+test:test('Get current queue length', function(test)
+    test:plan(1)
+    test:is(tube:len(), 3, 'tube length is 3')
 end)
 
 test:test('Unlimited tube put', function(test)
