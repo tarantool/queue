@@ -2,9 +2,13 @@ local fiber    = require('fiber')
 local fifottl  = require('queue.abstract.driver.fifottl')
 
 local tube = {}
-local methods = {}
 
-tube.create_space = fifottl.create_space
+tube.create_space = function(space_name, opts)
+    if opts.engine == 'vinyl' then
+        error('limfifottl queue does not support vinyl engine')
+    end
+    return fifottl.create_space(space_name, opts)
+end
 
 -- start tube on space
 function tube.new(space, on_task_change, opts)
@@ -35,7 +39,14 @@ function tube.new(space, on_task_change, opts)
         end
     end
 
-    return setmetatable({put = put}, {__index = state.parent})
+    local len = function (self)
+        return self.space:len()
+    end
+
+    return setmetatable({
+        put = put,
+        len = len
+    }, {__index = state.parent})
 end
 
 return tube
