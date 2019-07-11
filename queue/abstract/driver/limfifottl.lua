@@ -1,5 +1,3 @@
-local qc       = require('queue.compat')
-
 local fiber    = require('fiber')
 local fifottl  = require('queue.abstract.driver.fifottl')
 
@@ -29,11 +27,8 @@ end
 -- put task in space
 function methods.put(self, data, opts)
     local timeout = opts.timeout or 0
-    if opts.delay ~= nil and opts.delay > 0 and timeout > 0 then
-        timeout = timeout + opts.delay
-    end
     timeout = timeout * 1000000
-    
+
     while true do
         local tube_size = self.space:count()
         if tube_size < self.capacity or self.capacity == 0 then
@@ -44,12 +39,9 @@ function methods.put(self, data, opts)
             end
 
             local started = fiber.time64()
-
-            local waiter = qc.waiter()
-            waiter:wait(0.1)
-            waiter:free()
-
+            fiber.yield()
             local elapsed = fiber.time64() - started
+
             timeout = timeout > elapsed and timeout - elapsed or 0
         end
     end
