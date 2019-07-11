@@ -61,6 +61,10 @@ if engine == 'memtx' then
         test:ok(unlim_tube:put{1}, 'task 1 was put')
         test:ok(unlim_tube:put{2}, 'task 2 was put')
     end)
+else
+    test:plan(1)
+    local ok = pcall(queue.create_tube, 'unsupported_engine', 'limfifottl', { engine = engine })
+    test:ok(not ok, 'vinyl engine is not allowed')
 end
 
 tnt.finish()
