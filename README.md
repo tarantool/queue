@@ -123,6 +123,33 @@ A smaller priority value indicates a higher priority, so a task with
 priority 1 will be executed after a task with priority 0, if all other
 options are equal.
 
+## `limfifottl` - a simple size-limited priority queue with support for task time to live
+
+Works same as fifottl, but has limitied size and put operation timeout.
+
+The following options can be specified when creating a `fifottl` queue:
+  * `temporary` - boolean - if true, the contents of the queue do not persist
+on disk
+  * `if_not_exists` - boolean - if true, no error will be returned if the tube
+already exists
+  * `on_task_change` - function name - a callback to be executed on every
+operation
+  * `capacity` - number - limit size of the queue
+
+The following options can be specified when putting a task in a `fifottl` queue:
+  * `pri` - task priority (`0` is the highest priority and is the default)
+  * `ttl` - numeric - time to live for a task put into the queue, in
+seconds. if `ttl` is not specified, it is set to infinity
+    (if a task exists in a queue for longer than ttl seconds, it is removed)
+  * `ttr` - numeric - time allotted to the worker to work on a task, in
+seconds; if `ttr` is not specified, it is set to the same as `ttl`
+    (if a task is being worked on for more than `ttr` seconds, its status
+is changed to 'ready' so another worker may take it)
+  * `delay` - time to wait before starting to execute the task, in seconds
+  * `timeout` - numeric - seconds to wait until queue has free space; if
+  `timeout` is not specified or time is up, and queue has no space, method return Nil
+
+
 ## `utube` - a queue with sub-queues inside
 
 The main idea of this queue backend is the same as in a `fifo` queue:

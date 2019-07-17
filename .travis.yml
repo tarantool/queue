@@ -25,7 +25,6 @@ env:
       - OS=fedora DIST=29
       - OS=ubuntu DIST=trusty
       - OS=ubuntu DIST=xenial
-      - OS=ubuntu DIST=artful
       - OS=ubuntu DIST=bionic
       - OS=ubuntu DIST=cosmic
       - OS=debian DIST=jessie
