@@ -1,8 +1,8 @@
 package = 'queue'
-version = '1.0.2-1'
+version = '1.0.4-1'
 source  = {
     url = 'git://github.com/tarantool/queue.git',
-    tag = '1.0.2',
+    tag = '1.0.4',
 }
 description = {
     summary  = "A set of persistent in-memory queues",
@@ -22,6 +22,7 @@ build = {
         ['queue.abstract.driver.utubettl']   = 'queue/abstract/driver/utubettl.lua',
         ['queue.abstract.driver.fifo']       = 'queue/abstract/driver/fifo.lua',
         ['queue.abstract.driver.utube']      = 'queue/abstract/driver/utube.lua',
+        ['queue.abstract.driver.limfifottl'] = 'queue/abstract/driver/limfifottl.lua',
         ['queue.compat']                     = 'queue/compat.lua',
         ['queue']                            = 'queue/init.lua'
     }
