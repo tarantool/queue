@@ -7,8 +7,7 @@ align="right">
 align="right">
 </a>
 
-# A collection of persistent queue implementations for Tarantool 1.6 and 1.7
-
+# A collection of persistent queue implementations for Tarantool
 #Table of contents
 
 * [Queue types](#queue-types)
