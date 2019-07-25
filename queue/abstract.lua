@@ -536,13 +536,16 @@ local function build_stats(space)
         end
     end
 
-    -- add total tasks count
-    stats['tasks']['total'] = box.space[space].index[idx_tube]:count()
-
+    local total = 0
     -- add tasks by state count
     for i, s in pairs(state) do
-        stats['tasks'][i:lower()] = box.space[space].index[idx_tube]:count(s)
+        local st = i:lower()
+        stats['tasks'][st] = box.space[space].index[idx_tube]:count(s)
+        total = total + stats['tasks'][st]
     end
+
+    -- add total tasks count
+    stats['tasks']['total'] = total
     stats['tasks']['done'] = st.done or 0
 
     return stats
