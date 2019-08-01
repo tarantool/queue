@@ -16,14 +16,15 @@ build = {
     type = 'builtin',
 
     modules = {
-        ['queue.abstract']                 = 'queue/abstract.lua',
-        ['queue.abstract.state']           = 'queue/abstract/state.lua',
-        ['queue.abstract.driver.fifottl']  = 'queue/abstract/driver/fifottl.lua',
-        ['queue.abstract.driver.utubettl'] = 'queue/abstract/driver/utubettl.lua',
-        ['queue.abstract.driver.fifo']     = 'queue/abstract/driver/fifo.lua',
-        ['queue.abstract.driver.utube']    = 'queue/abstract/driver/utube.lua',
-        ['queue.compat']                   = 'queue/compat.lua',
-        ['queue']                          = 'queue/init.lua'
+        ['queue.abstract']                   = 'queue/abstract.lua',
+        ['queue.abstract.state']             = 'queue/abstract/state.lua',
+        ['queue.abstract.driver.fifottl']    = 'queue/abstract/driver/fifottl.lua',
+        ['queue.abstract.driver.utubettl']   = 'queue/abstract/driver/utubettl.lua',
+        ['queue.abstract.driver.fifo']       = 'queue/abstract/driver/fifo.lua',
+        ['queue.abstract.driver.utube']      = 'queue/abstract/driver/utube.lua',
+        ['queue.abstract.driver.limfifottl'] = 'queue/abstract/driver/limfifottl.lua',
+        ['queue.compat']                     = 'queue/compat.lua',
+        ['queue']                            = 'queue/init.lua'
     }
 }
 
