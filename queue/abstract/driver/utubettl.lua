@@ -294,7 +294,10 @@ local function process_neighbour(self, task, operation)
     self:on_task_change(task, operation)
     if task ~= nil then
         local neighbour = self.space.index.utube:min{state.READY, task[i_utube]}
-        if neighbour ~= nil and neighbour[i_status] == state.READY then
+        if neighbour ~= nil
+            and neighbour[i_utube] == task[i_utube]
+            and neighbour[i_status] == state.READY
+        then
             self:on_task_change(neighbour)
         end
     end
