@@ -290,27 +290,24 @@ function method.take(self)
     end
 end
 
-local function process_neighbour(self, task, operation)
-    self:on_task_change(task, operation)
-    if task ~= nil then
-        local neighbour = self.space.index.utube:min{state.READY, task[i_utube]}
-        if neighbour ~= nil
-            and neighbour[i_utube] == task[i_utube]
-            and neighbour[i_status] == state.READY
-        then
-            self:on_task_change(neighbour)
-        end
+local function wake_neighbour(self, utube)
+    local neighbour = self.space.index.utube:select({state.READY, utube}, {limit=1})[1]
+    if neighbour ~= nil then
+        self:on_task_change(neighbour)
     end
-    return task
 end
 
 -- delete task
 function method.delete(self, id)
     local task = self.space:get(id)
-    self.space:delete(id)
     if task ~= nil then
+        self.space:delete(id)
+        if task[i_status] == state.TAKEN then
+            wake_neighbour(self, task[i_utube])
+        end
         task = task:transform(i_status, 1, state.DONE)
-        return process_neighbour(self, task, 'delete')
+        self:on_task_change(task, 'delete')
+        return task
     end
     self:on_task_change(task, 'delete')
 end
@@ -327,9 +324,9 @@ function method.release(self, id, opts)
             { '=', i_next_event, event_time(opts.delay) },
             { '+', i_ttl, time(opts.delay) }
         })
-        if task ~= nil then
-            return process_neighbour(self, task, 'release')
-        end
+        self:on_task_change(task, 'release')
+        wake_neighbour(self, task[i_utube])
+        return task
     else
         task = self.space:update(id, {
             { '=', i_status, state.READY },
@@ -344,9 +341,10 @@ end
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
     if task ~= nil then
-        return process_neighbour(
-            self, task:transform(i_status, 1, state.BURIED), 'bury'
-        )
+        wake_neighbour(self, task[i_utube])
+        task = task:transform(i_status, 1, state.BURIED)
+        self:on_task_change(task, 'bury')
+        return task
     end
     self:on_task_change(task, 'bury')
 end
