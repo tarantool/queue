@@ -2,7 +2,7 @@
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(14)
+test:plan(15)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -243,6 +243,23 @@ test:test('ttl after delay test', function(test)
     local task = box.space.test_ttl_release:get(0)
     test:is(task.ttl, (TTL + DELTA) * 1000000, 'check TTL after release')
     test:is(task.ttr, TTR * 1000000, 'check TTR after release')
+end)
+
+-- gh-96: infinite loop after dropping a tube with a burried task
+test:test('buried task in a dropped queue', function(test)
+    test:plan(1)
+
+    local TASK_ID = 1
+    local tube = queue.create_tube('test_drop_with_burried', 'fifottl',
+        {ttr = 0.1, if_not_exist = true})
+
+    tube:put({foo = 'bar'})
+    local task = tube:take(0)
+    tube:bury(task[TASK_ID])
+
+    tube:drop()
+    fiber.sleep(0.2)
+    test:ok(true, 'queue does not hang')
 end)
 
 
