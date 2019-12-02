@@ -8,106 +8,97 @@ cache:
     directories:
       - $HOME/.cache
 
+stages:
+  - test
+  - name: deploy
+    # Deploy packages to PackageCloud from tags and master
+    # see:
+    #   * https://github.com/tarantool/tarantool/issues/3745
+    #   * https://github.com/travis-ci/travis-ci/issues/7780#issuecomment-302389370
+    if: (branch = master OR tag IS present) AND (env(PACKAGECLOUD_TOKEN) IS present)
+
 env:
-    global:
-      - PRODUCT=tarantool-queue
-    matrix:
-      - TARGET=test VERSION=1_10
-      - TARGET=test VERSION=2x
-      - TARGET=test VERSION=2_2
-      - OS=el DIST=6
-      - OS=el DIST=7
-      - OS=fedora DIST=28
-      - OS=fedora DIST=29
-      - OS=fedora DIST=30
-      - OS=ubuntu DIST=trusty
-      - OS=ubuntu DIST=xenial
-      - OS=ubuntu DIST=bionic
-      - OS=ubuntu DIST=cosmic
-      - OS=ubuntu DIST=disco
-      - OS=debian DIST=jessie
-      - OS=debian DIST=stretch
-      - OS=debian DIST=buster
+  global:
+    - PRODUCT=tarantool-queue
+    - ROCK_NAME=queue
 
-script:
+before_script:
   - git describe --long
-  - |
-    if [ "${TARGET}" = "test" ]; then
-        ./test.sh;
-    else
-        git clone https://github.com/packpack/packpack.git packpack;
-        packpack/packpack;
-    fi;
 
-before_deploy:
-  - ls -l build/
+_deploy_to_packagecloud: &deploy_to_packagecloud
+  provider: packagecloud
+  username: tarantool
+  token: $PACKAGECLOUD_TOKEN
+  dist: $OS/$DIST
+  package_glob: build/*.{rpm,deb}
+  skip_cleanup: true
 
-deploy:
-  # Deploy packages to PackageCloud from master branch
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_10"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "2x"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "2_2"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  # Deploy packages to PackageCloud from tags
-  # see:
-  #   * https://github.com/tarantool/tarantool/issues/3745
-  #   * https://github.com/travis-ci/travis-ci/issues/7780#issuecomment-302389370
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_10"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "2x"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "2_2"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{rpm,deb}
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+# Pack and deploy packages to PackageCloud
+_packpack: &packpack
+  stage: deploy
+  script:
+    - git clone https://github.com/packpack/packpack.git
+    - packpack/packpack
+    - ls -l build/
+  deploy:
+    - <<: *deploy_to_packagecloud
+      repository: "1_10"
+    - <<: *deploy_to_packagecloud
+      repository: "2x"
+    - <<: *deploy_to_packagecloud
+      repository: "2_2"
+
+jobs:
+  include:
+    - env: VERSION=1_10
+      script: ./test.sh
+    - env: VERSION=2x
+      script: ./test.sh
+    - env: VERSION=2_2
+      script: ./test.sh
+
+    - stage: deploy
+      name: Publish rockspecs
+      script: skip
+      deploy:
+        - provider: script
+          script: curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec
+            https://$ROCKS_USERNAME:$ROCKS_PASSWORD@rocks.tarantool.org
+        - on:
+            tags: true
+          provider: script
+          script: cat $ROCK_NAME-scm-1.rockspec |
+            sed -E
+              -e "s/branch = '.+'/tag = '$TRAVIS_TAG'/g"
+              -e "s/version = '.+'/version = '$TRAVIS_TAG-1'/g" |
+            curl --fail -X PUT -F "rockspec=@-;filename=$ROCK_NAME-$TRAVIS_TAG-1.rockspec"
+              https://$ROCKS_USERNAME:$ROCKS_PASSWORD@rocks.tarantool.org
+    - <<: *packpack
+      env: OS=el DIST=6
+    - <<: *packpack
+      env: OS=el DIST=7
+    - <<: *packpack
+      env: OS=fedora DIST=28
+    - <<: *packpack
+      env: OS=fedora DIST=29
+    - <<: *packpack
+      env: OS=fedora DIST=30
+    - <<: *packpack
+      env: OS=ubuntu DIST=trusty
+    - <<: *packpack
+      env: OS=ubuntu DIST=xenial
+    - <<: *packpack
+      env: OS=ubuntu DIST=bionic
+    - <<: *packpack
+      env: OS=ubuntu DIST=cosmic
+    - <<: *packpack
+      env: OS=ubuntu DIST=disco
+    - <<: *packpack
+      env: OS=debian DIST=jessie
+    - <<: *packpack
+      env: OS=debian DIST=stretch
+    - <<: *packpack
+      env: OS=debian DIST=buster
 
 notifications:
   email:
