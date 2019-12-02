@@ -20,6 +20,7 @@ stages:
 env:
   global:
     - PRODUCT=tarantool-queue
+    - ROCK_NAME=queue
 
 before_script:
   - git describe --long
@@ -56,6 +57,22 @@ jobs:
     - env: VERSION=2_2
       script: ./test.sh
 
+    - stage: deploy
+      name: Publish rockspecs
+      script: skip
+      deploy:
+        - provider: script
+          script: curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec
+            https://$ROCKS_USERNAME:$ROCKS_PASSWORD@rocks.tarantool.org
+        - on:
+            tags: true
+          provider: script
+          script: cat $ROCK_NAME-scm-1.rockspec |
+            sed -E
+              -e "s/branch = '.+'/tag = '$TRAVIS_TAG'/g"
+              -e "s/version = '.+'/version = '$TRAVIS_TAG-1'/g" |
+            curl --fail -X PUT -F "rockspec=@-;filename=$ROCK_NAME-$TRAVIS_TAG-1.rockspec"
+              https://$ROCKS_USERNAME:$ROCKS_PASSWORD@rocks.tarantool.org
     - <<: *packpack
       env: OS=el DIST=6
     - <<: *packpack
