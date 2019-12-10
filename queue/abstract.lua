@@ -151,16 +151,20 @@ function tube.ack(self, id)
     return result
 end
 
-function tube.release(self, id, opts)
+local function tube_release_internal(self, id, opts, session_id)
     opts = opts or {}
-    local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
+    local _taken = box.space._queue_taken:get{session_id, self.tube_id, id}
     if _taken == nil then
         error("Task was not taken in the session")
     end
 
-    box.space._queue_taken:delete{session.id(), self.tube_id, id}
+    box.space._queue_taken:delete{session_id, self.tube_id, id}
     self:peek(id)
     return self.raw:normalize_task(self.raw:release(id, opts))
+end
+
+function tube.release(self, id, opts)
+    return tube_release_internal(self, id, opts, session.id())
 end
 
 function tube.peek(self, id)
@@ -371,7 +375,7 @@ function method._on_consumer_disconnect()
             log.warn("Consumer %s disconnected, release task %s(%s)",
                 id, task[3], tube[1])
 
-            queue.tube[tube[1]]:release(task[3])
+            tube_release_internal(queue.tube[tube[1]], task[3], nil, id)
         end
     end
 end
