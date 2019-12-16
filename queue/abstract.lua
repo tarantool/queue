@@ -93,6 +93,7 @@ function tube.put(self, data, opts)
 end
 
 local conds = {}
+local releasing_sessions = {}
 
 function tube.take(self, timeout)
     timeout = time(timeout or TIMEOUT_INFINITY)
@@ -113,6 +114,13 @@ function tube.take(self, timeout)
         conds[fid]:wait(tonumber(timeout) / 1000000)
         conds[fid]:free()
         box.space._queue_consumers:delete{ sid, fid }
+
+        -- We don't take a task if the session is in a
+        -- disconnecting state.
+        if releasing_sessions[fid] then
+            releasing_sessions[fid] = nil
+            return nil
+        end
 
         task = self.raw:take()
 
@@ -376,6 +384,7 @@ function method._on_consumer_disconnect()
         box.space._queue_consumers:delete{ waiter[1], waiter[2] }
         local cond = conds[waiter[2]]
         if cond then
+            releasing_sessions[waiter[2]] = true
             cond:signal(waiter[2])
         end
     end
