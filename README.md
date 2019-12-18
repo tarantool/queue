@@ -637,6 +637,7 @@ If there are no 'ready' tasks in the queue, returns nil.
 * `tube:bury(task_id)` - buries a task
 * `tube:kick(count)` - digs out `count` tasks
 * `tube:peek(task_id)` - return the task state by ID
+* `tube:tasks_by_state(task_state)` - return the iterator to tasks in a certain state
 * `tube:truncate()` - delete all tasks from the tube. Note that `tube:truncate`
 must be called only by the user who created this tube (has space ownership) OR
 under a `setuid` function. Read more about `setuid` functions

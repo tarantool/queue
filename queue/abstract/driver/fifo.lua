@@ -121,6 +121,11 @@ function method.peek(self, id)
     return self.space:get{id}
 end
 
+-- get iterator to tasks in a certain state
+function method.tasks_by_state(self, task_state)
+    return self.space.index.status:pairs(task_state)
+end
+
 function method.truncate(self)
     self.space:truncate()
 end
