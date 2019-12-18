@@ -63,6 +63,26 @@ queue.driver = {
     limfifottl  = require('queue.abstract.driver.limfifottl')
 }
 
+local function tube_release_all_tasks(tube)
+    local prefix = ('queue: [tube "%s"] '):format(tube.name)
+
+    -- We lean on stable iterators in this function.
+    -- https://github.com/tarantool/tarantool/issues/1796
+    if not qc.check_version({1, 7, 5}) then
+        log.error(prefix .. 'no stable iterator support: skip task releasing')
+        log.error(prefix .. 'some tasks may stuck in taken state perpetually')
+        log.error(prefix .. 'update tarantool to >= 1.7.5 or take the risk')
+    end
+
+    log.info(prefix .. 'releasing all taken task (may take a while)')
+    local released = 0
+    for _, task in tube.raw:tasks_by_state(state.TAKEN) do
+        tube.raw:release(task[1])
+        released = released + 1
+    end
+    log.info(prefix .. ('released %d tasks'):format(released))
+end
+
 -- tube methods
 local tube = {}
 
@@ -515,7 +535,11 @@ function method.start()
         })
     end
 
-    _queue:pairs():each(recreate_tube)
+    for _, tube_tuple in _queue:pairs() do
+        local tube = recreate_tube(tube_tuple)
+        -- gh-66: release all taken tasks on start
+        tube_release_all_tasks(tube)
+    end
 
     session.on_disconnect(queue._on_consumer_disconnect)
     return queue

@@ -2,7 +2,7 @@
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(15)
+test:plan(16)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -262,6 +262,35 @@ test:test('buried task in a dropped queue', function(test)
     test:ok(true, 'queue does not hang')
 end)
 
+test:test('Get tasks by state test', function(test)
+    test:plan(2)
+    local tube = queue.create_tube('test_task_it', 'fifottl')
+
+    for i = 1, 10 do
+        tube:put('test_data' .. tostring(i))
+    end
+    for i = 1, 4 do
+        tube:take(0.001)
+    end
+
+    local count_taken = 0
+    local count_ready = 0
+
+    for _, task in tube.raw:tasks_by_state(state.READY) do
+        if task[2] == state.READY then
+            count_ready = count_ready + 1
+        end
+    end
+
+    for _, task in tube.raw:tasks_by_state(state.TAKEN) do
+        if task[2] == state.TAKEN then
+            count_taken = count_taken + 1
+        end
+    end
+
+    test:is(count_ready, 6, 'Check tasks count in a ready state')
+    test:is(count_taken, 4, 'Check tasks count in a taken state')
+end)
 
 tnt.finish()
 os.exit(test:check() == true and 0 or -1)
