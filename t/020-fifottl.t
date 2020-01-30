@@ -2,7 +2,7 @@
 local fiber = require('fiber')
 
 local test = require('tap').test()
-test:plan(15)
+test:plan(16)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -262,6 +262,52 @@ test:test('buried task in a dropped queue', function(test)
     test:ok(true, 'queue does not hang')
 end)
 
+test:test('Space of queue is corrupted', function(test)
+    test:plan(3)
+
+    local fifottl = require('queue.abstract.driver.fifottl')
+    local space = fifottl.create_space('corrupted_fifottl_space', { engine = engine })
+    
+    local task_id = space.index.task_id
+    local status = space.index.status
+    local watch = space.index.watch
+
+    test:test('task_id index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = nil
+        space.index.status = status
+        space.index.watch = watch
+
+        local q, e = pcall(fifottl.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have task_id index') ~= nil, 'text of exception')
+    end)
+
+    test:test('status index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = task_id
+        space.index.status = nil
+        space.index.watch = watch
+
+        local q, e = pcall(fifottl.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have status index') ~= nil, 'text of exception')
+    end)
+
+    test:test('watch index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = task_id
+        space.index.status = status
+        space.index.watch = nil
+
+        local q, e = pcall(fifottl.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have watch index') ~= nil, 'text of exception')
+    end)
+end)
 
 tnt.finish()
 os.exit(test:check() == true and 0 or -1)

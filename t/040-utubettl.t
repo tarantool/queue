@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = (require('tap')).test()
-test:plan(16)
+test:plan(17)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -255,6 +255,70 @@ test:test('ttl after delay test', function(test)
     local task = box.space.test_ttl_release:get(0)
     test:is(task.ttl, (TTL + DELTA) * 1000000, 'check TTL after release')
     test:is(task.ttr, TTR * 1000000, 'check TTR after release')
+end)
+
+test:test('Space of queue is corrupted', function(test)
+    test:plan(4)
+
+    local ctubettl = require('queue.abstract.driver.utubettl')
+    local space = ctubettl.create_space('corrupted_utubettl_space', { engine = engine })
+
+    local task_id = space.index.task_id
+    local status = space.index.status
+    local watch = space.index.watch
+    local utube = space.index.utube
+
+    test:test('task_id index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = nil
+        space.index.status = status
+        space.index.watch = watch
+        space.index.utube = utube
+
+        local q, e = pcall(ctubettl.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have task_id index') ~= nil, 'text of exception')
+    end)
+
+    test:test('status index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = task_id
+        space.index.status = nil
+        space.index.watch = watch
+        space.index.utube = utube
+
+        local q, e = pcall(ctubettl.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have status index') ~= nil, 'text of exception')
+    end)
+
+    test:test('watch index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = task_id
+        space.index.status = status
+        space.index.watch = nil
+        space.index.utube = utube
+
+        local q, e = pcall(ctubettl.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have watch index') ~= nil, 'text of exception')
+    end)
+
+    test:test('utube index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = task_id
+        space.index.status = status
+        space.index.watch = watch
+        space.index.utube = nil
+
+        local q, e = pcall(ctubettl.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have utube index') ~= nil, 'text of exception')
+    end)
 end)
 
 tnt.finish()

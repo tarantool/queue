@@ -33,8 +33,21 @@ function tube.create_space(space_name, opts)
     return space
 end
 
+-- validate space of queue
+local function validate_space(space)
+    -- check indexes
+    if space.index.task_id == nil then
+        error('space does not have task_id index')
+    end
+    if space.index.status == nil then
+        error("space does not have status index")
+    end
+end
+
 -- start tube on space
 function tube.new(space, on_task_change)
+    validate_space(space)
+
     on_task_change = on_task_change or (function() end)
     local self = setmetatable({
         space          = space,

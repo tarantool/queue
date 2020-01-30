@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = (require('tap')).test()
-test:plan(11)
+test:plan(12)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -154,6 +154,53 @@ test:test('if_not_exists test', function(test)
         if_not_exists = true, engine = engine
     })
     test:isnt(tube, tube_new, "if_not_exists if tube doesn't exists")
+end)
+
+test:test('Space of queue is corrupted', function(test)
+    test:plan(3)
+
+    local ctube = require('queue.abstract.driver.utube')
+    local space = ctube.create_space('corrupted_utube_space', { engine = engine })
+
+    local task_id = space.index.task_id
+    local status = space.index.status
+    local utube = space.index.utube
+
+    test:test('task_id index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = nil
+        space.index.status = status
+        space.index.utube = utube
+
+        local q, e = pcall(ctube.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have task_id index') ~= nil, 'text of exception')
+    end)
+
+    test:test('status index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = task_id
+        space.index.status = nil
+        space.index.utube = utube
+
+        local q, e = pcall(ctube.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have status index') ~= nil, 'text of exception')
+    end)
+
+    test:test('utube index does not exist', function(test)
+        test:plan(2)
+
+        space.index.task_id = task_id
+        space.index.status = status
+        space.index.utube = nil
+
+        local q, e = pcall(ctube.new, space)
+        test:ok(not q, 'exception was thrown')
+        test:ok(e:match('space does not have utube index') ~= nil, 'text of exception')
+    end)
 end)
 
 tnt.finish()
