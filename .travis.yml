@@ -90,8 +90,6 @@ jobs:
     - <<: *packpack
       env: OS=ubuntu DIST=bionic
     - <<: *packpack
-      env: OS=ubuntu DIST=cosmic
-    - <<: *packpack
       env: OS=ubuntu DIST=disco
     - <<: *packpack
       env: OS=debian DIST=jessie
