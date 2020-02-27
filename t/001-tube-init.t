@@ -23,5 +23,5 @@ test:test('test queue mock addition', function(test)
 end)
 
 tnt.finish()
-os.exit(test:check() == true and 0 or -1)
+os.exit(test:check() and 0 or 1)
 -- vim: set ft=lua :

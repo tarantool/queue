@@ -42,5 +42,5 @@ test:test("check compatibility names", function(test)
     test:is(str_name("1.7.1-168"),   "str",      "check old name (str)")
 end)
 
-os.exit(test:check() == true and 0 or -1)
+os.exit(test:check() and 0 or 1)
 -- vim: set ft=lua:
