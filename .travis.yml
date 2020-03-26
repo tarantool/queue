@@ -15,7 +15,8 @@ stages:
     # see:
     #   * https://github.com/tarantool/tarantool/issues/3745
     #   * https://github.com/travis-ci/travis-ci/issues/7780#issuecomment-302389370
-    if: (branch = master OR tag IS present) AND (env(PACKAGECLOUD_TOKEN) IS present)
+    # Also skip deploys for pull-requests, api and cron events.
+    if: (type = push) AND (branch = master OR tag IS present) AND (env(PACKAGECLOUD_TOKEN) IS present)
 
 env:
   global:
@@ -32,6 +33,8 @@ _deploy_to_packagecloud: &deploy_to_packagecloud
   dist: $OS/$DIST
   package_glob: build/*.{rpm,deb}
   skip_cleanup: true
+  on:
+    all_branches: true # it's restricted with the condition for deploy stage
 
 # Pack and deploy packages to PackageCloud
 _packpack: &packpack
