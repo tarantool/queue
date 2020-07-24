@@ -72,12 +72,13 @@ local function tube_release_all_tasks(tube)
         log.error(prefix .. 'no stable iterator support: skip task releasing')
         log.error(prefix .. 'some tasks may stuck in taken state perpetually')
         log.error(prefix .. 'update tarantool to >= 1.7.5 or take the risk')
+        return
     end
 
     log.info(prefix .. 'releasing all taken task (may take a while)')
     local released = 0
     for _, task in tube.raw:tasks_by_state(state.TAKEN) do
-        tube.raw:release(task[1])
+        tube.raw:release(task[1], {})
         released = released + 1
     end
     log.info(prefix .. ('released %d tasks'):format(released))
