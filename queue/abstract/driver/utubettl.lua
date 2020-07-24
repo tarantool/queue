@@ -290,24 +290,30 @@ function method.take(self)
     end
 end
 
-local function wake_neighbour(self, utube)
-    local neighbour = self.space.index.utube:select({state.READY, utube}, {limit=1})[1]
-    if neighbour ~= nil then
-        self:on_task_change(neighbour)
+local function process_neighbour(self, task, operation)
+    self:on_task_change(task, operation)
+    if task ~= nil then
+        local neighbour = self.space.index.utube:select({state.READY, task[i_utube]}, {limit=1})[1]
+        if neighbour ~= nil then
+            self:on_task_change(neighbour)
+        end
     end
+    return task
 end
 
 -- delete task
 function method.delete(self, id)
     local task = self.space:get(id)
     if task ~= nil then
+        local is_taken = task[i_status] == state.TAKEN
         self.space:delete(id)
-        if task[i_status] == state.TAKEN then
-            wake_neighbour(self, task[i_utube])
-        end
         task = task:transform(i_status, 1, state.DONE)
-        self:on_task_change(task, 'delete')
-        return task
+        if is_taken then
+            return process_neighbour(self, task, 'delete')
+        else
+            self:on_task_change(task, 'delete')
+            return task
+        end
     end
     self:on_task_change(task, 'delete')
 end
@@ -324,9 +330,9 @@ function method.release(self, id, opts)
             { '=', i_next_event, event_time(opts.delay) },
             { '+', i_ttl, time(opts.delay) }
         })
-        self:on_task_change(task, 'release')
-        wake_neighbour(self, task[i_utube])
-        return task
+        if task ~= nil then
+            return process_neighbour(self, task, 'release')
+        end
     else
         task = self.space:update(id, {
             { '=', i_status, state.READY },
@@ -341,10 +347,9 @@ end
 function method.bury(self, id)
     local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
     if task ~= nil then
-        wake_neighbour(self, task[i_utube])
-        task = task:transform(i_status, 1, state.BURIED)
-        self:on_task_change(task, 'bury')
-        return task
+        return process_neighbour(
+            self, task:transform(i_status, 1, state.BURIED), 'bury'
+        )
     end
     self:on_task_change(task, 'bury')
 end
