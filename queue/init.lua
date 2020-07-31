@@ -1,13 +1,17 @@
 local queue = nil
+
+local function register_driver(driver_name, tube_ctr)
+    if type(tube_ctr.create_space) ~= 'function' or
+        type(tube_ctr.new) ~= 'function' then
+        error('tube control methods must contain functions "create_space"'
+              .. ' and "new"')
+    end
+    queue.driver[driver_name] = tube_ctr
+end
+
 queue = setmetatable({
     driver = {},
-    register_driver = function(driver_name, tube_ctr)
-        if type(tube_ctr.create_space) ~= 'function' or
-           type(tube_ctr.new) ~= 'function' then
-            error('tube control methods must contain functions "create_space" and "new"')
-        end
-        queue.driver[driver_name] = tube_ctr
-    end,
+    register_driver = register_driver,
 }, { __index = function() print(debug.traceback()) error("Please run box.cfg{} first") end })
 
 if rawget(box, 'space') == nil then
@@ -34,6 +38,7 @@ if rawget(box, 'space') == nil then
     end
 else
     queue = require 'queue.abstract'
+    queue.register_driver = register_driver
     queue.start()
 end
 
