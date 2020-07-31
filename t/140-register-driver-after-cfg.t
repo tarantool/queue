@@ -3,7 +3,7 @@ local tap = require('tap')
 local tnt = require('t.tnt')
 
 local test = tap.test('test driver register')
-test:plan(2)
+test:plan(3)
 
 local mock_tube = {
     create_space = function() end,
@@ -35,6 +35,11 @@ local function check_driver_register()
     end
 
     test:ok(check_standart_drivers, 'standard drivers are defined')
+
+    local res, err = pcall(queue.register_driver, 'mock', mock_tube)
+    local check = not res and
+        string.match(err, 'overriding registered driver') ~= nil
+    test:ok(check, 'check a driver override failure')
 end
 
 check_driver_register()

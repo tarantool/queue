@@ -15,6 +15,9 @@ local function register_driver(driver_name, tube_ctr)
         error('tube control methods must contain functions "create_space"'
               .. ' and "new"')
     end
+    if queue.driver[driver_name] then
+        error(('overriding registered driver "%s"'):format(driver_name))
+    end
     queue.driver[driver_name] = tube_ctr
 end
 
