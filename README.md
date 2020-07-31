@@ -614,13 +614,13 @@ Registering a custom driver
 Driver class must implement the following API:
 
 1. `new` (constructs an instance of a driver), takes:
-  * the space object, in which the driver must store its tasks
-  * a callback to notify the main queue framework on a task state change
+    * the space object, in which the driver must store its tasks
+    * a callback to notify the main queue framework on a task state change
   (`on_task_change`)
-  * options of the queue (a Lua table)
+    * options of the queue (a Lua table)
 1. `create_space` - creates the supporting space. The arguments are:
-  * space name
-  * space options
+    * space name
+    * space options
 
 To sum up, when the user creates a new queue, the queue framework
 passes the request to the driver, asking it to create a space to
