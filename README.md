@@ -601,6 +601,14 @@ notify the framework about the change.
 I.e. for normal operation, even errors during normal operation, there
 should be no exceptions.
 
+Registering a custom driver
+
+`register_driver(driver_name, tube_ctr)` - queue method is used to register
+  a custom driver. The arguments are:
+  * driver_name: unique driver name. Must be different from the core drivers
+  names.
+  * tube_ctr: implementation of tube control methods("create_space" and "new").
+
 ## Driver API
 
 Driver class must implement the following API:
