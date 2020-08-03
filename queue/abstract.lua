@@ -308,6 +308,34 @@ end
 -- methods
 local method = {}
 
+-- List of required driver methods.
+local required_driver_methods = {
+    'normalize_task',
+    'put',
+    'take',
+    'delete',
+    'release',
+    'bury',
+    'kick',
+    'peek',
+    'touch',
+    'truncate',
+    'tasks_by_state'
+}
+
+-- gh-126 Check the driver API.
+local function check_driver_api(tube_impl, tube_type)
+    for _, v in pairs(required_driver_methods) do
+        if tube_impl[v] == nil then
+            error(string.format('The "%s" driver does not have an ' ..
+                                'implementation of method "%s".', tube_type, v))
+        end
+    end
+end
+
+-- Cache of already verified drivers.
+local checked_drivers = {}
+
 local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     opts = opts or {}
     local self
@@ -362,6 +390,12 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     }, {
         __index = tube
     })
+
+    if checked_drivers[tube_type] == nil then
+        check_driver_api(self.raw, tube_type)
+        checked_drivers[tube_type] = true
+    end
+
     self:on_task_change(opts.on_task_change)
     queue.tube[tube_name] = self
 
