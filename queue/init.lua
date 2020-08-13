@@ -1,5 +1,14 @@
 local queue = nil
 
+-- load all core drivers
+local core_drivers = {
+    fifo        = require('queue.abstract.driver.fifo'),
+    fifottl     = require('queue.abstract.driver.fifottl'),
+    utube       = require('queue.abstract.driver.utube'),
+    utubettl    = require('queue.abstract.driver.utubettl'),
+    limfifottl  = require('queue.abstract.driver.limfifottl')
+}
+
 local function register_driver(driver_name, tube_ctr)
     if type(tube_ctr.create_space) ~= 'function' or
         type(tube_ctr.new) ~= 'function' then
@@ -10,7 +19,7 @@ local function register_driver(driver_name, tube_ctr)
 end
 
 queue = setmetatable({
-    driver = {},
+    driver = core_drivers,
     register_driver = register_driver,
 }, { __index = function() print(debug.traceback()) error("Please run box.cfg{} first") end })
 
@@ -21,16 +30,9 @@ if rawget(box, 'space') == nil then
 
         local abstract = require 'queue.abstract'
         for name, val in pairs(abstract) do
-            if name == 'driver' then
-                for driver_name, driver in pairs(queue.driver) do
-                    if abstract.driver[driver_name] then
-                        error(('overriding default driver "%s"'):format(driver_name))
-                    end
-                    abstract.driver[driver_name] = driver
-                end
-            end
             rawset(queue, name, val)
         end
+        abstract.driver = queue.driver
         setmetatable(queue, getmetatable(abstract))
         queue.start()
 
@@ -39,6 +41,7 @@ if rawget(box, 'space') == nil then
 else
     queue = require 'queue.abstract'
     queue.register_driver = register_driver
+    queue.driver = core_drivers
     queue.start()
 end
 

@@ -54,15 +54,6 @@ local function event_time(tm)
     return tm
 end
 
--- load all drivers
-queue.driver = {
-    fifo        = require('queue.abstract.driver.fifo'),
-    fifottl     = require('queue.abstract.driver.fifottl'),
-    utube       = require('queue.abstract.driver.utube'),
-    utubettl    = require('queue.abstract.driver.utubettl'),
-    limfifottl  = require('queue.abstract.driver.limfifottl')
-}
-
 local function tube_release_all_tasks(tube)
     local prefix = ('queue: [tube "%s"] '):format(tube.name)
 
