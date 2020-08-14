@@ -15,7 +15,7 @@ test:test('access to queue until box.cfg is started', function(test)
 
     local s, e = pcall(function() return queue.tube end)
     test:ok(not s, 'exception was generated')
-    test:ok(string.match(e, 'Please run box.cfg') ~= nil, 'Exception text')
+    test:ok(string.match(e, 'Please configure box.cfg') ~= nil, 'Exception text')
 end)
 
 local state = require('queue.abstract.state')
