@@ -646,6 +646,8 @@ Returns the original task with a state changed to 'done'
 * `tube:bury(task_id)` - buries a task
 * `tube:kick(count)` - digs out `count` tasks
 * `tube:peek(task_id)` - return the task state by ID
+* `tube:touch(task_id, delta)` - increases `ttr` and `ttl` of the task by delta
+seconds. If queue does not support `ttr`, error will be thrown. Returns the task
 * `tube:tasks_by_state(task_state)` - return the iterator to tasks in a certain state
 * `tube:truncate()` - delete all tasks from the tube. Note that `tube:truncate`
 must be called only by the user who created this tube (has space ownership) OR
