@@ -26,26 +26,30 @@ queue = setmetatable({
     register_driver = register_driver,
 }, { __index = function() print(debug.traceback()) error("Please run box.cfg{} first") end })
 
-if rawget(box, 'space') == nil then
-    local orig_cfg = box.cfg
-    box.cfg = function(...)
-        local result = { orig_cfg(...) }
+local function queue_init()
+    if rawget(box, 'space') == nil then
+        local orig_cfg = box.cfg
+        box.cfg = function(...)
+            local result = { orig_cfg(...) }
 
-        local abstract = require 'queue.abstract'
-        for name, val in pairs(abstract) do
-            rawset(queue, name, val)
+            local abstract = require 'queue.abstract'
+            for name, val in pairs(abstract) do
+                rawset(queue, name, val)
+            end
+            abstract.driver = queue.driver
+            setmetatable(queue, getmetatable(abstract))
+            queue.start()
+
+            return unpack(result)
         end
-        abstract.driver = queue.driver
-        setmetatable(queue, getmetatable(abstract))
+    else
+        queue = require 'queue.abstract'
+        queue.register_driver = register_driver
+        queue.driver = core_drivers
         queue.start()
-
-        return unpack(result)
     end
-else
-    queue = require 'queue.abstract'
-    queue.register_driver = register_driver
-    queue.driver = core_drivers
-    queue.start()
 end
+
+queue_init()
 
 return queue
