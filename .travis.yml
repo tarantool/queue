@@ -105,9 +105,9 @@ jobs:
     - <<: *packpack
       env: OS=ubuntu DIST=bionic
     - <<: *packpack
-      env: OS=ubuntu DIST=disco
-    - <<: *packpack
       env: OS=ubuntu DIST=eoan
+    - <<: *packpack
+      env: OS=ubuntu DIST=focal
     - <<: *packpack
       env: OS=debian DIST=jessie
     - <<: *packpack
