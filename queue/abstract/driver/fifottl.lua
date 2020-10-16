@@ -162,7 +162,7 @@ local function fifottl_fiber(self)
     local processed = 0
 
     while true do
-        if not box.cfg.read_only then
+        if box.info.ro == false then
             local stat, err = pcall(fifottl_fiber_iteration, self, processed)
             if not stat and not (err.code == box.error.READONLY) then
                 log.error("error catched: %s", tostring(err))
