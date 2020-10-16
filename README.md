@@ -22,6 +22,7 @@ align="right">
   * [Fields of the space associated with each queue](#fields-of-the-space-associated-with-each-queue)
 * [Installing](#installing)
 * [Using the queue module](#using-the-queue-module)
+  * [Initialization](#initialization)
   * [Creating a new queue](#creating-a-new-queue)
   * [Putting a task in a queue](#putting-a-task-in-a-queue)
   * [Taking a task from the queue ("consuming")](#taking-a-task-from-the-queue-consuming)
@@ -302,6 +303,7 @@ build and install.
 
 # Using the `queue` module
 
+## Initialization
 ```lua
 queue = require 'queue'
 ```
@@ -309,7 +311,20 @@ queue = require 'queue'
 The request "require 'queue'" causes automatic creation of
 the `_queue` space, unless it already exists. The same request
 also sets the necessary space triggers and other objects
-associated with queues.
+associated with queues.  
+If the instance hasn't been configured yet (`box.cfg()` hasn't been called),
+the initialization of the queue module will be deferred until the instance will
+be configured ("lazy start"). For a good work of the queue, it's necessary to
+run the instance in rw mode. If the instance run in ro mode, the initialization
+of the queue will be deferred until the instance will be configured in rw mode.
+After the instance has been started in rw mode and the queue has been
+initialized, it's a bad idea to switch it to ro mode. In the case, an attempt to
+do something with a persistent ("temporary" option set to false) queue will fail
+(a temporary queue will work fine). In addition, in the case of mode has been
+switched, triggers may fail (`_on_consumer_disconnect` for example), which may
+cause an inconsistent state of the queue. As for the core drivers that use
+background fibers (fifottl, limfifottl, utubettl) - they check the instance mode
+on each iteration and will wait until the instance will be switched to rw mode.
 
 ## Creating a new queue
 
