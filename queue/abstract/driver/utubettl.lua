@@ -307,10 +307,16 @@ end
 -- delete task
 function method.delete(self, id)
     local task = self.space:get(id)
-    self.space:delete(id)
     if task ~= nil then
+        local is_taken = task[i_status] == state.TAKEN
+        self.space:delete(id)
         task = task:transform(i_status, 1, state.DONE)
-        return process_neighbour(self, task, 'delete')
+        if is_taken then
+            return process_neighbour(self, task, 'delete')
+        else
+            self:on_task_change(task, 'delete')
+            return task
+        end
     end
     self:on_task_change(task, 'delete')
 end
