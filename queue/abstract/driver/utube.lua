@@ -99,8 +99,6 @@ function method.delete(self, id)
         if neighbour then
             self.on_task_change(neighbour)
         end
-    else
-        self.on_task_change(task, 'delete')
     end
     return task
 end

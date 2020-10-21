@@ -318,7 +318,6 @@ function method.delete(self, id)
             return task
         end
     end
-    self:on_task_change(task, 'delete')
 end
 
 -- release task
