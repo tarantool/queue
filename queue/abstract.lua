@@ -346,7 +346,7 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         if taken ~= nil then
             queue_taken:delete{taken[1], taken[2], taken[3]}
         end
-        -- task swicthed to ready (or new task)
+        -- task switched to ready (or new task)
         if task[2] == state.READY then
             local tube_id = self.tube_id
             local consumer = queue_consumers.index.consumer:min{tube_id}
@@ -360,7 +360,7 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
                     end
                 end
             end
-        -- task swicthed to taken - registry in taken space
+        -- task switched to taken - register in taken space
         elseif task[2] == state.TAKEN then
             queue_taken:insert{session.id(), self.tube_id, task[1], fiber.time64()}
         end
