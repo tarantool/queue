@@ -45,6 +45,18 @@ local function is_expired(task)
     return (dead_event <= fiber.time64())
 end
 
+-- validate space of queue
+local function validate_space(space)
+    -- check indexes
+    local indexes = {'task_id', 'status', 'utube', 'watch'}
+    for _, index in pairs(indexes) do
+        if space.index[index] == nil then
+            error(string.format('space "%s" does not have "%s" index',
+                space.name, index))
+        end
+    end
+end
+
 -- create space
 function tube.create_space(space_name, opts)
     opts.ttl = opts.ttl or TIMEOUT_INFINITY
@@ -188,6 +200,8 @@ end
 
 -- start tube on space
 function tube.new(space, on_task_change, opts)
+    validate_space(space)
+
     on_task_change = on_task_change or (function() end)
     local self = setmetatable({
         space           = space,
