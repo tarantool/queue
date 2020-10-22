@@ -6,6 +6,18 @@ local str_type = require('queue.compat').str_type
 local tube = {}
 local method = {}
 
+-- validate space of queue
+local function validate_space(space)
+    -- check indexes
+    local indexes = {'task_id', 'status'}
+    for _, index in pairs(indexes) do
+        if space.index[index] == nil then
+            error(string.format('space "%s" does not have "%s" index',
+                space.name, index))
+        end
+    end
+end
+
 -- create space
 function tube.create_space(space_name, opts)
     local space_opts         = {}
@@ -35,6 +47,8 @@ end
 
 -- start tube on space
 function tube.new(space, on_task_change)
+    validate_space(space)
+
     on_task_change = on_task_change or (function() end)
     local self = setmetatable({
         space          = space,
