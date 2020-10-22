@@ -24,7 +24,6 @@ function tube.create_space(space_name, opts)
     local space_opts         = {}
     local if_not_exists      = opts.if_not_exists or false
     space_opts.temporary     = opts.temporary or false
-    space_opts.if_not_exists = if_not_exists
     space_opts.engine        = opts.engine or 'memtx'
     space_opts.format = {
         {name = 'task_id', type = num_type()},
@@ -34,21 +33,25 @@ function tube.create_space(space_name, opts)
     }
 
     -- id, status, utube, data
-    local space = box.schema.create_space(space_name, space_opts)
+    local space = box.space[space_name]
+    if if_not_exists and space then
+        -- Validate the existing space.
+        validate_space(box.space[space_name])
+        return space
+    end
+
+    space = box.schema.create_space(space_name, space_opts)
     space:create_index('task_id', {
         type = 'tree',
-        parts = {1, num_type()},
-        if_not_exists = if_not_exists
+        parts = {1, num_type()}
     })
     space:create_index('status', {
         type = 'tree',
-        parts = {2, str_type(), 1, num_type()},
-        if_not_exists = if_not_exists
+        parts = {2, str_type(), 1, num_type()}
     })
     space:create_index('utube', {
         type = 'tree',
-        parts = {2, str_type(), 3, str_type(), 1, num_type()},
-        if_not_exists = if_not_exists
+        parts = {2, str_type(), 3, str_type(), 1, num_type()}
     })
     return space
 end

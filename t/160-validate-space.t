@@ -12,7 +12,7 @@ local utubettl = require('queue.abstract.driver.utubettl')
 
 local engine = os.getenv('ENGINE') or 'memtx'
 
-test:plan(4)
+test:plan(8)
 tnt.cfg{}
 
 local function test_corrupted_space(test, driver, indexes)
@@ -53,6 +53,20 @@ local function test_corrupted_space(test, driver, indexes)
     end
 end
 
+local function test_name_conflict(test, driver)
+    test:plan(2)
+
+    local conflict_space = box.schema.create_space('conflict_tube')
+    local res, err = pcall(driver.create_space,'conflict_tube',
+        {engine = engine, if_not_exists = true})
+
+    test:ok(not res, 'exception was thrown')
+    test:ok(err:match('space "conflict_tube" does not' ..
+            ' have "task_id" index') ~= nil, 'text of exception')
+
+    conflict_space:drop()
+end
+
 test:test('test corrupted space fifo', function(test)
     test_corrupted_space(test, fifo, {'task_id', 'status'})
 end)
@@ -68,6 +82,25 @@ end)
 test:test('test corrupted space utubettl', function(test)
     test_corrupted_space(test, utubettl,
         {'task_id', 'status', 'utube', 'watch'})
+end)
+
+test:test('Space name conflict fifo', function(test)
+    test_name_conflict(test, fifo)
+end)
+
+test:test('Space name conflict fifo', function(test)
+    local fifo = require('queue.abstract.driver.fifo')
+    test_name_conflict(test, fifottl)
+end)
+
+test:test('Space name conflict fifo', function(test)
+    local fifo = require('queue.abstract.driver.fifo')
+    test_name_conflict(test, utube)
+end)
+
+test:test('Space name conflict fifo', function(test)
+    local fifo = require('queue.abstract.driver.fifo')
+    test_name_conflict(test, utubettl)
 end)
 
 tnt.finish()
