@@ -570,13 +570,42 @@ function method.start()
     end
 
     for _, tube_tuple in _queue:pairs() do
-        local tube = recreate_tube(tube_tuple)
-        -- gh-66: release all taken tasks on start
-        tube_release_all_tasks(tube)
+        -- Recreate tubes for registered drivers only.
+        -- Check if a driver exists for this type of tube.
+        if queue.driver[tube_tuple[4]] ~= nil then
+            local tube = recreate_tube(tube_tuple)
+            -- gh-66: release all taken tasks on start
+            tube_release_all_tasks(tube)
+        end
     end
 
     session.on_disconnect(queue._on_consumer_disconnect)
     return queue
+end
+
+--- Register the custom driver.
+-- Unlike the "register_driver" method from init.lua, this method
+-- recreates the existing tubes of the registered driver.
+function method.register_driver(driver_name, tube_ctr)
+    if type(tube_ctr.create_space) ~= 'function' or
+        type(tube_ctr.new) ~= 'function' then
+        error('tube control methods must contain functions "create_space"'
+              .. ' and "new"')
+    end
+    if queue.driver[driver_name] then
+        error(('overriding registered driver "%s"'):format(driver_name))
+    end
+    queue.driver[driver_name] = tube_ctr
+
+    -- Recreates the existing tubes of the registered driver.
+    local _queue = box.space._queue
+    for _, tube_tuple in _queue:pairs() do
+        if tube_tuple[4] == driver_name then
+            local tube = recreate_tube(tube_tuple)
+            -- Release all task for tube on start.
+            tube_release_all_tasks(tube)
+        end
+    end
 end
 
 local function build_stats(space)

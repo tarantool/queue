@@ -77,6 +77,8 @@ function wrapper_impl(...)
             rawset(queue, name, val)
         end
         abstract.driver = queue.driver
+        -- Now the "register_driver" method from abstract will be used.
+        queue.register_driver = nil
         setmetatable(queue, getmetatable(abstract))
         queue.start()
     else
@@ -95,7 +97,6 @@ local function queue_init()
     if rawget(box, 'space') ~= nil and box.info.ro == false then
         -- The box was configured with read_only = false
         queue = require('queue.abstract')
-        queue.register_driver = register_driver
         queue.driver = core_drivers
         queue.start()
     else
