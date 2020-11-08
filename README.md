@@ -25,6 +25,7 @@ align="right">
 * [Using the queue module](#using-the-queue-module)
   * [Initialization](#initialization)
   * [Creating a new queue](#creating-a-new-queue)
+  * [Set queue settings](#set-queue-settings)
   * [Putting a task in a queue](#putting-a-task-in-a-queue)
   * [Taking a task from the queue ("consuming")](#taking-a-task-from-the-queue-consuming)
   * [Acknowledging the completion of a task](#acknowledging-the-completion-of-a-task)
@@ -358,6 +359,18 @@ Effect: a tuple is added in the `_queue` space, and a new associated space is
 created.
 
 Example: `queue.create_tube('list_of_sites', 'fifo', {temporary = true})`
+
+## Set queue settings
+
+```lua
+queue.cfg({options})
+```
+
+Set queue settings.  
+If an invalid value or an unknown option is used, an error will be thrown.  
+Available `options`:
+* `ttr` - time to release in seconds. The time after which, if there is no active
+connection in the session, it will be released with all its tasks.
 
 ## Putting a task in a queue
 
