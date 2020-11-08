@@ -26,6 +26,7 @@ align="right">
   * [Initialization](#initialization)
   * [Creating a new queue](#creating-a-new-queue)
   * [Set queue settings](#set-queue-settings)
+  * [Session identification](#session-identification)
   * [Putting a task in a queue](#putting-a-task-in-a-queue)
   * [Taking a task from the queue ("consuming")](#taking-a-task-from-the-queue-consuming)
   * [Acknowledging the completion of a task](#acknowledging-the-completion-of-a-task)
@@ -371,6 +372,37 @@ If an invalid value or an unknown option is used, an error will be thrown.
 Available `options`:
 * `ttr` - time to release in seconds. The time after which, if there is no active
 connection in the session, it will be released with all its tasks.
+
+## Session identify
+
+```lua
+queue.identify(session_uuid)
+```
+
+In the queue the session has a unique UUID and many connections may share one
+logical session. Also, the consumer can reconnect to the existing session during
+the`ttr` time.  
+To get the UUID of the current session, call the `queue.identify()`
+without parameters.  
+To connect to the existing session, call the `queue.identify(session_uuid)`
+with the UUID of the session.  
+In case of attempt to use an invalid format UUID or expired UUID, an error will
+be thrown.
+
+Usage example:  
+Sometimes we need an ability to acknowledge a task after reconnect (because
+retrying it is undesirable) or even acknowlegde using another connection.
+
+Example of code for connecting to the old session in case of reconnection:
+```
+local netbox = require('net.box')
+
+local conn = netbox.connect('localhost:1918', { reconnect_after = 5 })
+local session_uuid = conn:call('queue.identify')
+conn:on_connect(function()
+    conn:call('queue.identify', {session_uuid})
+end)
+```
 
 ## Putting a task in a queue
 
