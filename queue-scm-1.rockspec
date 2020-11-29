@@ -24,6 +24,7 @@ build = {
         ['queue.abstract.driver.utube']      = 'queue/abstract/driver/utube.lua',
         ['queue.abstract.driver.limfifottl'] = 'queue/abstract/driver/limfifottl.lua',
         ['queue.compat']                     = 'queue/compat.lua',
+        ['queue.util']                       = 'queue/util.lua',
         ['queue']                            = 'queue/init.lua'
     }
 }

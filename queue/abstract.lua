@@ -3,6 +3,7 @@ local fiber    = require('fiber')
 
 local state    = require('queue.abstract.state')
 
+local util     = require('queue.util')
 local qc       = require('queue.compat')
 local num_type = qc.num_type
 local str_type = qc.str_type
@@ -29,30 +30,6 @@ local queue = {
     }),
     stat = {}
 }
-local MAX_TIMEOUT      = 365 * 86400 * 100       -- MAX_TIMEOUT == 100 years
-local TIMEOUT_INFINITY = 18446744073709551615ULL -- Set to TIMEOUT_INFINITY
-                                                 -- instead
--- returns time for next event
-local function time(tm)
-    if tm == nil then
-        tm = fiber.time64()
-    elseif tm < 0 then
-        tm = 0
-    else
-        tm = tm * 1000000
-    end
-    return 0ULL + tm
-end
-
-local function event_time(tm)
-    if tm == nil or tm < 0 then
-        tm = 0
-    elseif tm > MAX_TIMEOUT then
-        return TIMEOUT_INFINITY
-    end
-    tm = 0ULL + tm * 1000000 + fiber.time64()
-    return tm
-end
 
 local function tube_release_all_tasks(tube)
     local prefix = ('queue: [tube "%s"] '):format(tube.name)
@@ -98,7 +75,7 @@ local conds = {}
 local releasing_connections = {}
 
 function tube.take(self, timeout)
-    timeout = time(timeout or TIMEOUT_INFINITY)
+    timeout = util.time(timeout or util.TIMEOUT_INFINITY)
     local task = self.raw:take()
     if task ~= nil then
         return self.raw:normalize_task(task)
@@ -106,7 +83,7 @@ function tube.take(self, timeout)
 
     while timeout > 0 do
         local started = fiber.time64()
-        local time = event_time(timeout)
+        local time = util.event_time(timeout)
         local tid = self.tube_id
         local fid = fiber.id()
         local conn_id = connection.id()
@@ -141,8 +118,8 @@ function tube.touch(self, id, delta)
     end
     if delta < 0 then -- if delta is lesser then 0, then it's zero
         delta = 0
-    elseif delta > MAX_TIMEOUT then -- no ttl/ttr for this task
-        delta = TIMEOUT_INFINITY
+    elseif delta > util.MAX_TIMEOUT then -- no ttl/ttr for this task
+        delta = util.TIMEOUT_INFINITY
     else -- convert to usec
         delta = delta * 1000000
     end
