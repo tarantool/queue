@@ -245,7 +245,7 @@ Consumers may be simply waiting for tasks to be put in the queues.
 
 ## Fields of the `_queue_consumers` space
 
-1. `session` - session (connection) ID of the client
+1. `connection_id` - connection ID of the client
 1. `fid` - client fiber ID
 1. `tube_id` - queue ID, referring to the `tube_id` field in the `_queue`
 space; the client waits for tasks in this queue
@@ -257,8 +257,8 @@ processing a task in the queue.
 
 ## Fields of the `_queue_taken` space
 
-1. `session` - session (connection) ID of the client, referring to the
-`session_id` field of the `_queue_consumers` space
+1. `connection_id` - connection ID of the client, referring to the
+`connection_id` field of the `_queue_consumers` space
 1. `tube_id` - queue ID, to which the task belongs
 1. `task_id` - task ID (of the task being taken)
 1. `time` - the time when the client began to execute the task

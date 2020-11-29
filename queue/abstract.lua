@@ -7,7 +7,7 @@ local qc       = require('queue.compat')
 local num_type = qc.num_type
 local str_type = qc.str_type
 
-local session = box.session
+local connection = box.session
 
 local queue = {
     tube = setmetatable({}, {
@@ -85,7 +85,7 @@ function tube.put(self, data, opts)
 end
 
 local conds = {}
-local releasing_sessions = {}
+local releasing_connections = {}
 
 function tube.take(self, timeout)
     timeout = time(timeout or TIMEOUT_INFINITY)
@@ -99,18 +99,18 @@ function tube.take(self, timeout)
         local time = event_time(timeout)
         local tid = self.tube_id
         local fid = fiber.id()
-        local sid = session.id()
+        local conn_id = connection.id()
 
-        box.space._queue_consumers:insert{sid, fid, tid, time, started}
+        box.space._queue_consumers:insert{conn_id, fid, tid, time, started}
         conds[fid] = qc.waiter()
         conds[fid]:wait(tonumber(timeout) / 1000000)
         conds[fid]:free()
-        box.space._queue_consumers:delete{ sid, fid }
+        box.space._queue_consumers:delete{conn_id, fid}
 
-        -- We don't take a task if the session is in a
+        -- We don't take a task if the connection is in a
         -- disconnecting state.
-        if releasing_sessions[fid] then
-            releasing_sessions[fid] = nil
+        if releasing_connections[fid] then
+            releasing_connections[fid] = nil
             return nil
         end
 
@@ -140,7 +140,7 @@ function tube.touch(self, id, delta)
         return
     end
 
-    local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
+    local _taken = box.space._queue_taken:get{connection.id(), self.tube_id, id}
     if _taken == nil then
         error("Task was not taken in the session")
     end
@@ -152,7 +152,8 @@ function tube.touch(self, id, delta)
 end
 
 function tube.ack(self, id)
-    local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
+    local conn_id = connection.id()
+    local _taken = box.space._queue_taken:get{conn_id, self.tube_id, id}
     if _taken == nil then
         error("Task was not taken in the session")
     end
@@ -161,7 +162,7 @@ function tube.ack(self, id)
 
     self:peek(id)
     -- delete task
-    box.space._queue_taken:delete{session.id(), self.tube_id, id}
+    box.space._queue_taken:delete{conn_id, self.tube_id, id}
     local result = self.raw:normalize_task(
         self.raw:delete(id):transform(2, 1, state.DONE)
     )
@@ -171,20 +172,20 @@ function tube.ack(self, id)
     return result
 end
 
-local function tube_release_internal(self, id, opts, session_id)
+local function tube_release_internal(self, id, opts, connection_id)
     opts = opts or {}
-    local _taken = box.space._queue_taken:get{session_id, self.tube_id, id}
+    local _taken = box.space._queue_taken:get{connection_id, self.tube_id, id}
     if _taken == nil then
         error("Task was not taken in the session")
     end
 
-    box.space._queue_taken:delete{session_id, self.tube_id, id}
+    box.space._queue_taken:delete{connection_id, self.tube_id, id}
     self:peek(id)
     return self.raw:normalize_task(self.raw:release(id, opts))
 end
 
 function tube.release(self, id, opts)
-    return tube_release_internal(self, id, opts, session.id())
+    return tube_release_internal(self, id, opts, connection.id())
 end
 
 function tube.peek(self, id)
@@ -197,9 +198,9 @@ end
 
 function tube.bury(self, id)
     local task = self:peek(id)
-    local _taken = box.space._queue_taken:get{session.id(), self.tube_id, id}
+    local _taken = box.space._queue_taken:get{connection.id(), self.tube_id, id}
     if _taken ~= nil then
-        box.space._queue_taken:delete{session.id(), self.tube_id, id}
+        box.space._queue_taken:delete{connection.id(), self.tube_id, id}
     end
     if task[2] == state.BURIED then
         return task
@@ -362,7 +363,8 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
             end
         -- task switched to taken - register in taken space
         elseif task[2] == state.TAKEN then
-            queue_taken:insert{session.id(), self.tube_id, task[1], fiber.time64()}
+            queue_taken:insert{connection.id(), self.tube_id, task[1],
+                fiber.time64()}
         end
         if stats_data ~= nil then
             queue.stat[space.name]:inc(stats_data)
@@ -395,7 +397,7 @@ end
 
 function method._on_consumer_disconnect()
     local waiter, fb, task, tube, id
-    id = session.id()
+    id = connection.id()
     -- wakeup all waiters
     while true do
         waiter = box.space._queue_consumers.index.pk:min{id}
@@ -409,7 +411,7 @@ function method._on_consumer_disconnect()
         box.space._queue_consumers:delete{ waiter[1], waiter[2] }
         local cond = conds[waiter[2]]
         if cond then
-            releasing_sessions[waiter[2]] = true
+            releasing_connections[waiter[2]] = true
             cond:signal(waiter[2])
         end
     end
@@ -523,11 +525,11 @@ function method.start()
 
     local _cons = box.space._queue_consumers
     if _cons == nil then
-        -- session, fid, tube, time
+        -- connection, fid, tube, time
         _cons = box.schema.create_space('_queue_consumers', {
             temporary = true,
             format = {
-                {name = 'session_id', type = num_type()},
+                {name = 'connection_id', type = num_type()},
                 {name = 'fiber_id', type = num_type()},
                 {name = 'tube_id', type = num_type()},
                 {name = 'event_time', type = num_type()},
@@ -548,11 +550,11 @@ function method.start()
 
     local _taken = box.space._queue_taken
     if _taken == nil then
-        -- session_id, tube_id, task_id, time
+        -- connection_id, tube_id, task_id, time
         _taken = box.schema.create_space('_queue_taken', {
             temporary = true,
             format = {
-                {name = 'session_id', type = num_type()},
+                {name = 'connection_id', type = num_type()},
                 {name = 'tube_id', type = num_type()},
                 {name = 'task_id', type = num_type()},
                 {name = 'taken_time', type = num_type()}
@@ -579,7 +581,7 @@ function method.start()
         end
     end
 
-    session.on_disconnect(queue._on_consumer_disconnect)
+    connection.on_disconnect(queue._on_consumer_disconnect)
     return queue
 end
 
