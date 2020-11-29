@@ -2,14 +2,13 @@ local log      = require('log')
 local fiber    = require('fiber')
 local state    = require('queue.abstract.state')
 
+local util     = require('queue.util')
 local qc       = require('queue.compat')
 local num_type = qc.num_type
 local str_type = qc.str_type
 
 local tube = {}
 local method = {}
-
-local TIMEOUT_INFINITY  = 365 * 86400 * 500
 
 local i_id              = 1
 local i_status          = 2
@@ -19,24 +18,6 @@ local i_ttr             = 5
 local i_pri             = 6
 local i_created         = 7
 local i_data            = 8
-
-local function time(tm)
-    if tm == nil then
-        tm = fiber.time64()
-    elseif tm < 0 then
-        tm = 0
-    else
-        tm = tm * 1000000
-    end
-    return 0ULL + tm
-end
-
-local function event_time(tm)
-    if tm == nil or tm < 0 then
-        tm = 0
-    end
-    return 0ULL + tm * 1000000 + fiber.time64()
-end
 
 local function is_expired(task)
     local dead_event = task[i_created] + task[i_ttl]
@@ -57,7 +38,7 @@ end
 
 -- create space
 function tube.create_space(space_name, opts)
-    opts.ttl = opts.ttl or TIMEOUT_INFINITY
+    opts.ttl = opts.ttl or util.MAX_TIMEOUT
     opts.ttr = opts.ttr or opts.ttl
     opts.pri = opts.pri or 0
 
@@ -107,9 +88,9 @@ local ttl_states    = { state.READY, state.BURIED }
 local ttr_state     = { state.TAKEN }
 
 local function fifottl_fiber_iteration(self, processed)
-    local now       = time()
+    local now       = util.time()
     local task      = nil
-    local estimated = TIMEOUT_INFINITY
+    local estimated = util.MAX_TIMEOUT
 
     -- delayed tasks
     task = self.space.index.watch:min(delayed_state)
@@ -234,20 +215,20 @@ function method.put(self, data, opts)
     if opts.delay ~= nil and opts.delay > 0 then
         status = state.DELAYED
         ttl = ttl + opts.delay
-        next_event = event_time(opts.delay)
+        next_event = util.event_time(opts.delay)
     else
         status = state.READY
-        next_event = event_time(ttl)
+        next_event = util.event_time(ttl)
     end
 
     local task = self.space:insert{
         id,
         status,
         next_event,
-        time(ttl),
-        time(ttr),
+        util.time(ttl),
+        util.time(ttr),
         pri,
-        time(),
+        util.time(),
         data
     }
     self:on_task_change(task, 'put')
@@ -261,7 +242,7 @@ function method.touch(self, id, delta)
         {'+', i_ttl,        delta},
         {'+', i_ttr,        delta}
     }
-    if delta == TIMEOUT_INFINITY then
+    if delta == util.MAX_TIMEOUT then
         ops = {
             {'=', i_next_event, delta},
             {'=', i_ttl,        delta},
@@ -288,7 +269,7 @@ function method.take(self)
         return
     end
 
-    local next_event = time() + task[i_ttr]
+    local next_event = util.time() + task[i_ttr]
     local dead_event = task[i_created] + task[i_ttl]
     if next_event > dead_event then
         next_event = dead_event
@@ -322,8 +303,8 @@ function method.release(self, id, opts)
     if opts.delay ~= nil and opts.delay > 0 then
         task = self.space:update(id, {
             { '=', i_status, state.DELAYED },
-            { '=', i_next_event, event_time(opts.delay) },
-            { '+', i_ttl, time(opts.delay) }
+            { '=', i_next_event, util.event_time(opts.delay) },
+            { '+', i_ttl, util.time(opts.delay) }
         })
     else
         task = self.space:update(id, {
