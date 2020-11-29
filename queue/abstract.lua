@@ -374,6 +374,28 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
     return self
 end
 
+--- Release all session tasks.
+local function release_session_tasks(connection_id)
+    while true do
+        local task = box.space._queue_taken.index.pk:min{connection_id}
+        if task == nil or task[1] ~= connection_id then
+            break
+        end
+
+        local tube = box.space._queue.index.tube_id:get{task[2]}
+        if tube == nil then
+            log.error("Inconsistent queue state: tube %d not found", task[2])
+            box.space._queue_taken.index.task:delete{task[2], task[3]}
+        else
+            log.warn("Consumer %s disconnected, release task %s(%s)",
+                connection_id, task[3], tube[1])
+
+            tube_release_internal(queue.tube[tube[1]], task[3], nil,
+                                  connection_id)
+        end
+    end
+end
+
 function method._on_consumer_disconnect()
     local waiter, fb, task, tube, id
     id = connection.id()
@@ -395,24 +417,7 @@ function method._on_consumer_disconnect()
         end
     end
 
-    -- release all session tasks
-    while true do
-        task = box.space._queue_taken.index.pk:min{id}
-        if task == nil or task[1] ~= id then
-            break
-        end
-
-        tube = box.space._queue.index.tube_id:get{task[2]}
-        if tube == nil then
-            log.error("Inconsistent queue state: tube %d not found", task[2])
-            box.space._queue_taken.index.task:delete{task[2], task[3]}
-        else
-            log.warn("Consumer %s disconnected, release task %s(%s)",
-                id, task[3], tube[1])
-
-            tube_release_internal(queue.tube[tube[1]], task[3], nil, id)
-        end
-    end
+    release_session_tasks(id)
 end
 
 -- function takes tuples and recreates tube
