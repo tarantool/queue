@@ -79,8 +79,8 @@ end
 -- connection id == "conn_id".
 -- Throw an error if task is not take in the session.
 local function check_task_is_taken(tube_id, task_id, conn_id)
-    local _taken = box.space._queue_taken:get{conn_id, tube_id, task_id}
-    if _taken == nil then
+    local _taken = box.space._queue_taken.index.task:get{tube_id, task_id}
+    if _taken == nil or _taken[1] ~= conn_id then
         error("Task was not taken in the session")
     end
 end
@@ -166,7 +166,7 @@ function tube.ack(self, id)
 
     self:peek(id)
     -- delete task
-    box.space._queue_taken:delete{conn_id, self.tube_id, id}
+    box.space._queue_taken.index.task:delete{self.tube_id, id}
     local result = self.raw:normalize_task(
         self.raw:delete(id):transform(2, 1, state.DONE)
     )
@@ -180,7 +180,7 @@ local function tube_release_internal(self, id, opts, connection_id)
     opts = opts or {}
     check_task_is_taken(self.tube_id, id, connection_id)
 
-    box.space._queue_taken:delete{connection_id, self.tube_id, id}
+    box.space._queue_taken.index.task:delete{self.tube_id, id}
     self:peek(id)
     return self.raw:normalize_task(self.raw:release(id, opts))
 end
@@ -202,7 +202,7 @@ function tube.bury(self, id)
     local conn_id = connection.id()
     local is_taken, _ = pcall(check_task_is_taken, self.tube_id, id, conn_id)
     if is_taken then
-        box.space._queue_taken:delete{conn_id, self.tube_id, id}
+        box.space._queue_taken.index.task:delete{self.tube_id, id}
     end
     if task[2] == state.BURIED then
         return task
@@ -428,7 +428,7 @@ function method._on_consumer_disconnect()
         tube = box.space._queue.index.tube_id:get{task[2]}
         if tube == nil then
             log.error("Inconsistent queue state: tube %d not found", task[2])
-            box.space._queue_taken:delete{task[1], task[2], task[3] }
+            box.space._queue_taken.index.task:delete{task[2], task[3]}
         else
             log.warn("Consumer %s disconnected, release task %s(%s)",
                 id, task[3], tube[1])
