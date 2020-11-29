@@ -75,6 +75,16 @@ local function tube_release_all_tasks(tube)
     log.info(prefix .. ('released %d tasks'):format(released))
 end
 
+--- Check whether the task has been taken in a session with
+-- connection id == "conn_id".
+-- Throw an error if task is not take in the session.
+local function check_task_is_taken(tube_id, task_id, conn_id)
+    local _taken = box.space._queue_taken:get{conn_id, tube_id, task_id}
+    if _taken == nil then
+        error("Task was not taken in the session")
+    end
+end
+
 -- tube methods
 local tube = {}
 
@@ -140,10 +150,7 @@ function tube.touch(self, id, delta)
         return
     end
 
-    local _taken = box.space._queue_taken:get{connection.id(), self.tube_id, id}
-    if _taken == nil then
-        error("Task was not taken in the session")
-    end
+    check_task_is_taken(self.tube_id, id, connection.id())
 
     local space_name = box.space._queue:get{self.name}[3]
     queue.stat[space_name]:inc('touch')
@@ -153,10 +160,7 @@ end
 
 function tube.ack(self, id)
     local conn_id = connection.id()
-    local _taken = box.space._queue_taken:get{conn_id, self.tube_id, id}
-    if _taken == nil then
-        error("Task was not taken in the session")
-    end
+    check_task_is_taken(self.tube_id, id, conn_id)
     local tube = box.space._queue:get{self.name}
     local space_name = tube[3]
 
@@ -174,10 +178,7 @@ end
 
 local function tube_release_internal(self, id, opts, connection_id)
     opts = opts or {}
-    local _taken = box.space._queue_taken:get{connection_id, self.tube_id, id}
-    if _taken == nil then
-        error("Task was not taken in the session")
-    end
+    check_task_is_taken(self.tube_id, id, connection_id)
 
     box.space._queue_taken:delete{connection_id, self.tube_id, id}
     self:peek(id)
@@ -198,9 +199,10 @@ end
 
 function tube.bury(self, id)
     local task = self:peek(id)
-    local _taken = box.space._queue_taken:get{connection.id(), self.tube_id, id}
-    if _taken ~= nil then
-        box.space._queue_taken:delete{connection.id(), self.tube_id, id}
+    local conn_id = connection.id()
+    local is_taken, _ = pcall(check_task_is_taken, self.tube_id, id, conn_id)
+    if is_taken then
+        box.space._queue_taken:delete{conn_id, self.tube_id, id}
     end
     if task[2] == state.BURIED then
         return task
