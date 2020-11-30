@@ -18,7 +18,8 @@ align="right">
 * [The underlying spaces](#the-underlying-spaces)
   * [Fields of the \_queue space](#fields-of-the-_queue-space)
   * [Fields of the \_queue\_consumers space](#fields-of-the-_queue_consumers-space)
-  * [Fields of the \_queue\_taken space](#fields-of-the-_queue_taken-space)
+  * [Fields of the \_queue\_taken\_2 space](#fields-of-the-_queue_taken_2-space)
+  * [Fields of the \_queue\_session\_ids space](#fields-of-the-_queue_session_ids-space)
   * [Fields of the space associated with each queue](#fields-of-the-space-associated-with-each-queue)
 * [Installing](#installing)
 * [Using the queue module](#using-the-queue-module)
@@ -252,16 +253,25 @@ space; the client waits for tasks in this queue
 1. `timeout` - the client wait timeout
 1. `time` - the time when the client took a task
 
-The `_queue_taken` temporary space contains tuples for each job which is
-processing a task in the queue.
+The `_queue_taken_2` (`_queue_taken` is deprecated) temporary space contains
+tuples for each job which is processing a task in the queue.
 
-## Fields of the `_queue_taken` space
+## Fields of the `_queue_taken_2` space
 
-1. `connection_id` - connection ID of the client, referring to the
-`connection_id` field of the `_queue_consumers` space
 1. `tube_id` - queue ID, to which the task belongs
 1. `task_id` - task ID (of the task being taken)
+1. `connection_id` - connection ID of the client, referring to the
+`connection_id` field of the `_queue_consumers` space
+1. `session_uuid` - session UUID (string)
 1. `time` - the time when the client began to execute the task
+
+The `_queue_session_ids` temporary space contains a map: connection id (box
+session id) to the session UUID.
+
+## Fields of the `_queue_session_ids` space
+
+1. `connection_id` - connection id (numeric)
+2. `session_uuid` - session UUID (string)
 
 Also, there is a space which is associated with each queue,
 which is named in the `space` field of the `_queue` space.
@@ -405,7 +415,7 @@ the job waits until a task becomes ready or the timeout expires.
 Effect: the value of `task_state` changes to 't' (taken).
 The `take` request tells the system that the task is being worked on.
 It should be followed by an `ack` request when the work is finished.
-Additional effect: a tuple is added to the `_queue_taken` space.
+Additional effect: a tuple is added to the `_queue_taken_2` space.
 
 Returns: the value of the taken tuple, or nil if none was found.
 The value of the first field in the tuple (`task_id`) is important

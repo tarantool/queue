@@ -1,6 +1,8 @@
 local log      = require('log')
 local fiber    = require('fiber')
+local uuid     = require('uuid')
 
+local session  = require('queue.abstract.queue_session')
 local state    = require('queue.abstract.state')
 
 local util     = require('queue.util')
@@ -8,6 +10,9 @@ local qc       = require('queue.compat')
 local num_type = qc.num_type
 local str_type = qc.str_type
 
+-- The term "queue session" has been added to the queue. One "queue session"
+-- can include many connections (box.session). For clarity, the box.session
+-- will be referred to as connection below.
 local connection = box.session
 
 local queue = {
@@ -52,13 +57,15 @@ local function tube_release_all_tasks(tube)
     log.info(prefix .. ('released %d tasks'):format(released))
 end
 
---- Check whether the task has been taken in a session with
--- connection id == "conn_id".
+--- Check whether the task has been taken in a current session or in a session
+-- with session uuid = session_uuid.
 -- Throw an error if task is not take in the session.
-local function check_task_is_taken(tube_id, task_id, conn_id)
-    local _taken = box.space._queue_taken.index.task:get{tube_id, task_id}
-    if _taken == nil or _taken[1] ~= conn_id then
-        error("Task was not taken in the session")
+local function check_task_is_taken(tube_id, task_id, session_uuid)
+    local _taken = box.space._queue_taken_2.index.task:get{tube_id, task_id}
+
+    session_uuid = session_uuid or session.identify(connection.id())
+    if _taken == nil or _taken[4] ~= session_uuid then
+        error("Task was not taken")
     end
 end
 
@@ -127,7 +134,7 @@ function tube.touch(self, id, delta)
         return
     end
 
-    check_task_is_taken(self.tube_id, id, connection.id())
+    check_task_is_taken(self.tube_id, id)
 
     local space_name = box.space._queue:get{self.name}[3]
     queue.stat[space_name]:inc('touch')
@@ -136,14 +143,13 @@ function tube.touch(self, id, delta)
 end
 
 function tube.ack(self, id)
-    local conn_id = connection.id()
-    check_task_is_taken(self.tube_id, id, conn_id)
+    check_task_is_taken(self.tube_id, id)
     local tube = box.space._queue:get{self.name}
     local space_name = tube[3]
 
     self:peek(id)
     -- delete task
-    box.space._queue_taken.index.task:delete{self.tube_id, id}
+    box.space._queue_taken_2.index.task:delete{self.tube_id, id}
     local result = self.raw:normalize_task(
         self.raw:delete(id):transform(2, 1, state.DONE)
     )
@@ -153,17 +159,17 @@ function tube.ack(self, id)
     return result
 end
 
-local function tube_release_internal(self, id, opts, connection_id)
+local function tube_release_internal(self, id, opts, session_uuid)
     opts = opts or {}
-    check_task_is_taken(self.tube_id, id, connection_id)
+    check_task_is_taken(self.tube_id, id, session_uuid)
 
-    box.space._queue_taken.index.task:delete{self.tube_id, id}
+    box.space._queue_taken_2.index.task:delete{self.tube_id, id}
     self:peek(id)
     return self.raw:normalize_task(self.raw:release(id, opts))
 end
 
 function tube.release(self, id, opts)
-    return tube_release_internal(self, id, opts, connection.id())
+    return tube_release_internal(self, id, opts)
 end
 
 function tube.peek(self, id)
@@ -176,10 +182,9 @@ end
 
 function tube.bury(self, id)
     local task = self:peek(id)
-    local conn_id = connection.id()
-    local is_taken, _ = pcall(check_task_is_taken, self.tube_id, id, conn_id)
+    local is_taken, _ = pcall(check_task_is_taken, self.tube_id, id)
     if is_taken then
-        box.space._queue_taken.index.task:delete{self.tube_id, id}
+        box.space._queue_taken_2.index.task:delete{self.tube_id, id}
     end
     if task[2] == state.BURIED then
         return task
@@ -214,8 +219,8 @@ function tube.drop(self)
         error("There are consumers connected the tube")
     end
 
-    local taken = box.space._queue_taken.index.task:min{tube_id}
-    if taken ~= nil and taken[2] == tube_id then
+    local taken = box.space._queue_taken_2.index.task:min{tube_id}
+    if taken ~= nil and taken[1] == tube_id then
         error("There are taken tasks in the tube")
     end
 
@@ -260,10 +265,12 @@ function tube.grant(self, user, args)
 
     tube_grant_space(user, '_queue', 'read')
     tube_grant_space(user, '_queue_consumers')
-    tube_grant_space(user, '_queue_taken')
+    tube_grant_space(user, '_queue_taken_2')
     tube_grant_space(user, self.name)
+    session.grant(user)
 
     if args.call then
+        tube_grant_func(user, 'queue.identify')
         local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
         tube_grant_func(user, prefix .. 'take')
         tube_grant_func(user, prefix .. 'touch')
@@ -319,12 +326,12 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         if task == nil then return end
 
         local queue_consumers = box.space._queue_consumers
-        local queue_taken     = box.space._queue_taken
+        local queue_taken     = box.space._queue_taken_2
 
         -- if task was taken and become other state
         local taken = queue_taken.index.task:get{tube_id, task[1]}
         if taken ~= nil then
-            queue_taken:delete{taken[1], taken[2], taken[3]}
+            queue_taken:delete{taken[1], taken[2]}
         end
         -- task switched to ready (or new task)
         if task[2] == state.READY then
@@ -342,8 +349,15 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
             end
         -- task switched to taken - register in taken space
         elseif task[2] == state.TAKEN then
-            queue_taken:insert{connection.id(), self.tube_id, task[1],
-                fiber.time64()}
+            local conn_id = connection.id()
+            local session_uuid = session.identify(conn_id)
+            queue_taken:insert{
+                self.tube_id,
+                task[1],
+                conn_id,
+                session_uuid,
+                fiber.time64()
+            }
         end
         if stats_data ~= nil then
             queue.stat[space.name]:inc(stats_data)
@@ -375,41 +389,37 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
 end
 
 --- Release all session tasks.
-local function release_session_tasks(connection_id)
-    while true do
-        local task = box.space._queue_taken.index.pk:min{connection_id}
-        if task == nil or task[1] ~= connection_id then
-            break
-        end
+local function release_session_tasks(session_uuid)
+    local taken_tasks = box.space._queue_taken_2.index.uuid:select{session_uuid}
 
-        local tube = box.space._queue.index.tube_id:get{task[2]}
+    for _, task in pairs(taken_tasks) do
+        local tube = box.space._queue.index.tube_id:get{task[1]}
         if tube == nil then
-            log.error("Inconsistent queue state: tube %d not found", task[2])
-            box.space._queue_taken.index.task:delete{task[2], task[3]}
+            log.error("Inconsistent queue state: tube %d not found", task[1])
+            box.space._queue_taken_2.index.task:delete{task[1], task[2]}
         else
-            log.warn("Consumer %s disconnected, release task %s(%s)",
-                connection_id, task[3], tube[1])
-
-            tube_release_internal(queue.tube[tube[1]], task[3], nil,
-                                  connection_id)
+            log.warn("Session %s closed, release task %s(%s)",
+                uuid.frombin(session_uuid):str(), task[2], tube[1])
+            tube_release_internal(queue.tube[tube[1]], task[2], nil,
+                session_uuid)
         end
     end
 end
 
 function method._on_consumer_disconnect()
-    local waiter, fb, task, tube, id
-    id = connection.id()
+    local conn_id = connection.id()
+
     -- wakeup all waiters
     while true do
-        waiter = box.space._queue_consumers.index.pk:min{id}
+        local waiter = box.space._queue_consumers.index.pk:min{conn_id}
         if waiter == nil then
             break
         end
         -- Don't touch the other consumers
-        if waiter[1] ~= id then
+        if waiter[1] ~= conn_id then
             break
         end
-        box.space._queue_consumers:delete{ waiter[1], waiter[2] }
+        box.space._queue_consumers:delete{waiter[1], waiter[2]}
         local cond = conds[waiter[2]]
         if cond then
             releasing_connections[waiter[2]] = true
@@ -417,7 +427,7 @@ function method._on_consumer_disconnect()
         end
     end
 
-    release_session_tasks(id)
+    session.disconnect(conn_id)
 end
 
 -- function takes tuples and recreates tube
@@ -532,26 +542,33 @@ function method.start()
         })
     end
 
-    local _taken = box.space._queue_taken
+    -- Remove deprecated space
+    if box.space._queue_taken ~= nil then
+        box.space._queue_taken:drop()
+    end
+
+    local _taken = box.space._queue_taken_2
     if _taken == nil then
-        -- connection_id, tube_id, task_id, time
-        _taken = box.schema.create_space('_queue_taken', {
+        -- tube_id, task_id, connection_id, session_uuid, time
+        _taken = box.schema.create_space('_queue_taken_2', {
             temporary = true,
             format = {
-                {name = 'connection_id', type = num_type()},
                 {name = 'tube_id', type = num_type()},
                 {name = 'task_id', type = num_type()},
+                {name = 'connection_id', type = num_type()},
+                {name = 'session_uuid', type = str_type()},
                 {name = 'taken_time', type = num_type()}
             }})
-        _taken:create_index('pk', {
-            type = 'tree',
-            parts = {1, num_type(), 2, num_type(), 3, num_type()},
-            unique = true})
 
-        _taken:create_index('task',{
+        _taken:create_index('task', {
             type = 'tree',
-            parts = {2, num_type(), 3, num_type()},
+            parts = {1, num_type(), 2, num_type()},
             unique = true
+        })
+        _taken:create_index('uuid', {
+            type = 'tree',
+            parts = {4, str_type()},
+            unique = false
         })
     end
 
@@ -564,6 +581,9 @@ function method.start()
             tube_release_all_tasks(tube)
         end
     end
+
+    session.on_session_remove(release_session_tasks)
+    session.start()
 
     connection.on_disconnect(queue._on_consumer_disconnect)
     return queue
@@ -628,19 +648,31 @@ local function build_stats(space)
     return stats
 end
 
+--- Identifies the connection and return the UUID of the current session.
+-- If session_uuid ~= nil: associate the connection with given session.
+function method.identify(session_uuid)
+    return session.identify(connection.id(), session_uuid)
+end
+
 --- Configure of the queue module.
 -- If an invalid value or an unknown option
 -- is used, an error will be thrown.
 local function cfg(self, opts)
     opts = opts or {}
+    local session_opts = {}
 
     -- Check all options before configuring so that
     -- the configuration is done transactionally.
     for key, val in pairs(opts) do
-        if key ~= 'ttr' then
+        if key == 'ttr' then
+            session_opts[key] = val
+        else
             error('Unknown option ' .. tostring(key))
         end
     end
+
+    -- Configuring the queue_session module.
+    session.cfg(session_opts)
 
     for key, val in pairs(opts) do
         self[key] = val

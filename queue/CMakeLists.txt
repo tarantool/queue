@@ -8,6 +8,8 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract.lua
         DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract/state.lua
         DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/abstract)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract/queue_session.lua
+        DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/abstract)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract/driver/fifo.lua
         DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/abstract/driver/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract/driver/utube.lua
