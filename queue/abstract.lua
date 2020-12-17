@@ -436,16 +436,16 @@ end
 
 -- function takes tuples and recreates tube
 local function recreate_tube(tube_tuple)
-    local name, id, space, tube_type, opts = tube_tuple:unpack()
+    local name, id, space_name, tube_type, opts = tube_tuple:unpack()
 
     local driver = queue.driver[tube_type]
     if driver == nil then
         error("Unknown tube type " .. tostring(tube_type))
     end
 
-    local space = box.space[space]
+    local space = box.space[space_name]
     if space == nil then
-        error(("Space '%s' doesn't exists"):format(space))
+        error(("Space '%s' doesn't exists"):format(space_name))
     end
     return make_self(driver, space, name, tube_type, id, opts)
 end
