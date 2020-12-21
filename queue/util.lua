@@ -6,6 +6,10 @@ local MAX_TIMEOUT      = 365 * 86400 * 100
 -- instead returns time for next event
 local TIMEOUT_INFINITY = 18446744073709551615ULL
 
+--- Convert seconds to microseconds.
+-- If tm == nil then returns current system time
+-- (in microseconds since the epoch).
+-- If tm < 0 return 0.
 local function time(tm)
     if tm == nil then
         tm = fiber.time64()
@@ -17,6 +21,9 @@ local function time(tm)
     return 0ULL + tm
 end
 
+--- Calculates the system time (in microseconds) of an event that
+-- will occur after a given time period(tm, specified in seconds).
+-- If tm <= 0 then returns current system time.
 local function event_time(tm)
     if tm == nil or tm < 0 then
         tm = 0
