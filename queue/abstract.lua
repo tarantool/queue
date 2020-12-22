@@ -628,6 +628,27 @@ local function build_stats(space)
     return stats
 end
 
+--- Configure of the queue module.
+-- If an invalid value or an unknown option
+-- is used, an error will be thrown.
+local function cfg(self, opts)
+    opts = opts or {}
+
+    -- Check all options before configuring so that
+    -- the configuration is done transactionally.
+    for key, val in pairs(opts) do
+        if key ~= 'ttr' then
+            error('Unknown option ' .. tostring(key))
+        end
+    end
+
+    for key, val in pairs(opts) do
+        self[key] = val
+    end
+end
+
+queue.cfg = setmetatable({}, { __call = cfg })
+
 queue.statistics = function(space)
     if space ~= nil then
         return build_stats(space)
