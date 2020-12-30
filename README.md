@@ -21,6 +21,7 @@ align="right">
   * [Fields of the \_queue\_taken\_2 space](#fields-of-the-_queue_taken_2-space)
   * [Fields of the \_queue\_session\_ids space](#fields-of-the-_queue_session_ids-space)
   * [Fields of the space associated with each queue](#fields-of-the-space-associated-with-each-queue)
+* [Task state diagram](#task-state-diagram)
 * [Installing](#installing)
 * [Using the queue module](#using-the-queue-module)
   * [Initialization](#initialization)
@@ -295,14 +296,32 @@ The `task_state` field takes one of the following values
 (different queue types support different
 sets of `task_state` values, so this is a superset):
 
-* 'r' - the task is ready for execution (the first consumer executing
+* 'r' - the task is **ready** for execution (the first consumer executing
 a `take` request will get it)
-* 't' - the task has been taken by a consumer
-* '-' - the task has been executed (a task is removed from the queue
-after it
-   has been executed, so this value will rarely be seen)
-* '!' - the task is buried (disabled temporarily until further changes)
-* '~' - the task is delayed for some time
+* 't' - the task has been **taken** by a consumer
+* '-' - the task has been **executed (done)** (a task is removed from the queue
+after it has been executed, so this value will rarely be seen)
+* '!' - the task is **buried** (disabled temporarily until further changes)
+* '~' - the task is **delayed** for some time.
+
+For details on the state transitions, refer to [Task state diagram](#task-state-diagram).
+
+# Task state diagram
+
+The following diagram shows possible transitions between the [task states](#fields-of-the-space-associated-with-each-queue).
+For information on the transition triggers, refer to:
+
+* [put()](#putting-a-task-in-a-queue)
+* [release()](#releasing-a-task)
+* [take()](#taking-a-task-from-the-queue-consuming)
+* [kick()](#kicking-a-number-of-tasks)
+* [bury()](#burying-a-task)
+* [ack()](#acknowledging-the-completion-of-a-task)
+* [delete()](#deleting-a-task)
+* description of the `timeout`, `ttl timeout`, and `ttr timeout` options in
+the sections of the corresponding [queue types](#queue-types).
+
+![Task state diagram](./doc/images/statediagram.svg)
 
 # Installing
 

@@ -1,0 +1,27 @@
+/' This code is for generating the task state diagram in SVG format.
+Use any PlantUML rendering service, for example, https://www.planttext.com/.
+To generate the diagram on the page of this service:
+1.  In the left pane, copy and paste the code or select this source file
+    statediagram.puml with the "File Manager" button.
+2.  Click "Refresh". The resulting diagram is displayed in the right pane.
+3.  Click SVG link below the diagram view and download the diagram file.
+4.  Rename the file into "statediagram.svg" and upload in the ./doc/images/
+    folder.
+'/
+
+@startuml
+[*]     -down->  READY   : put()
+[*]     -down->  DELAYED : put('my_task_data',\n{ delay = delay })
+READY   -down->  TAKEN   : take()
+READY   -down->  DONE    : delete() /\nttl timeout
+READY   -down->  BURIED  : bury()
+TAKEN   -up->    READY   : release() /\nttr timeout
+TAKEN   -left->  DELAYED : release\n(id, { delay = delay })
+TAKEN   -down->  DONE    : ack() / delete()
+TAKEN   -right-> BURIED  : bury()
+BURIED  -down->  DONE    : delete() /\nttl timeout
+BURIED  -up->    READY   : kick()
+DELAYED -up->    READY   : timeout
+DELAYED -down->  DONE    : delete()
+DONE    -down->  [*]     : remove executed task
+@enduml
