@@ -394,7 +394,7 @@ Sometimes we need an ability to acknowledge a task after reconnect (because
 retrying it is undesirable) or even acknowlegde using another connection.
 
 Example of code for connecting to the old session in case of reconnection:
-```
+```lua
 local netbox = require('net.box')
 
 local conn = netbox.connect('localhost:1918', { reconnect_after = 5 })
