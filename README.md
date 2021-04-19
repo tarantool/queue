@@ -551,6 +551,12 @@ Example: queue.tube.list_of_sites:release(15, {delay=10})
 Note: in the above example, the delay option means
 "the task cannot be executed again for 10 seconds".
 
+Example: queue.tube.list_of_sites:release(15, {delay=10, touch_ttl=false})
+
+Note: in the above example, the delay option means
+"the task cannot be executed again for 10 seconds" and
+the associated touch_ttl option means "the task ttl stays unchanged"
+
 ## Peeking at a task
 
 ```lua

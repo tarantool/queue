@@ -300,12 +300,18 @@ function method.release(self, id, opts)
     if task == nil then
         return
     end
+    if opts.touch_ttl == nil then opts.touch_ttl = true end
     if opts.delay ~= nil and opts.delay > 0 then
-        task = self.space:update(id, {
+        local upd = {
             { '=', i_status, state.DELAYED },
-            { '=', i_next_event, util.event_time(opts.delay) },
+            { '=', i_next_event, util.event_time(opts.delay) }
+        }
+        if opts.touch_ttl then
+            table.insert(upd,
             { '+', i_ttl, util.time(opts.delay) }
-        })
+            )
+        end
+        task = self.space:update(id, upd)
     else
         task = self.space:update(id, {
             { '=', i_status, state.READY },
