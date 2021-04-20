@@ -6,6 +6,7 @@ VERSION=${VERSION:-2_2}
 
 curl -sfL https://packagecloud.io/tarantool/${VERSION}/gpgkey | sudo apt-key add -
 release=`lsb_release -c -s`
+release='focal'
 
 sudo apt-get install -y apt-transport-https
 

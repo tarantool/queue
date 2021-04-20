@@ -323,11 +323,16 @@ function method.release(self, id, opts)
         return
     end
     if opts.delay ~= nil and opts.delay > 0 then
-        task = self.space:update(id, {
+        local upd = {
             { '=', i_status, state.DELAYED },
-            { '=', i_next_event, util.event_time(opts.delay) },
+            { '=', i_next_event, util.event_time(opts.delay) }
+        }
+        if not opts.keep_ttl then
+            table.insert(upd,
             { '+', i_ttl, util.time(opts.delay) }
-        })
+            )
+        end
+        task = self.space:update(id, upd)
         if task ~= nil then
             return process_neighbour(self, task, 'release')
         end

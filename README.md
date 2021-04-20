@@ -551,11 +551,11 @@ Example: queue.tube.list_of_sites:release(15, {delay=10})
 Note: in the above example, the delay option means
 "the task cannot be executed again for 10 seconds".
 
-Example: queue.tube.list_of_sites:release(15, {delay=10, touch_ttl=false})
+Example: queue.tube.list_of_sites:release(15, {delay=10, keep_ttl=true})
 
 Note: in the above example, the delay option means
 "the task cannot be executed again for 10 seconds" and
-the associated touch_ttl option means "the task ttl stays unchanged"
+the associated keep_ttl option means "the task ttl stays unchanged"
 
 ## Peeking at a task
 

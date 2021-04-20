@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = (require('tap')).test()
-test:plan(17)
+test:plan(18)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -201,6 +201,24 @@ test:test('release[delay] in utube', function(test)
     tube:release(taken[1], { delay = 10 })  --
     fiber.sleep(0.2)
     test:is(state, 2, 'state was changed')
+end)
+
+test:test('release[delay, keep_ttl] in utube', function(test)
+    test:plan(5)
+    local TTL = 10
+    local DELAY = 5
+
+    test:ok(tube:put(123, {utube = 'fgh', ttl = TTL}), 'task was put')
+    local taken = tube:take()
+    test:ok(taken, 'task was taken ' .. taken[1])
+    test:is(taken[3], 123, 'task.data')
+    tube:release(taken[1], { delay = DELAY, keep_ttl = true })
+    local task = box.space.test:get(taken[1])
+    test:is(task.ttl, TTL * 1000000, 'check TTL with keep_ttl after release')
+    tube:take()
+    tube:release(taken[1], {delay = DELAY})
+    task = box.space.test:get(taken[1])
+    test:is(task.ttl, (TTL + DELAY) * 1000000, 'check TTL without keep_ttl after release')
 end)
 
 test:test('if_not_exists test', function(test)
