@@ -271,6 +271,7 @@ function tube.grant(self, user, args)
 
     if args.call then
         tube_grant_func(user, 'queue.identify')
+        tube_grant_func(user, 'queue.statistics')
         local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
         tube_grant_func(user, prefix .. 'take')
         tube_grant_func(user, prefix .. 'touch')
@@ -280,6 +281,7 @@ function tube.grant(self, user, args)
         tube_grant_func(user, prefix .. 'bury')
         tube_grant_func(user, prefix .. 'kick')
         tube_grant_func(user, prefix .. 'delete')
+        tube_grant_func(user, prefix .. 'put')
     end
 end
 
