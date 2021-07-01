@@ -318,7 +318,18 @@ end
 
 -- bury task
 function method.bury(self, id)
-    local task = self.space:update(id, {{ '=', i_status, state.BURIED }})
+    -- The `i_next_event` should be updated because if the task has been
+    -- "buried" after it was "taken" (and the task has "ttr") when the time in
+    -- `i_next_event` will be interpreted as "ttl" in `fifottl_fiber_iteration`
+    -- and the task will be deleted.
+    local task = self.space:get{id}
+    if task == nil then
+        return
+    end
+    task = self.space:update(id, {
+            { '=', i_status, state.BURIED },
+            { '=', i_next_event, task[i_created] + task[i_ttl] }
+    })
     self:on_task_change(task, 'bury')
     return task
 end
