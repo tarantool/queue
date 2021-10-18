@@ -39,10 +39,96 @@ local util = {
     TIMEOUT_INFINITY = TIMEOUT_INFINITY
 }
 
+--------------------------------------------------------
+--------------------------------------------------------
+-- Temporary helpers
+local math = require('math')
+
+local circular_buffer_methods = {}
+
+local function circular_buffer_new(size)
+    if size <= 0 then
+        return nil
+    end
+
+    local self = setmetatable({
+        size = size,
+        index = 0,
+        full = false,
+        buffer = {}
+    }, { __index = circular_buffer_methods })
+
+    return self
+end
+
+function circular_buffer_methods.insert(self, element)
+    self.index = math.fmod(self.index, self.size) + 1
+    self.buffer[self.index] = element
+
+    if not self.full and self.index == self.size then
+        self.full = true
+    end
+end
+
+function circular_buffer_methods.pick_next_write(self, element)
+    if not self.full then
+        return nil
+    end
+
+    index = math.fmod(self.index, self.size) + 1
+    return self.buffer[index]
+end
+
+--------------------------------------------------------
+
+local moving_avarage_calc_methods = {}
+
+function moving_avarage_calc_new(size)
+    if size <= 0 then
+        return nil
+    end
+
+    local self = setmetatable({
+        sum = 0,
+        buffer = circular_buffer_new(size),
+    }, { __index = moving_avarage_calc_methods })
+
+    return self
+end
+
+function moving_avarage_calc_methods.insert(self, element)
+    if self.buffer.full then
+        self.sum = (self.sum + (element - self.buffer:pick_next_write()))
+    else
+        self.sum = (self.sum + element)
+    end
+
+    self.buffer:insert(element)
+end
+
+function moving_avarage_calc_methods.get_avarage(self)
+    local  avg = nil
+
+    if self.buffer.full then
+        avg = self.sum / self.buffer.size
+    elseif self.buffer.index > 0 then
+        avg = self.sum / self.buffer.index
+    end
+
+    return avg
+end
+--------------------------------------------------------
+--------------------------------------------------------
+
 -- methods
 local method = {
     time = time,
-    event_time = event_time
+    event_time = event_time,
+    --------------------------------------------------------
+    --------------------------------------------------------
+    moving_avarage_calc_new = moving_avarage_calc_new
+    --------------------------------------------------------
+    --------------------------------------------------------
 }
 
 return setmetatable(util, { __index = method })

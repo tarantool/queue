@@ -10,6 +10,8 @@ local qc       = require('queue.compat')
 local num_type = qc.num_type
 local str_type = qc.str_type
 
+local clock = require('clock')
+
 -- The term "queue session" has been added to the queue. One "queue session"
 -- can include many connections (box.session). For clarity, the box.session
 -- will be referred to as connection below.
@@ -73,19 +75,33 @@ end
 local tube = {}
 
 function tube.put(self, data, opts)
+    local start = clock.proc64()
+
     opts = opts or {}
     local task = self.raw:put(data, opts)
-    return self.raw:normalize_task(task)
+    task = self.raw:normalize_task(task)
+
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.put_avg:insert(res)
+
+    return task
 end
 
 local conds = {}
 local releasing_connections = {}
 
 function tube.take(self, timeout)
+    local start = clock.proc64()
+
     timeout = util.time(timeout or util.TIMEOUT_INFINITY)
     local task = self.raw:take()
     if task ~= nil then
-        return self.raw:normalize_task(task)
+        task = self.raw:normalize_task(task)
+
+        local res = (clock.proc64() - start) / 10^3
+        queue.stat[self.name].extend.take_avg:insert(res)
+
+        return task
     end
 
     while timeout > 0 do
@@ -99,28 +115,51 @@ function tube.take(self, timeout)
         conds[fid] = qc.waiter()
         conds[fid]:wait(tonumber(timeout) / 1000000)
         conds[fid]:free()
+
+        queue.stat[self.name].extend.conds_size = table.getn(conds)
+
         box.space._queue_consumers:delete{conn_id, fid}
 
         -- We don't take a task if the connection is in a
         -- disconnecting state.
         if releasing_connections[fid] then
             releasing_connections[fid] = nil
+
+            queue.stat[self.name].extend.take_releasing_connections =
+            queue.stat[self.name].extend.take_releasing_connections + 1
+            local res = (clock.proc64() - start) / 10^3
+            queue.stat[self.name].extend.take_avg_fail:insert(res)
+
             return nil
         end
 
         task = self.raw:take()
 
         if task ~= nil then
-            return self.raw:normalize_task(task)
+            task = self.raw:normalize_task(task)
+
+            local res = (clock.proc64() - start) / 10^3
+            queue.stat[self.name].extend.take_avg:insert(res)
+
+            return task
         end
 
         local elapsed = fiber.time64() - started
         timeout = timeout > elapsed and timeout - elapsed or 0
     end
+
+    queue.stat[self.name].extend.take_fail =
+    queue.stat[self.name].extend.take_fail + 1
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.take_avg_fail:insert(res)
 end
 
 function tube.touch(self, id, delta)
+    local start = clock.proc64()
+
     if delta == nil then
+        local res = (clock.proc64() - start) / 10^3
+        queue.stat[self.name].extend.touch_avg:insert(res)
         return
     end
     if delta < 0 then -- if delta is lesser then 0, then it's zero
@@ -131,6 +170,8 @@ function tube.touch(self, id, delta)
         delta = delta * 1000000
     end
     if delta == 0 then
+        local res = (clock.proc64() - start) / 10^3
+        queue.stat[self.name].extend.touch_avg:insert(res)
         return
     end
 
@@ -139,10 +180,17 @@ function tube.touch(self, id, delta)
     local space_name = box.space._queue:get{self.name}[3]
     queue.stat[space_name]:inc('touch')
 
-    return self.raw:normalize_task(self.raw:touch(id, delta))
+    local task = self.raw:normalize_task(self.raw:touch(id, delta))
+
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.touch_avg:insert(res)
+
+    return task
 end
 
 function tube.ack(self, id)
+    local start = clock.proc64()
+
     check_task_is_taken(self.tube_id, id)
     local tube = box.space._queue:get{self.name}
     local space_name = tube[3]
@@ -156,6 +204,10 @@ function tube.ack(self, id)
     -- swap delete and ack call counters
     queue.stat[space_name]:inc('ack')
     queue.stat[space_name]:dec('delete')
+
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.ack_avg:insert(res)
+
     return result
 end
 
@@ -169,37 +221,80 @@ local function tube_release_internal(self, id, opts, session_uuid)
 end
 
 function tube.release(self, id, opts)
-    return tube_release_internal(self, id, opts)
+    local start = clock.proc64()
+
+    local result = tube_release_internal(self, id, opts)
+
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.release_avg:insert(res)
+
+    return result
 end
 
 function tube.peek(self, id)
+    local start = clock.proc64()
+
     local task = self.raw:peek(id)
     if task == nil then
         error(("Task %s not found"):format(tostring(id)))
     end
-    return self.raw:normalize_task(task)
+
+    task = self.raw:normalize_task(task)
+
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.peek_avg:insert(res)
+
+    return task
 end
 
 function tube.bury(self, id)
+    local start = clock.proc64()
+
     local task = self:peek(id)
     local is_taken, _ = pcall(check_task_is_taken, self.tube_id, id)
     if is_taken then
         box.space._queue_taken_2.index.task:delete{self.tube_id, id}
     end
     if task[2] == state.BURIED then
+
+        local res = (clock.proc64() - start) / 10^3
+        queue.stat[self.name].extend.bury_avg:insert(res)
+
         return task
     end
-    return self.raw:normalize_task(self.raw:bury(id))
+
+    task = self.raw:normalize_task(self.raw:bury(id))
+
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.bury_avg:insert(res)
+
+    return task
 end
 
 function tube.kick(self, count)
+    local start = clock.proc64()
+
     count = count or 1
-    return self.raw:kick(count)
+
+    local result = self.raw:kick(count)
+
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.kick_avg:insert(res)
+
+    return result
 end
 
 function tube.delete(self, id)
+    local start = clock.proc64()
+
     self:peek(id)
-    return self.raw:normalize_task(self.raw:delete(id))
+
+    local result = self.raw:normalize_task(self.raw:delete(id))
+
+    local res = (clock.proc64() - start) / 10^3
+    queue.stat[self.name].extend.delete_avg:insert(res)
+
+    return result
 end
 
 -- drop tube
@@ -402,6 +497,9 @@ local function release_session_tasks(session_uuid)
                 uuid.frombin(session_uuid):str(), task[2], tube[1])
             tube_release_internal(queue.tube[tube[1]], task[2], nil,
                 session_uuid)
+
+            queue.stat[tube[1]]['extend']['release_on_disconnect'] =
+            queue.stat[tube[1]]['extend']['release_on_disconnect'] + 1
         end
     end
 end
@@ -621,17 +719,20 @@ local function build_stats(space)
         take = 0, touch = 0,
         -- for *ttl queues only
         ttl  = 0, ttr   = 0, delay   = 0,
-    }}
+    }, extend = {}}
 
     local st = rawget(queue.stat, space) or {}
     local idx_tube = 1
 
     -- add api calls stats
+    local calls_total = 0
     for name, value in pairs(st) do
-        if type(value) ~= 'function' and name ~= 'done' then
+        if type(value) ~= 'function' and name ~= 'done' and name ~= 'extend' then
             stats['calls'][name] = value
+            calls_total = calls_total + value
         end
     end
+    stats['calls']['total'] = calls_total
 
     local total = 0
     -- add tasks by state count
@@ -644,6 +745,14 @@ local function build_stats(space)
     -- add total tasks count
     stats['tasks']['total'] = total
     stats['tasks']['done'] = st.done or 0
+
+    for name, value in pairs(st.extend) do
+        if string.find(name, '_avg') then
+            stats['extend'][name] = st['extend'][name]:get_avarage()
+        else
+            stats['extend'][name] = value
+        end
+    end
 
     return stats
 end
@@ -696,6 +805,7 @@ queue.statistics = function(space)
 end
 
 queue.stats = queue.statistics
+local sample_size = 1000
 
 setmetatable(queue.stat, {
         __index = function(tbs, space)
@@ -707,7 +817,23 @@ setmetatable(queue.stat, {
                 dec = function(t, cnt)
                     t[cnt] = t[cnt] - 1
                     return t[cnt]
-                end
+                end,
+                extend = {
+                    release_on_disconnect = 0,
+                    take_releasing_connections = 0,
+                    take_fail = 0,
+                    conds_size = 0,
+                    put_avg = util.moving_avarage_calc_new(sample_size),
+                    take_avg = util.moving_avarage_calc_new(sample_size),
+                    take_avg_fail = util.moving_avarage_calc_new(sample_size),
+                    touch_avg = util.moving_avarage_calc_new(sample_size),
+                    ack_avg = util.moving_avarage_calc_new(sample_size),
+                    release_avg = util.moving_avarage_calc_new(sample_size),
+                    peek_avg = util.moving_avarage_calc_new(sample_size),
+                    bury_avg = util.moving_avarage_calc_new(sample_size),
+                    kick_avg = util.moving_avarage_calc_new(sample_size),
+                    delete_avg = util.moving_avarage_calc_new(sample_size),
+                }
             }, {
                 __index = function(t, cnt)
                     rawset(t, cnt, 0)
