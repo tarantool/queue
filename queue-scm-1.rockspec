@@ -1,7 +1,7 @@
 package = 'queue'
 version = 'scm-1'
 source  = {
-    url    = 'git://github.com/tarantool/queue.git',
+    url    = 'git+https://github.com/tarantool/queue.git',
     branch = 'master',
 }
 description = {
