@@ -27,7 +27,7 @@ align="right">
   * [Initialization](#initialization)
   * [Creating a new queue](#creating-a-new-queue)
   * [Set queue settings](#set-queue-settings)
-  * [Session identification](#session-identification)
+  * [Session identify](#session-identify)
   * [Putting a task in a queue](#putting-a-task-in-a-queue)
   * [Taking a task from the queue ("consuming")](#taking-a-task-from-the-queue-consuming)
   * [Acknowledging the completion of a task](#acknowledging-the-completion-of-a-task)
