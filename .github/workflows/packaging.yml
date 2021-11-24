@@ -1,0 +1,68 @@
+name: packaging
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { os: 'debian', dist: 'stretch' }
+          - { os: 'debian', dist: 'buster' }
+          - { os: 'debian', dist: 'bullseye' }
+          - { os: 'el', dist: '7' }
+          - { os: 'el', dist: '8' }
+          - { os: 'fedora', dist: '30' }
+          - { os: 'fedora', dist: '31' }
+          - { os: 'fedora', dist: '32' }
+          - { os: 'fedora', dist: '33' }
+          - { os: 'fedora', dist: '34' }
+          - { os: 'opensuse-leap', dist: '15.1' }
+          - { os: 'opensuse-leap', dist: '15.2' }
+          - { os: 'ubuntu', dist: 'xenial' }
+          - { os: 'ubuntu', dist: 'bionic' }
+          - { os: 'ubuntu', dist: 'focal' }
+          - { os: 'ubuntu', dist: 'groovy' }
+          - { os: 'ubuntu', dist: 'hirsute' }
+
+    env:
+      OS: ${{ matrix.platform.os }}
+      DIST: ${{ matrix.platform.dist }}
+
+    steps:
+      - name: Clone the module
+        uses: actions/checkout@v2
+
+      - name: Clone the packpack tool
+        uses: actions/checkout@v2
+        with:
+          repository: packpack/packpack
+          path: packpack
+
+      - name: Create packages
+        run: ./packpack/packpack
+
+      - name: Deploy packages
+        env:
+          RWS_URL_PART: https://rws.tarantool.org/release/enabled
+          RWS_AUTH: ${{ secrets.RWS_AUTH }}
+          PRODUCT_NAME: tarantool-queue
+        run: |
+          CURL_CMD="curl -LfsS \
+            -X PUT ${RWS_URL_PART}/${OS}/${DIST} \
+            -u ${RWS_AUTH} \
+            -F product=${PRODUCT_NAME}"
+
+          for f in $(ls -I '*build*' -I '*.changes' ./build); do
+            CURL_CMD+=" -F $(basename ${f})=@./build/${f}"
+          done
+
+          echo ${CURL_CMD}
+
+          ${CURL_CMD}
