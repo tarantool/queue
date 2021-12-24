@@ -60,3 +60,4 @@ test:test('Don\'t take a task after disconnect', test_take_task_after_disconnect
 
 tnt.finish()
 os.exit(test:check() and 0 or 1)
+-- vim: set ft=lua :

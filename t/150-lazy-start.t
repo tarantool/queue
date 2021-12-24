@@ -31,3 +31,4 @@ check_lazy_start()
 
 tnt.finish()
 os.exit(test:check() and 0 or 1)
+-- vim: set ft=lua :

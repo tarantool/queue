@@ -46,3 +46,4 @@ check_release_tasks_on_start()
 
 tnt.finish()
 os.exit(test:check() and 0 or 1)
+-- vim: set ft=lua :

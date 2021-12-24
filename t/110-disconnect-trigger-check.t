@@ -96,3 +96,4 @@ local function test_lost_session_id_after_yield()
 end
 
 test_lost_session_id_after_yield()
+-- vim: set ft=lua :
