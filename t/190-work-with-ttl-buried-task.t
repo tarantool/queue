@@ -22,35 +22,42 @@ tnt.cfg{}
 test:test('test work with "ttl", when "bury" after "take"', function(test)
     -- Before the patch if a task has been "buried" after it was "taken"
     -- (and the task has "ttr") when the time in `i_next_event` will be
-    -- interpreted as "ttl" in `fifottl_fiber_iteration` and the task will
-    -- be deleted.
-    test:plan(3)
+    -- interpreted as "ttl" in `{fifottl,utubettl}_fiber_iteration` and
+    -- the task will be deleted.
+    local drivers = {'fifottl', 'utubettl'}
+    test:plan(3 * table.getn(drivers))
 
     local TTR = 0.2
     local TTL = 1
 
-    local driver = 'fifottl'
-    local tube = queue.create_tube('test_tube', driver, {if_not_exists = true})
-    local task = tube:put('task1', {ttl = TTL, ttr = TTR})
+    for _, driver in pairs(drivers) do
+        local tube = queue.create_tube('test_tube', driver, {if_not_exists = true})
+        local task = tube:put('task1', {ttl = TTL, ttr = TTR})
 
-    -- "Take" a task and "bury" it.
-    task = tube:take(0)
-    local id = task[TASK_ID]
-    tube:bury(id)
+        -- "Take" a task and "bury" it.
+        task = tube:take(0)
+        local id = task[TASK_ID]
+        tube:bury(id)
 
-    -- Check status of the task.
-    task = tube:peek(id)
-    test:is(task[TASK_STATE], state.BURIED, 'task "buried"')
+        -- Check status of the task.
+        task = tube:peek(id)
+        test:is(task[TASK_STATE], state.BURIED,
+            ('task "buried", driver: "%s"'):format(driver))
 
-    -- Check status of the task after "ttr" has expired.
-    fiber.sleep(TTR * 2)
-    task = tube:peek(id)
-    test:is(task[TASK_STATE], state.BURIED, 'task is still "buried"')
+        -- Check status of the task after "ttr" has expired.
+        fiber.sleep(TTR * 2)
+        task = tube:peek(id)
+        test:is(task[TASK_STATE], state.BURIED,
+            ('task is still "buried", driver: "%s"'):format(driver))
 
-    -- Check status of the task after "ttl" has expired.
-    fiber.sleep(TTL * 2)
-    task, err = pcall(tube.peek, tube, id)
-    test:ok(err:match(string.format('Task %d not found', id)), 'task done')
+        -- Check status of the task after "ttl" has expired.
+        fiber.sleep(TTL * 2)
+        ok, res = pcall(tube.peek, tube, id)
+        test:ok(res:match(string.format('Task %d not found', id)),
+            ('task done, driver: "%s"'):format(driver))
+
+        tube:drop()
+    end
 end)
 
 tnt.finish()
