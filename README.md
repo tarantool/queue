@@ -56,6 +56,7 @@ a different order.
 The following options can be specified when creating a `fifo` queue:
   * `temporary` - boolean - if true, the contents do not persist on disk
 (the queue is in-memory only)
+  * `is_local` - boolean - if true, tasks are stored on local node and thre is no replication
   * `if_not_exists` - boolean - if true, no error will be returned if the tube
 already exists
   * `on_task_change` - function name - a callback to be executed on every
@@ -94,6 +95,7 @@ completion. Values for the callback arguments will be taken from the queue.
 The following options can be specified when creating a `fifottl` queue:
   * `temporary` - boolean - if true, the contents of the queue do not persist
 on disk
+  * `is_local` - boolean - if true, tasks are stored on local node and thre is no replication
   * `if_not_exists` - boolean - if true, no error will be returned if the tube
 already exists
   * `on_task_change` - function name - a callback to be executed on every
@@ -134,6 +136,7 @@ Works same as fifottl, but has limitied size and put operation timeout.
 The following options can be specified when creating a `fifottl` queue:
   * `temporary` - boolean - if true, the contents of the queue do not persist
 on disk
+  * `is_local` - boolean - if true, tasks are stored on local node and thre is no replication
   * `if_not_exists` - boolean - if true, no error will be returned if the tube
 already exists
   * `on_task_change` - function name - a callback to be executed on every
@@ -163,6 +166,7 @@ However, tasks may be grouped into sub-queues.
 The following options can be specified when creating a `utube` queue:
   * `temporary` - boolean - if true, the contents of the queue do not persist
 on disk
+  * `is_local` - boolean - if true, tasks are stored on local node and thre is no replication
   * `if_not_exists` - boolean - if true, no error will be returned if the tube
 already exists
   * `on_task_change` - function name - a callback to be executed on every
@@ -206,6 +210,7 @@ This queue type is effectively a combination of `fifottl` and `utube`.
 The following options can be specified when creating a `utubettl` queue:
   * `temporary` - boolean - if true, the contents of the queue do not persist
 on disk
+  * `is_local` - boolean - if true, tasks are stored on local node and thre is no replication
   * `if_not_exists` - boolean - if true, no error will be returned if the tube
 already exists
   * `on_task_change` - function name - a callback to be executed on every

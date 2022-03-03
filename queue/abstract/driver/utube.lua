@@ -25,6 +25,7 @@ function tube.create_space(space_name, opts)
     local if_not_exists      = opts.if_not_exists or false
     space_opts.temporary     = opts.temporary or false
     space_opts.engine        = opts.engine or 'memtx'
+    space_opts.is_local      = opts.is_local or false
     space_opts.format = {
         {name = 'task_id', type = num_type()},
         {name = 'status', type = str_type()},
