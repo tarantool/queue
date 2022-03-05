@@ -148,4 +148,14 @@ function method.truncate(self)
     self.space:truncate()
 end
 
+-- This driver has no background activity.
+-- Implement dummy methods for the API requirement.
+function method.start()
+    return
+end
+
+function method.stop()
+    return
+end
+
 return tube

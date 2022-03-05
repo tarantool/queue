@@ -159,6 +159,7 @@ local function fifottl_fiber(self)
     while true do
         if box.info.ro == false then
             local stat, err = pcall(fifottl_fiber_iteration, self, processed)
+
             if not stat and not (err.code == box.error.READONLY) then
                 log.error("error catched: %s", tostring(err))
                 log.error("exiting fiber '%s'", fiber.name())
@@ -167,7 +168,11 @@ local function fifottl_fiber(self)
                 processed = err
             end
         else
-            fiber.sleep(0.1)
+            -- When switching the master to the replica, the fiber will be stopped.
+            if self.sync_chan:get(0.1) ~= nil then
+                print("Queue fifottl was stopped")
+                break
+            end
         end
     end
 end
@@ -191,6 +196,7 @@ function tube.new(space, on_task_change, opts)
 
     self.cond  = qc.waiter()
     self.fiber = fiber.create(fifottl_fiber, self)
+    self.sync_chan = fiber.channel()
 
     return self
 end
@@ -363,6 +369,22 @@ end
 
 function method.truncate(self)
     self.space:truncate()
+end
+
+function method.start(self)
+    if self.fiber then
+        return
+    end
+    self.fiber = fiber.create(fifottl_fiber, self)
+end
+
+function method.stop(self)
+    if not self.fiber then
+        return
+    end
+    self.cond:signal(self.fiber:id())
+    self.sync_chan:put(true)
+    self.fiber = nil
 end
 
 return tube

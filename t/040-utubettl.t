@@ -7,6 +7,7 @@ test:plan(17)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
+local queue_state = require('queue.abstract.queue_state')
 
 local qc = require('queue.compat')
 
@@ -221,10 +222,18 @@ test:test('if_not_exists test', function(test)
 end)
 
 test:test('read_only test', function(test)
-    test:plan(4)
+    test:plan(7)
     tube:put('abc', { delay = 0.1 })
+    local ttl_fiber = tube.raw.fiber
     box.cfg{ read_only = true }
+    -- Wait for a change in the state of the queue to waiting no more than 10 seconds.
+    local rc = queue_state.poll(queue_state.states.WAITING, 10)
+    test:ok(rc, "queue state changed to waiting")
     fiber.sleep(0.11)
+    test:is(ttl_fiber:status(), 'dead',
+        "check that background fiber is canceled")
+    test:isnil(tube.raw.fiber,
+            "check that background fiber object is cleaned")
     if qc.check_version({1, 7}) then
         local task = tube:take(0.2)
         test:isnil(task, "check that task wasn't moved to ready state")
@@ -232,11 +241,11 @@ test:test('read_only test', function(test)
         local stat, task = pcall(tube.take, tube, 0.2)
         test:is(stat, false, "check that task wasn't taken")
     end
-    test:is(tube.raw.fiber:status(), 'suspended',
-            "check that background fiber isn't dead")
     box.cfg{ read_only = false }
+    local rc = queue_state.poll(queue_state.states.RUNNING, 10)
+    test:ok(rc, "queue state changed to running")
     test:is(tube.raw.fiber:status(), 'suspended',
-            "check that background fiber isn't dead again")
+            "check that background fiber started")
     local task = tube:take()
     test:isnt(task, nil, "check that we can take task")
     tube:ack(task[1])

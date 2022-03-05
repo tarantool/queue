@@ -1,3 +1,4 @@
+local queue_state = require('queue.abstract.queue_state')
 local queue = nil
 
 -- load all core drivers
@@ -21,9 +22,23 @@ local function register_driver(driver_name, tube_ctr)
     queue.driver[driver_name] = tube_ctr
 end
 
+local deferred_opts = {}
+
+-- We cannot call queue.cfg() while tarantool is in read_only mode.
+-- This method stores settings for later original queue.cfg() call.
+local function deferred_cfg(opts)
+    opts = opts or {}
+
+    for k, v in pairs(opts) do
+        deferred_opts[k] = v
+    end
+end
+
 queue = setmetatable({
     driver = core_drivers,
     register_driver = register_driver,
+    state = queue_state.show,
+    cfg = deferred_cfg,
 }, { __index = function()
         print(debug.traceback())
         error('Please configure box.cfg{} in read/write mode first')
@@ -81,6 +96,7 @@ function wrapper_impl(...)
         queue.register_driver = nil
         setmetatable(queue, getmetatable(abstract))
         queue.start()
+        queue.cfg(deferred_opts)
     else
         -- Delay a start until the box will be configured
         -- with read_only = false
