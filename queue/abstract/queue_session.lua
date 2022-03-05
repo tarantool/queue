@@ -79,7 +79,10 @@ local function create_expiration_fiber()
                         err)
                 end
             end
-            fiber.sleep(1)
+            if queue_session.sync_chan:get(1) ~= nil then
+                log.info("Queue expiration fiber was stopped")
+                break
+            end
         end
     end)
 
@@ -173,7 +176,14 @@ end
 
 local function start()
     identification_init()
+    queue_session.sync_chan = fiber.channel()
     queue_session.expiration_fiber = create_expiration_fiber()
+end
+
+-- When switching the master to the replica,
+-- the expiration_fiber must be stopped.
+local function stop()
+    queue_session.sync_chan:put(true)
 end
 
 local function validate_opts(opts)
@@ -202,6 +212,14 @@ local function cfg(self, opts)
     end
 end
 
+local function exist_inactive(session_uuid)
+    if box.space._queue_inactive_sessions:get{session_uuid} then
+        return true
+    end
+
+    return false
+end
+
 queue_session.cfg = setmetatable({}, { __call = cfg })
 
 -- methods
@@ -210,7 +228,9 @@ local method = {
     disconnect = disconnect,
     grant = grant,
     on_session_remove = on_session_remove,
-    start = start
+    start = start,
+    stop = stop,
+    exist_inactive = exist_inactive
 }
 
 return setmetatable(queue_session, { __index = method })
