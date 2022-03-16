@@ -22,6 +22,7 @@ align="right">
   * [Fields of the \_queue\_session\_ids space](#fields-of-the-_queue_session_ids-space)
   * [Fields of the space associated with each queue](#fields-of-the-space-associated-with-each-queue)
 * [Task state diagram](#task-state-diagram)
+* [Queue state diagram](#queue-state-diagram)
 * [Installing](#installing)
 * [Using the queue module](#using-the-queue-module)
   * [Initialization](#initialization)
@@ -37,7 +38,9 @@ align="right">
   * [Kicking a number of tasks](#kicking-a-number-of-tasks)
   * [Deleting a task](#deleting-a-task)
   * [Dropping a queue](#dropping-a-queue)
+  * [Releasing all taken tasks](#releasing-all-taken-tasks)
   * [Getting statistics](#getting-statistics)
+  * [Queue and replication](#queue-and-replication)
 * [Implementation details](#implementation-details)
   * [Queue drivers](#queue-drivers)
   * [Driver API](#driver-api)
@@ -256,7 +259,7 @@ space; the client waits for tasks in this queue
 1. `timeout` - the client wait timeout
 1. `time` - the time when the client took a task
 
-The `_queue_taken_2` (`_queue_taken` is deprecated) temporary space contains
+The `_queue_taken_2` (`_queue_taken` is deprecated) space contains
 tuples for each job which is processing a task in the queue.
 
 ## Fields of the `_queue_taken_2` space
@@ -275,6 +278,11 @@ session id) to the session UUID.
 
 1. `connection_id` - connection id (numeric)
 2. `session_uuid` - session UUID (string)
+
+## Fields of the `_queue_inactive_sessions` space
+
+1. `uuid` - session UUID (string)
+2. `exp_time` - session expiration time (numeric)
 
 Also, there is a space which is associated with each queue,
 which is named in the `space` field of the `_queue` space.
@@ -337,6 +345,48 @@ flowchart LR
       DELAYED--> |"timeout"| READY
       DELAYED--> |"delete()"| DONE
 ```
+
+# Queue state diagram
+
+Queue can be used in a master-replica scheme:
+
+There are five states for queue:
+* INIT
+* STARTUP
+* RUNNING
+* ENDING
+* WAITING
+
+When the tarantool is launched for the first time,
+the state of the queue is always `INIT` until `box.info.ro` is false.
+
+States switching scheme:
+```mermaid
+flowchart LR
+      I(("init"))-->S[startup]
+      S[startup]-->R[running]
+      W[waiting]--> |"(ro ->rw)"| S[startup]
+      R[running]--> |"(ro ->rw)"| E[ending]
+      E[ending]-->W[waiting]
+```
+
+Current queue state can be shown by using `queue.state()` method.
+
+In the `STARTUP` state, the queue is waiting for possible data synchronization
+with other cluster members by the time of the largest upstream lag multiplied
+by two. After that, all taken tasks are released, except for tasks with
+session uuid matching inactive sessions uuids. This makes possible to take
+a task, switch roles on the cluster, and release the task within the timeout
+specified by the `queue.cfg({ttr = N})` parameter. Note: all clients that `take()`
+and do not `ack()/release()` tasks must be disconnected before changing the role.
+And the last step in the `STARTUP` state is starting tube driver using new
+method called `start()`.
+
+In the `RUNNING` state, the queue is working as usually. The `ENDING` state calls
+`stop()` method. in the `WAITING` state, the queue listens for a change in the
+read_only flag.
+
+All states except `INIT` is controlled by new fiber called `queue_state_fiber`.
 
 # Installing
 
@@ -640,6 +690,14 @@ Reverse the effect of a `create` request.
 Effect: remove the tuple from the `_queue` space,
 and drop the space associated with the queue.
 
+## Releasing all taken tasks
+
+```lua
+queue.tube.tube_name:release_all()
+```
+
+Forcibly returns all taken tasks to a ready state.
+
 ## Getting statistics
 
 ```lua
@@ -679,6 +737,84 @@ queue.statistics('list_of_sites')
      bury: 1
      put: 2
      delete: 1
+...
+```
+
+## Queue and replication
+
+Usage example:
+
+```lua
+-- Instance file for the master.
+box.cfg{
+  listen = 3301,
+  replication = {'replicator:password@127.0.0.1:3301',  -- Master URI.
+                 'replicator:password@127.0.0.1:3302'}, -- Replica URI.
+  read_only = false,
+}
+
+box.once("schema", function()
+   box.schema.user.create('replicator', {password = 'password'})
+   box.schema.user.grant('replicator', 'replication') -- grant replication role
+end)
+
+queue = require("queue")
+queue.cfg({ttr = 300}) -- Clean up session after 5 minutes after disconnect.
+require('console').start()
+os.exit()
+```
+
+```lua
+-- Instance file for the replica.
+box.cfg{
+  listen = 3302,
+  replication = {'replicator:password@127.0.0.1:3301',  -- Master URI.
+                 'replicator:password@127.0.0.1:3302'}, -- Replica URI.
+  read_only = true
+}
+
+queue = require("queue")
+queue.cfg({ttr = 300}) -- Clean up session after 5 minutes after disconnect.
+require('console').start()
+os.exit()
+```
+
+Start master and replica instances and check queue state:
+
+Master:
+```sh
+tarantool> queue.state()
+---
+- RUNNING
+...
+```
+
+Replica:
+```sh
+tarantool> queue.state()
+---
+- INIT
+...
+```
+
+Now reverse the `read_only` setting of the master and replica and check the
+status of the queue again.
+
+Master:
+```sh
+tarantool> box.cfg({read_only = true})
+tarantool> queue.state()
+---
+- WAITING
+...
+```
+
+Replica:
+```sh
+tarantool> box.cfg({read_only = false})
+tarantool> queue.state()
+---
+- RUNNING
 ...
 ```
 
@@ -725,6 +861,8 @@ Driver class must implement the following API:
 1. `create_space` - creates the supporting space. The arguments are:
     * space name
     * space options
+1. `start` - initialize internal resources if any, e.g. start fibers.
+1. `stop` - clean up internal resources if any, e.g. stop fibers.
 
 To sum up, when the user creates a new queue, the queue framework
 passes the request to the driver, asking it to create a space to
