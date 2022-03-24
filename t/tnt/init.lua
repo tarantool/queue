@@ -3,7 +3,6 @@ local log   = require('log')
 local yaml  = require('yaml')
 local errno = require('errno')
 local fiber  = require('fiber')
-local popen  = require('popen')
 local netbox = require('net.box')
 
 local dir     = os.getenv('QUEUE_TMP')
@@ -55,6 +54,13 @@ end
 
 -- Creates master and replica setup for queue states switching tests.
 local function tnt_cluster_prepare(cfg_args)
+    -- Since version 2.4.1, Tarantool has the popen built-in module
+    -- that supports execution of external programs.
+    if not qc.check_version({2, 4, 1}) then
+        error('this test requires tarantool >= 2.4.1')
+        return false
+    end
+
     -- Prepare master.
     cfg_args = cfg_args or {}
     local files = fio.glob(fio.pathjoin(dir, '*'))
@@ -111,7 +117,7 @@ local function tnt_cluster_prepare(cfg_args)
         '}'
     }
 
-    replica = popen.new(cmd_replica, {
+    replica = require('popen').new(cmd_replica, {
         stdin = 'devnull',
         stdout = 'devnull',
         stderr = 'devnull',
