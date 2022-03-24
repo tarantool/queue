@@ -10,9 +10,6 @@ local str_type = qc.str_type
 
 local queue_session = {}
 
--- Sessions that don't have any active connections.
-local inactive_sessions = {}
-
 --- Create everything that's needed to work with "shared" sessions.
 local function identification_init()
     local queue_session_ids = box.space._queue_session_ids
@@ -36,16 +33,36 @@ local function identification_init()
             unique = false
         })
     end
+
+    local queue_inactive_sessions = box.space._queue_inactive_sessions
+    if queue_inactive_sessions == nil then
+        queue_inactive_sessions = box.schema.create_space('_queue_inactive_sessions', {
+            temporary = false,
+            format = {
+                { name = 'uuid', type = str_type() },
+                { name = 'exp_time', type = num_type() }
+            }
+        })
+
+        queue_inactive_sessions:create_index('uuid', {
+            type = 'tree',
+            parts = { 1, str_type() },
+            unique = true
+        })
+    end
 end
 
 local function cleanup_inactive_sessions()
     local cur_time = util.time()
-    for session_uuid, exp_time in pairs(inactive_sessions) do
+
+    for _, val in box.space._queue_inactive_sessions:pairs() do
+        local session_uuid = val[1]
+        local exp_time = val[2]
         if cur_time >= exp_time then
             if queue_session._on_session_remove ~= nil then
                 queue_session._on_session_remove(session_uuid)
             end
-            inactive_sessions[session_uuid] = nil
+            box.space._queue_inactive_sessions:delete{session_uuid}
         end
     end
 end
@@ -75,6 +92,7 @@ end
 -- an error will be thrown.
 local function identify(conn_id, session_uuid)
     local queue_session_ids = box.space._queue_session_ids
+    local queue_inactive_sessions = box.space._queue_inactive_sessions
     local session_ids = queue_session_ids:get(conn_id)
     local cur_uuid = session_ids and session_ids[2]
 
@@ -95,7 +113,8 @@ local function identify(conn_id, session_uuid)
         -- Check that a session with this uuid exists.
         local ids_by_uuid = queue_session_ids.index.uuid:select(
             session_uuid, { limit = 1 })[1]
-        if ids_by_uuid == nil and inactive_sessions[session_uuid] == nil then
+        local inactive_session = queue_inactive_sessions:get(session_uuid)
+        if ids_by_uuid == nil and inactive_session == nil then
             error('The UUID ' .. uuid.frombin(session_uuid):str() ..
                 ' is unknown.')
         end
@@ -110,7 +129,7 @@ local function identify(conn_id, session_uuid)
     end
 
     -- Exclude the session from inactive.
-    inactive_sessions[cur_uuid] = nil
+    queue_inactive_sessions:delete{cur_uuid}
 
     return cur_uuid
 end
@@ -126,6 +145,7 @@ end
 -- release its tasks if necessary.
 local function disconnect(conn_id)
     local queue_session_ids = box.space._queue_session_ids
+    local queue_inactive_sessions = box.space._queue_inactive_sessions
     local session_uuid = queue_session.identify(conn_id)
 
     queue_session_ids:delete{conn_id}
@@ -137,7 +157,7 @@ local function disconnect(conn_id)
     if session_ids == nil then
         local ttr = queue_session.cfg['ttr'] or 0
         if ttr > 0 then
-            inactive_sessions[session_uuid] = util.event_time(ttr)
+            queue_inactive_sessions:insert{session_uuid, util.event_time(ttr)}
         elseif queue_session._on_session_remove ~= nil then
             queue_session._on_session_remove(session_uuid)
         end
@@ -146,6 +166,8 @@ end
 
 local function grant(user)
     box.schema.user.grant(user, 'read, write', 'space', '_queue_session_ids',
+        { if_not_exists = true })
+    box.schema.user.grant(user, 'read, write', 'space', '_queue_inactive_sessions',
         { if_not_exists = true })
 end
 
