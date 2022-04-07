@@ -63,7 +63,7 @@ test:test('check for call grants', function(test)
     rawset(_G, 'queue', require('queue'))
     box.schema.user.create(test_user, { password = test_pass })
 
-    test:plan(9)
+    test:plan(12)
 
     local tube = queue.create_tube('test', 'fifo', { engine = engine })
     tube:put('help');
@@ -125,6 +125,16 @@ test:test('check for call grants', function(test)
     )
     local c = con:call('queue.tube.test:ack',  qc.pack_args(qc_arg_unpack(a[1])))
     test:is(qc_arg_unpack(a[1]), 0, 'we aren\'t getting any error')
+
+    local d = con:call('queue.tube.test:put', {'help'})
+    test:is(qc_arg_unpack(d[1]), 0, 'we aren\'t getting any error')
+
+    local e = con:call('queue.statistics')
+    test:is(type(qc_arg_unpack(e)), 'table', 'we aren\'t getting any error')
+
+    tube:grant('test', { truncate = true })
+    local f = con:call('queue.tube.test:truncate')
+    test:isnil(qc_arg_unpack(f), 'we aren\'t getting any error')
 
     -- check grants again
     tube:grant('test', { call = true })

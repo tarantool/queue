@@ -271,7 +271,9 @@ function tube.grant(self, user, args)
 
     if args.call then
         tube_grant_func(user, 'queue.identify')
+        tube_grant_func(user, 'queue.statistics')
         local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
+        tube_grant_func(user, prefix .. 'put')
         tube_grant_func(user, prefix .. 'take')
         tube_grant_func(user, prefix .. 'touch')
         tube_grant_func(user, prefix .. 'ack')
@@ -281,6 +283,12 @@ function tube.grant(self, user, args)
         tube_grant_func(user, prefix .. 'kick')
         tube_grant_func(user, prefix .. 'delete')
     end
+
+    if args.truncate then
+        local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
+        tube_grant_func(user, prefix .. 'truncate')
+    end
+
 end
 
 -- methods
