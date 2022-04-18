@@ -10,6 +10,59 @@ local str_type = qc.str_type
 
 local queue_session = {}
 
+--
+-- Replicaset mode switch.
+--
+-- Running a queue in master-replica mode requires that
+-- `_queue_inactive_sessions` space was not temporary.
+-- When the queue is running in single mode,
+-- the space is converted to temporary mode to increase performance.
+--
+local function switch_in_replicaset(mode)
+    if mode == nil then
+        mode = false
+    end
+
+    if not box.space._queue_inactive_sessions then
+        return
+    end
+
+    if box.space._queue_inactive_sessions.temporary and mode == false then
+        return
+    end
+
+    if not box.space._queue_inactive_sessions.temporary and mode == true then
+        return
+    end
+
+    box.schema.create_space('_queue_inactive_sessions_mgr', {
+        temporary = not mode,
+        format = {
+            { name = 'uuid', type = str_type() },
+            { name = 'exp_time', type = num_type() }
+        }
+    })
+
+    box.space._queue_inactive_sessions_mgr:create_index('uuid', {
+        type = 'tree',
+        parts = { 1, str_type() },
+        unique = true
+    })
+
+    box.begin() -- Disable implicit yields until the transaction ends.
+    for _, tuple in box.space._queue_inactive_sessions:pairs() do
+        box.space._queue_inactive_sessions_mgr:insert(tuple)
+    end
+
+    box.space._queue_inactive_sessions:drop()
+    box.space._queue_inactive_sessions_mgr:rename('_queue_inactive_sessions')
+
+    local status, err = pcall(box.commit)
+    if not status then
+        error(('Error migrate _queue_inactive_sessions: %s'):format(tostring(err)))
+    end
+end
+
 --- Create everything that's needed to work with "shared" sessions.
 local function identification_init()
     local queue_session_ids = box.space._queue_session_ids
@@ -34,21 +87,23 @@ local function identification_init()
         })
     end
 
-    local queue_inactive_sessions = box.space._queue_inactive_sessions
-    if queue_inactive_sessions == nil then
-        queue_inactive_sessions = box.schema.create_space('_queue_inactive_sessions', {
-            temporary = false,
+    local _mode = queue_session.cfg['in_replicaset'] or false
+    if box.space._queue_inactive_sessions == nil then
+        box.schema.create_space('_queue_inactive_sessions', {
+            temporary = not _mode,
             format = {
                 { name = 'uuid', type = str_type() },
                 { name = 'exp_time', type = num_type() }
             }
         })
 
-        queue_inactive_sessions:create_index('uuid', {
+        box.space._queue_inactive_sessions:create_index('uuid', {
             type = 'tree',
             parts = { 1, str_type() },
             unique = true
         })
+    else
+        switch_in_replicaset(queue_session.cfg['in_replicaset'])
     end
 end
 
@@ -95,7 +150,6 @@ end
 -- an error will be thrown.
 local function identify(conn_id, session_uuid)
     local queue_session_ids = box.space._queue_session_ids
-    local queue_inactive_sessions = box.space._queue_inactive_sessions
     local session_ids = queue_session_ids:get(conn_id)
     local cur_uuid = session_ids and session_ids[2]
 
@@ -116,7 +170,7 @@ local function identify(conn_id, session_uuid)
         -- Check that a session with this uuid exists.
         local ids_by_uuid = queue_session_ids.index.uuid:select(
             session_uuid, { limit = 1 })[1]
-        local inactive_session = queue_inactive_sessions:get(session_uuid)
+        local inactive_session = box.space._queue_inactive_sessions:get(session_uuid)
         if ids_by_uuid == nil and inactive_session == nil then
             error('The UUID ' .. uuid.frombin(session_uuid):str() ..
                 ' is unknown.')
@@ -132,7 +186,7 @@ local function identify(conn_id, session_uuid)
     end
 
     -- Exclude the session from inactive.
-    queue_inactive_sessions:delete{cur_uuid}
+    box.space._queue_inactive_sessions:delete{cur_uuid}
 
     return cur_uuid
 end
@@ -148,7 +202,6 @@ end
 -- release its tasks if necessary.
 local function disconnect(conn_id)
     local queue_session_ids = box.space._queue_session_ids
-    local queue_inactive_sessions = box.space._queue_inactive_sessions
     local session_uuid = queue_session.identify(conn_id)
 
     queue_session_ids:delete{conn_id}
@@ -160,7 +213,7 @@ local function disconnect(conn_id)
     if session_ids == nil then
         local ttr = queue_session.cfg['ttr'] or 0
         if ttr > 0 then
-            queue_inactive_sessions:insert{session_uuid, util.event_time(ttr)}
+            box.space._queue_inactive_sessions:insert{session_uuid, util.event_time(ttr)}
         elseif queue_session._on_session_remove ~= nil then
             queue_session._on_session_remove(session_uuid)
         end
@@ -192,6 +245,8 @@ local function validate_opts(opts)
             if type(val) ~= 'number' or val < 0 then
                 error('Invalid value of ttr: ' .. tostring(val))
             end
+        elseif key == 'in_replicaset' then
+            -- do nothing
         else
             error('Unknown option ' .. tostring(key))
         end
@@ -210,6 +265,8 @@ local function cfg(self, opts)
     for key, val in pairs(opts) do
         self[key] = val
     end
+
+    switch_in_replicaset(self['in_replicaset'])
 end
 
 local function exist_inactive(session_uuid)

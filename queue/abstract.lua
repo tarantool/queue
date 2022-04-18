@@ -398,13 +398,14 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         -- task was removed
         if task == nil then return end
 
+        -- We cannot use a local variable to access the space `_queue_taken_2`
+        -- because it can be recreated in `switch_in_replicaset()`.
         local queue_consumers = box.space._queue_consumers
-        local queue_taken     = box.space._queue_taken_2
 
         -- if task was taken and become other state
-        local taken = queue_taken.index.task:get{tube_id, task[1]}
+        local taken = box.space._queue_taken_2.index.task:get{tube_id, task[1]}
         if taken ~= nil then
-            queue_taken:delete{taken[1], taken[2]}
+            box.space._queue_taken_2:delete{taken[1], taken[2]}
         end
         -- task switched to ready (or new task)
         if task[2] == state.READY then
@@ -424,7 +425,7 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         elseif task[2] == state.TAKEN then
             local conn_id = connection.id()
             local session_uuid = session.identify(conn_id)
-            queue_taken:insert{
+            box.space._queue_taken_2:insert{
                 self.tube_id,
                 task[1],
                 conn_id,
@@ -602,6 +603,67 @@ function method.create_tube(tube_name, tube_type, opts)
     return self
 end
 
+--
+-- Replicaset mode switch.
+--
+-- Running a queue in master-replica mode requires that
+-- `_queue_taken_2` space was not temporary.
+-- When the queue is running in single mode,
+-- the space is converted to temporary mode to increase performance.
+--
+local function switch_in_replicaset(mode)
+    if mode == nil then
+        log.warn('queue: queue required after box.cfg{}')
+        mode = false
+    end
+
+    if not box.space._queue_taken_2 then
+        return
+    end
+
+    if box.space._queue_taken_2.temporary and mode == false then
+        return
+    end
+
+    if not box.space._queue_taken_2.temporary and mode == true then
+        return
+    end
+
+    box.schema.create_space('_queue_taken_2_mgr', {
+        temporary = not mode,
+        format = {
+            {name = 'tube_id', type = num_type()},
+            {name = 'task_id', type = num_type()},
+            {name = 'connection_id', type = num_type()},
+            {name = 'session_uuid', type = str_type()},
+            {name = 'taken_time', type = num_type()}
+        }})
+
+    box.space._queue_taken_2_mgr:create_index('task', {
+        type = 'tree',
+        parts = {1, num_type(), 2, num_type()},
+        unique = true
+    })
+    box.space._queue_taken_2_mgr:create_index('uuid', {
+        type = 'tree',
+        parts = {4, str_type()},
+        unique = false
+    })
+
+    box.begin() -- Disable implicit yields until the transaction ends.
+    for _, tuple in box.space._queue_taken_2:pairs() do
+        box.space._queue_taken_2_mgr:insert(tuple)
+    end
+
+    box.space._queue_taken_2:drop()
+    box.space._queue_taken_2_mgr:rename('_queue_taken_2')
+
+    local status, err = pcall(box.commit)
+    if not status then
+        error(('Error migrate _queue_taken_2: %s'):format(tostring(err)))
+    end
+end
+
 -- create or join infrastructure
 function method.start()
     -- tube_name, tube_id, space_name, tube_type, opts
@@ -658,11 +720,11 @@ function method.start()
         box.space._queue_taken:drop()
     end
 
-    local _taken = box.space._queue_taken_2
-    if _taken == nil then
+    local _mode = queue.cfg['in_replicaset'] or false
+    if box.space._queue_taken_2 == nil then
         -- tube_id, task_id, connection_id, session_uuid, time
-        _taken = box.schema.create_space('_queue_taken_2', {
-            temporary = false,
+        box.schema.create_space('_queue_taken_2', {
+            temporary = not _mode,
             format = {
                 {name = 'tube_id', type = num_type()},
                 {name = 'task_id', type = num_type()},
@@ -671,22 +733,18 @@ function method.start()
                 {name = 'taken_time', type = num_type()}
             }})
 
-        _taken:create_index('task', {
+        box.space._queue_taken_2:create_index('task', {
             type = 'tree',
             parts = {1, num_type(), 2, num_type()},
             unique = true
         })
-        _taken:create_index('uuid', {
+        box.space._queue_taken_2:create_index('uuid', {
             type = 'tree',
             parts = {4, str_type()},
             unique = false
         })
     else
-        -- Upgrade space, queue states require that this space
-        -- was not temporary.
-        if _taken.temporary then
-            _taken:alter{temporary = false}
-        end
+        switch_in_replicaset(queue.cfg['in_replicaset'])
     end
 
     for _, tube_tuple in _queue:pairs() do
@@ -779,15 +837,27 @@ local function cfg(self, opts)
     opts = opts or {}
     local session_opts = {}
 
+    -- Set default in_replicaset value.
+    if opts['in_replicaset'] == nil then
+        opts['in_replicaset'] = false
+    end
+
     -- Check all options before configuring so that
     -- the configuration is done transactionally.
     for key, val in pairs(opts) do
         if key == 'ttr' then
             session_opts[key] = val
+        elseif key == 'in_replicaset' then
+            if type(val) ~= 'boolean' then
+                error('Invalid value of in_replicaset: ' .. tostring(val))
+            end
+            session_opts[key] = val
         else
             error('Unknown option ' .. tostring(key))
         end
     end
+
+    switch_in_replicaset(opts['in_replicaset'])
 
     -- Configuring the queue_session module.
     session.cfg(session_opts)

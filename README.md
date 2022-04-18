@@ -271,8 +271,9 @@ tuples for each job which is processing a task in the queue.
 1. `session_uuid` - session UUID (string)
 1. `time` - the time when the client began to execute the task
 
-The `_queue_session_ids` temporary space contains a map: connection id (box
-session id) to the session UUID.
+The `_queue_session_ids` space contains a map: connection id (box
+session id) to the session UUID. This space is temporary if `in_replicaset`
+is set to false.
 
 ## Fields of the `_queue_session_ids` space
 
@@ -283,6 +284,8 @@ session id) to the session UUID.
 
 1. `uuid` - session UUID (string)
 2. `exp_time` - session expiration time (numeric)
+
+This space is temporary if `in_replicaset` is set to false.
 
 Also, there is a space which is associated with each queue,
 which is named in the `space` field of the `_queue` space.
@@ -441,6 +444,9 @@ If an invalid value or an unknown option is used, an error will be thrown.
 Available `options`:
 * `ttr` - time to release in seconds. The time after which, if there is no active
 connection in the session, it will be released with all its tasks.
+* `in_replicaset` - enable replication mode. Must be true if the queue is used
+in master and replica mode. With replication mode enabled, the potential loss of
+performance can be ~20% compared to single mode. Default value is false.
 
 ## Session identify
 
@@ -731,6 +737,11 @@ Usage example:
 
 ```lua
 -- Instance file for the master.
+queue = require("queue")
+-- Queue is in replicaset.
+-- Clean up session after 5 minutes after disconnect.
+queue.cfg({ttr = 300, in_replicaset = true})
+
 box.cfg{
   listen = 3301,
   replication = {'replicator:password@127.0.0.1:3301',  -- Master URI.
@@ -743,14 +754,16 @@ box.once("schema", function()
    box.schema.user.grant('replicator', 'replication') -- grant replication role
 end)
 
-queue = require("queue")
-queue.cfg({ttr = 300}) -- Clean up session after 5 minutes after disconnect.
 require('console').start()
 os.exit()
 ```
 
 ```lua
 -- Instance file for the replica.
+queue = require("queue")
+-- Queue is in replicaset.
+-- Clean up session after 5 minutes after disconnect.
+queue.cfg({ttr = 300, in_replicaset = true})
 box.cfg{
   listen = 3302,
   replication = {'replicator:password@127.0.0.1:3301',  -- Master URI.
@@ -758,8 +771,6 @@ box.cfg{
   read_only = true
 }
 
-queue = require("queue")
-queue.cfg({ttr = 300}) -- Clean up session after 5 minutes after disconnect.
 require('console').start()
 os.exit()
 ```

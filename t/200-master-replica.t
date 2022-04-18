@@ -21,7 +21,7 @@ end
 -- Replica connection handler.
 local conn = {}
 
-test:plan(5)
+test:plan(6)
 
 test:test('Check master-replica setup', function(test)
     test:plan(8)
@@ -40,8 +40,8 @@ test:test('Check master-replica setup', function(test)
     test:is(conn:call('queue.state'), 'INIT', 'check replica queue state')
 
     -- Setup tube. Set ttr = 0.5 for sessions expire testing.
-    conn:call('queue.cfg', {{ttr = 0.5}})
-    queue.cfg{ttr = 0.5}
+    conn:call('queue.cfg', {{ttr = 0.5, in_replicaset = true}})
+    queue.cfg{ttr = 0.5, in_replicaset = true}
     local tube = queue.create_tube('test', 'fifo', {engine = engine})
     test:ok(tube, 'test tube created')
 end)
@@ -202,6 +202,54 @@ test:test('Check release_all method', function(test)
     queue.tube.test:release_all()
     test:is(queue.statistics().test.tasks.taken, 0,
         'taken tasks count after release_all')
+end)
+
+test:test('Check in_replicaset switching', function(test)
+    test:plan(15)
+    test:ok(queue.tube.test:put('testdata0'), 'put task #0')
+    test:ok(queue.tube.test:put('testdata1'), 'put task #1')
+    test:ok(queue.tube.test:take(), 'take task')
+    local client = tnt.cluster.connect_master()
+    test:ok(client:call('queue.tube.test:take'), 'take task')
+    client:close()
+    -- Wait for disconnect callback.
+    local attempts = 0
+    while true do
+        if #box.space._queue_inactive_sessions:select() == 1 then
+            break
+        end
+
+        attempts = attempts + 1
+        if attempts == 10 then
+            test:ok(false, 'check inactive sessions')
+            return false
+        end
+        fiber.sleep(0.01)
+    end
+    test:is(box.space._queue_inactive_sessions.temporary, false,
+        '_queue_inactive_sessions is not temporary')
+    test:is(box.space._queue_taken_2.temporary, false,
+        '_queue_taken_2 is not temporary')
+    test:is(#box.space._queue_taken_2:select(), 2,
+        'check _queue_taken_2 data')
+    queue.cfg{in_replicaset = false}
+    test:is(box.space._queue_inactive_sessions.temporary, true,
+        '_queue_inactive_sessions is temporary')
+    test:is(box.space._queue_taken_2.temporary, true,
+        '_queue_taken_2 is temporary')
+    test:is(#box.space._queue_taken_2:select(), 2,
+        'check _queue_taken_2 data')
+    test:is(#box.space._queue_inactive_sessions:select(), 1,
+        'check _queue_inactive_sessions data')
+    queue.cfg{in_replicaset = true}
+    test:is(box.space._queue_inactive_sessions.temporary, false,
+        '_queue_inactive_sessions is not temporary')
+    test:is(box.space._queue_taken_2.temporary, false,
+        '_queue_taken_2 is not temporary')
+    test:is(#box.space._queue_taken_2:select(), 2,
+        'check _queue_taken_2 data')
+    test:is(#box.space._queue_inactive_sessions:select(), 1,
+        'check _queue_inactive_sessions data')
 end)
 
 rawset(_G, 'queue', nil)
