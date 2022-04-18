@@ -95,8 +95,8 @@ function wrapper_impl(...)
         -- Now the "register_driver" method from abstract will be used.
         queue.register_driver = nil
         setmetatable(queue, getmetatable(abstract))
-        queue.start()
         queue.cfg(deferred_opts)
+        queue.start()
     else
         -- Delay a start until the box will be configured
         -- with read_only = false

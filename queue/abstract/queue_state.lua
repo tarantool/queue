@@ -44,8 +44,9 @@ end
 
 local function max_lag()
     local max_lag = 0
+    local n_replica = table.maxn(box.info.replication)
 
-    for i = 1, #box.info.replication do
+    for i = 1, n_replica do
         if box.info.replication[i].upstream then
             local lag = box.info.replication[i].upstream.lag
             if lag > max_lag then
