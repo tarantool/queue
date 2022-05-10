@@ -280,10 +280,11 @@ is set to false.
 1. `connection_id` - connection id (numeric)
 2. `session_uuid` - session UUID (string)
 
-## Fields of the `_queue_inactive_sessions` space
+## Fields of the `_queue_shared_sessions` space
 
 1. `uuid` - session UUID (string)
 2. `exp_time` - session expiration time (numeric)
+3. `active` - session state (boolean)
 
 This space is temporary if `in_replicaset` is set to false.
 
@@ -363,12 +364,10 @@ Current queue state can be shown by using `queue.state()` method.
 In the `STARTUP` state, the queue is waiting for possible data synchronization
 with other cluster members by the time of the largest upstream lag multiplied
 by two. After that, all taken tasks are released, except for tasks with
-session uuid matching inactive sessions uuids. This makes possible to take
+session uuid matching shared sessions uuids. This makes possible to take
 a task, switch roles on the cluster, and release the task within the timeout
-specified by the `queue.cfg({ttr = N})` parameter. Note: all clients that `take()`
-and do not `ack()/release()` tasks must be disconnected before changing the role.
-And the last step in the `STARTUP` state is starting tube driver using new
-method called `start()`.
+specified by the `queue.cfg({ttr = N})` parameter. And the last step in the
+`STARTUP` state is starting tube driver using new method called `start()`.
 
 In the `RUNNING` state, the queue is working as usually. The `ENDING` state calls
 `stop()` method. in the `WAITING` state, the queue listens for a change in the

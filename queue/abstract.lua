@@ -56,7 +56,7 @@ local function tube_release_all_orphaned_tasks(tube)
         local taken = box.space._queue_taken_2.index.task:get{
             tube.tube_id, task[1]
         }
-        if taken and session.exist_inactive(taken[4]) then
+        if taken and session.exist_shared(taken[4]) then
             log.info(prefix ..
                 ('skipping task: %d, tube_id: %d'):format(task[1],
                     tube.tube_id))
@@ -611,26 +611,26 @@ end
 -- When the queue is running in single mode,
 -- the space is converted to temporary mode to increase performance.
 --
-local function switch_in_replicaset(mode)
-    if mode == nil then
+local function switch_in_replicaset(replicaset_mode)
+    if replicaset_mode == nil then
         log.warn('queue: queue required after box.cfg{}')
-        mode = false
+        replicaset_mode = false
     end
 
     if not box.space._queue_taken_2 then
         return
     end
 
-    if box.space._queue_taken_2.temporary and mode == false then
+    if box.space._queue_taken_2.temporary and replicaset_mode == false then
         return
     end
 
-    if not box.space._queue_taken_2.temporary and mode == true then
+    if not box.space._queue_taken_2.temporary and replicaset_mode == true then
         return
     end
 
     box.schema.create_space('_queue_taken_2_mgr', {
-        temporary = not mode,
+        temporary = not replicaset_mode,
         format = {
             {name = 'tube_id', type = num_type()},
             {name = 'task_id', type = num_type()},
@@ -720,11 +720,11 @@ function method.start()
         box.space._queue_taken:drop()
     end
 
-    local _mode = queue.cfg['in_replicaset'] or false
+    local replicaset_mode = queue.cfg['in_replicaset'] or false
     if box.space._queue_taken_2 == nil then
         -- tube_id, task_id, connection_id, session_uuid, time
         box.schema.create_space('_queue_taken_2', {
-            temporary = not _mode,
+            temporary = not replicaset_mode,
             format = {
                 {name = 'tube_id', type = num_type()},
                 {name = 'task_id', type = num_type()},
