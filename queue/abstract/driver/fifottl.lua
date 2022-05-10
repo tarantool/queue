@@ -170,7 +170,7 @@ local function fifottl_fiber(self)
         else
             -- When switching the master to the replica, the fiber will be stopped.
             if self.sync_chan:get(0.1) ~= nil then
-                print("Queue fifottl was stopped")
+                log.info("Queue fifottl fiber was stopped")
                 break
             end
         end
