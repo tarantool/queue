@@ -569,6 +569,12 @@ function method.create_tube(tube_name, tube_type, opts)
         return queue.tube[tube_name]
     end
 
+    local replicaset_mode = queue.cfg['in_replicaset'] or false
+    if replicaset_mode and opts.temporary then
+        log.error("Cannot create temporary tube in replicaset mode")
+        return
+    end
+
     local driver = queue.driver[tube_type]
     if driver == nil then
         error("Unknown tube type " .. tostring(tube_type))
@@ -840,6 +846,23 @@ local function cfg(self, opts)
     -- Set default in_replicaset value.
     if opts['in_replicaset'] == nil then
         opts['in_replicaset'] = false
+    end
+
+    -- Temporary spaces are not allowed in replicaset mode.
+    if opts['in_replicaset'] == true and box.space._queue then
+        local temp_tubes = ""
+        for _, tube in box.space._queue:pairs() do
+            if tube[5].temporary then
+                temp_tubes = temp_tubes .. ', ' .. tube[1]
+            end
+        end
+
+        if #temp_tubes ~= 0 then
+            temp_tubes = temp_tubes:sub(3) -- Cut first ', '.
+            opts['in_replicaset'] = false
+            log.error('Queue: cannot set `in_replicaset = true`: '
+                .. 'temporary tube(s) exists: ' .. temp_tubes)
+        end
     end
 
     -- Check all options before configuring so that
