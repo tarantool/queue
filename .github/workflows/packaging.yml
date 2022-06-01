@@ -50,7 +50,7 @@ jobs:
 
       - name: Deploy packages
         env:
-          RWS_URL_PART: https://rws.tarantool.org/release/enabled
+          RWS_URL_PART: https://rws.tarantool.org/tarantool-modules
           RWS_AUTH: ${{ secrets.RWS_AUTH }}
           PRODUCT_NAME: tarantool-queue
         run: |
