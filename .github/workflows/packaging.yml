@@ -23,6 +23,8 @@ jobs:
           - { os: 'fedora', dist: '32' }
           - { os: 'fedora', dist: '33' }
           - { os: 'fedora', dist: '34' }
+          - { os: 'fedora', dist: '35' }
+          - { os: 'fedora', dist: '36' }
           - { os: 'opensuse-leap', dist: '15.1' }
           - { os: 'opensuse-leap', dist: '15.2' }
           - { os: 'ubuntu', dist: 'xenial' }
@@ -30,6 +32,8 @@ jobs:
           - { os: 'ubuntu', dist: 'focal' }
           - { os: 'ubuntu', dist: 'groovy' }
           - { os: 'ubuntu', dist: 'hirsute' }
+          - { os: 'ubuntu', dist: 'impish' }
+          - { os: 'ubuntu', dist: 'jammy' }
 
     env:
       OS: ${{ matrix.platform.os }}
