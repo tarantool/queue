@@ -42,12 +42,24 @@ jobs:
     steps:
       - name: Clone the module
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Clone the packpack tool
         uses: actions/checkout@v2
         with:
           repository: packpack/packpack
           path: packpack
+
+      - name: Fetch tags
+        # Found that Github checkout Actions pulls all the tags, but
+        # right it deannotates the testing tag, check:
+        #   https://github.com/actions/checkout/issues/290
+        # But we use 'git describe ..' calls w/o '--tags' flag and it
+        # prevents us from getting the needed tag for packages version
+        # setup. To avoid of it, let's fetch it manually, to be sure
+        # that all tags will exists always.
+        run: git fetch --tags -f
 
       - name: Create packages
         run: ./packpack/packpack
