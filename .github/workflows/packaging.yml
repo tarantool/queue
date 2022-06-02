@@ -1,12 +1,14 @@
 name: packaging
 
-on:
-  push:
-    tags:
-      - '*'
+on: [push, pull_request]
 
 jobs:
   package:
+    # Skip pull request jobs when the source branch is in the same
+    # repository.
+    if: |
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
 
     strategy:
@@ -65,6 +67,8 @@ jobs:
         run: ./packpack/packpack
 
       - name: Deploy packages
+        # We need this step to run only on push with tag.
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
         env:
           RWS_URL_PART: https://rws.tarantool.org/tarantool-modules
           RWS_AUTH: ${{ secrets.RWS_AUTH }}
