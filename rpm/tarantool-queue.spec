@@ -25,7 +25,11 @@ A collection of persistent queue implementations for Tarantool.
 #
 %define luapkgdir %{_datadir}/tarantool/queue/
 %install
-%make_install
+%if 0%{?fedora} >= 33 || 0%{?rhel} >= 8
+  %cmake_install
+%else
+  %make_install
+%endif
 
 %files
 %dir %{luapkgdir}
