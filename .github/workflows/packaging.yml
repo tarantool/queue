@@ -27,8 +27,6 @@ jobs:
           - { os: 'fedora', dist: '34' }
           - { os: 'fedora', dist: '35' }
           - { os: 'fedora', dist: '36' }
-          - { os: 'opensuse-leap', dist: '15.1' }
-          - { os: 'opensuse-leap', dist: '15.2' }
           - { os: 'ubuntu', dist: 'xenial' }
           - { os: 'ubuntu', dist: 'bionic' }
           - { os: 'ubuntu', dist: 'focal' }
