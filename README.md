@@ -8,7 +8,8 @@ align="right">
 </a>
 
 # A collection of persistent queue implementations for Tarantool
-#Table of contents
+
+## Table of contents
 
 * [Queue types](#queue-types)
   * [fifo \- a simple queue](#fifo---a-simple-queue)
