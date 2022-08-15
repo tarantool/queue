@@ -1,0 +1,60 @@
+name: publish
+
+on:
+  push:
+    branches: [master]
+    tags: ['*']
+
+jobs:
+  publish-rockspec-scm-1:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: tarantool/rocks.tarantool.org/github-action@master
+        with:
+          auth: ${{ secrets.ROCKS_AUTH }}
+          files: queue-scm-1.rockspec
+
+  publish-rockspec-tag:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # Create a rockspec for the release.
+      - run: printf '%s=%s\n' TAG "${GITHUB_REF##*/}" >> "${GITHUB_ENV}"
+      sed -E
+          -e "s/branch = '.+'/tag = '${{ env.TAG }}'/g"
+          -e "s/version = '.+'/version = '${{ env.TAG }}-1'/g"
+          queue-scm-1.rockspec > queue-${{ env.TAG }}-1.rockspec
+
+      # Create a rock for the release (.all.rock).
+      #
+      # `tarantoolctl rocks pack <module_name> <version>` creates
+      # .all.rock tarball. It speeds up
+      # `tarantoolctl rocks install <module_name> <version>` and
+      # frees it from dependency on git.
+      #
+      # Don't confuse this command with
+      # `tarantoolctl rocks pack <rockspec>`, which creates a
+      # source tarball (.src.rock).
+      #
+      # Important: Don't upload binary rocks to
+      # rocks.tarantool.org. Lua/C modules should be packed into
+      # .src.rock instead. See [1] for description of rock types.
+      #
+      # [1]: https://github.com/luarocks/luarocks/wiki/Types-of-rocks
+      - uses: tarantool/setup-tarantool@v1
+        with:
+          tarantool-version: '1.10'
+      - run: tarantoolctl rocks install queue-${{ env.TAG }}-1.rockspec
+      - run: tarantoolctl rocks pack queue ${{ env.TAG }}
+
+      # Upload .rockspec and .all.rock.
+      - uses: tarantool/rocks.tarantool.org/github-action@master
+        with:
+          auth: ${{ secrets.ROCKS_AUTH }}
+          files: |
+            queue-${{ env.TAG }}-1.rockspec
+            queue-${{ env.TAG }}-1.all.rock
