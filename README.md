@@ -371,7 +371,7 @@ flowchart LR
       I(("init"))-->S[startup]
       S[startup]-->R[running]
       W[waiting]--> |"(ro ->rw)"| S[startup]
-      R[running]--> |"(ro ->rw)"| E[ending]
+      R[running]--> |"(rw ->ro)"| E[ending]
       E[ending]-->W[waiting]
 ```
 
