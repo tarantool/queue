@@ -579,8 +579,7 @@ function method.create_tube(tube_name, tube_type, opts)
 
     local replicaset_mode = queue.cfg['in_replicaset'] or false
     if replicaset_mode and opts.temporary then
-        log.error("Cannot create temporary tube in replicaset mode")
-        return
+        error("Cannot create temporary tube in replicaset mode")
     end
 
     local driver = queue.driver[tube_type]
