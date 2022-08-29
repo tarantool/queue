@@ -7,6 +7,9 @@ local qc       = require('queue.compat')
 local num_type = qc.num_type
 local str_type = qc.str_type
 
+-- since:
+-- https://github.com/tarantool/tarantool/commit/f266559b167b4643c377724eebde9651877d6cc9
+local ddl_txn_supported = qc.check_version({2, 2, 1})
 
 local queue_session = {}
 
@@ -62,12 +65,22 @@ local function switch_in_replicaset(replicaset_mode)
         box.space._queue_shared_sessions_mgr:insert(tuple)
     end
 
-    box.space._queue_shared_sessions:drop()
-    box.space._queue_shared_sessions_mgr:rename('_queue_shared_sessions')
+    if ddl_txn_supported then
+		-- We can do it inside a transaction.
+        box.space._queue_shared_sessions:drop()
+        box.space._queue_shared_sessions_mgr:rename('_queue_shared_sessions')
+    end
 
     local status, err = pcall(box.commit)
     if not status then
         error(('Error migrate _queue_shared_sessions: %s'):format(tostring(err)))
+    end
+
+    if not ddl_txn_supported then
+		-- Do it outside a transaction becase DDL does not support
+		-- multi-statement transactions.
+        box.space._queue_shared_sessions:drop()
+        box.space._queue_shared_sessions_mgr:rename('_queue_shared_sessions')
     end
 end
 
