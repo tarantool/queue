@@ -21,7 +21,7 @@ end
 -- Replica connection handler.
 local conn = {}
 
-test:plan(7)
+test:plan(8)
 
 test:test('Check master-replica setup', function(test)
     test:plan(8)
@@ -44,6 +44,19 @@ test:test('Check master-replica setup', function(test)
     queue.cfg{ttr = 0.5, in_replicaset = true}
     local tube = queue.create_tube('test', 'fifo', {engine = engine})
     test:ok(tube, 'test tube created')
+end)
+
+test:test('Check error create temporary tube', function(test)
+    test:plan(2)
+    local engine = os.getenv('ENGINE') or 'memtx'
+
+    queue.cfg{ttr = 0.5, in_replicaset = true}
+    local opts = {temporary = true, engine = engine}
+    local status, err = pcall(queue.create_tube, 'test', 'fifo', opts)
+    test:is(status, false, 'test tube should not be created')
+    local founded = string.find(err,
+        'Cannot create temporary tube in replicaset mode')
+    test:ok(founded, 'unexpected error')
 end)
 
 test:test('Check queue state switching', function(test)
