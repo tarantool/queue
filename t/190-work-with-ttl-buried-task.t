@@ -52,7 +52,7 @@ test:test('test work with "ttl", when "bury" after "take"', function(test)
 
         -- Check status of the task after "ttl" has expired.
         fiber.sleep(TTL * 2)
-        ok, res = pcall(tube.peek, tube, id)
+        local ok, res = pcall(tube.peek, tube, id)
         test:ok(res:match(string.format('Task %d not found', id)),
             ('task done, driver: "%s"'):format(driver))
 
