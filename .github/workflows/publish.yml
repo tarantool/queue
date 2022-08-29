@@ -24,7 +24,7 @@ jobs:
 
       # Create a rockspec for the release.
       - run: printf '%s=%s\n' TAG "${GITHUB_REF##*/}" >> "${GITHUB_ENV}"
-      sed -E
+      - run: sed -E
           -e "s/branch = '.+'/tag = '${{ env.TAG }}'/g"
           -e "s/version = '.+'/version = '${{ env.TAG }}-1'/g"
           queue-scm-1.rockspec > queue-${{ env.TAG }}-1.rockspec
