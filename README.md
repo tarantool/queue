@@ -2,10 +2,10 @@
    <img src="https://avatars2.githubusercontent.com/u/2344919?v=2&s=250"
 align="right">
 </a>
-<a href="https://travis-ci.org/tarantool/queue">
-   <img src="https://travis-ci.org/tarantool/queue.png?branch=master"
-align="right">
-</a>
+
+[![fast_testing][testing-actions-badge]][testing-actions-url]
+[![packaging][packaging-actions-badge]][packaging-actions-url]
+[![publish][publish-actions-badge]][publish-actions-url]
 
 # A collection of persistent queue implementations for Tarantool
 
@@ -910,3 +910,13 @@ seconds. If queue does not support `ttr`, error will be thrown. Returns the task
 must be called only by the user who created this tube (has space ownership) OR
 under a `setuid` function. Read more about `setuid` functions
 [here](http://tarantool.org/doc/book/box/authentication.html?highlight=function#functions-and-the-func-space).
+
+
+[testing-actions-badge]: https://github.com/tarantool/queue/actions/workflows/fast_testing.yml/badge.svg
+[testing-actions-url]: https://github.com/tarantool/queue/actions/workflows/fast_testing.yml
+
+[packaging-actions-badge]: https://github.com/tarantool/queue/actions/workflows/packaging.yml/badge.svg
+[packaging-actions-url]: https://github.com/tarantool/queue/actions/workflows/packaging.yml
+
+[publish-actions-badge]: https://github.com/tarantool/queue/actions/workflows/publish.yml/badge.svg
+[publish-actions-url]: https://github.com/tarantool/queue/actions/workflows/publish.yml
