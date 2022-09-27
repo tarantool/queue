@@ -65,7 +65,7 @@ local function create_state_fiber(on_state_change_cb)
         fiber.self():name('queue_state_fiber')
         while true do
             if current == queue_state.states.WAITING then
-                local rc = pcall(box.ctl.wait_rw, 0.001)
+                local rc = pcall(box.ctl.wait_rw)
                 if rc then
                     current = queue_state.states.STARTUP
                     log.info('Queue state changed: STARTUP')
@@ -76,7 +76,7 @@ local function create_state_fiber(on_state_change_cb)
                     log.info('Queue state changed: RUNNING')
                 end
             elseif current == queue_state.states.RUNNING then
-                local rc = pcall(box.ctl.wait_ro, 0.001)
+                local rc = pcall(box.ctl.wait_ro)
                 if rc then
                     current = queue_state.states.ENDING
                     on_state_change_cb(current)
