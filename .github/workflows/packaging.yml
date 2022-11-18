@@ -9,9 +9,9 @@ jobs:
     if: |
       github.event_name == 'push' ||
       github.event.pull_request.head.repo.full_name != github.repository
-    # We use a particular version of the distribution because we want to install
-    # a particular version of Docker.
-    runs-on: ubuntu-22.04
+    # Packaging for CentOS 7 does not work with other versions, see:
+    # https://github.com/packpack/packpack/issues/145
+    runs-on: ubuntu-18.04
 
     strategy:
       fail-fast: false
@@ -60,28 +60,6 @@ jobs:
         # setup. To avoid of it, let's fetch it manually, to be sure
         # that all tags will exists always.
         run: git fetch --tags -f
-
-      # We use a specific version of Docker because otherwise we have a problem
-      # with sudoers on CentOS7.
-      # See more details: https://github.com/packpack/packpack/issues/145
-      - name: Reinstall Docker
-        if: |
-          matrix.platform.os == 'el' &&
-          matrix.platform.dist == '7'
-        run: |
-          sudo apt-get -y purge moby-containerd* moby-engine* moby-runc*
-          sudo mkdir -p /etc/apt/keyrings
-          curl -fsSL ${DOCKER_URL}/gpg | sudo gpg --dearmor -o ${GPG_KEY}
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=${GPG_KEY}] \
-              ${DOCKER_URL} $(lsb_release -cs) stable" | \
-            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-          sudo apt-get update
-          sudo apt-get -y install docker-ce=${DOCKER_VERSION} \
-            docker-ce-cli=${DOCKER_VERSION}
-        env:
-          DOCKER_URL: https://download.docker.com/linux/ubuntu
-          DOCKER_VERSION: 5:20.10.17~3-0~ubuntu-jammy
-          GPG_KEY: /etc/apt/keyrings/docker.gpg
 
       - name: Create packages
         run: ./packpack/packpack
