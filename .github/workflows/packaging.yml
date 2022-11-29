@@ -77,10 +77,18 @@ jobs:
             -u ${RWS_AUTH} \
             -F product=${PRODUCT_NAME}"
 
+          # We don't want to try to print secrets to the log, but we want
+          # to print a "curl" command to see what's going on.
+          CURL_CMD_ECHO="curl -LfsS \
+            -X PUT ${RWS_URL_PART}/${OS}/${DIST} \
+            -u *** \
+            -F product=${PRODUCT_NAME}"
+
           for f in $(ls -I '*build*' -I '*.changes' ./build); do
             CURL_CMD+=" -F $(basename ${f})=@./build/${f}"
+            CURL_CMD_ECHO+=" -F $(basename ${f})=@./build/${f}"
           done
 
-          echo ${CURL_CMD}
+          echo ${CURL_CMD_ECHO}
 
           ${CURL_CMD}
