@@ -81,7 +81,7 @@ jobs:
           # to print a "curl" command to see what's going on.
           CURL_CMD_ECHO="curl -LfsS \
             -X PUT ${RWS_URL_PART}/${OS}/${DIST} \
-            -u *** \
+            -u '***' \
             -F product=${PRODUCT_NAME}"
 
           for f in $(ls -I '*build*' -I '*.changes' ./build); do
