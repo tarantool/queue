@@ -27,7 +27,8 @@ build = {
         ['queue.abstract.driver.limfifottl'] = 'queue/abstract/driver/limfifottl.lua',
         ['queue.compat']                     = 'queue/compat.lua',
         ['queue.util']                       = 'queue/util.lua',
-        ['queue']                            = 'queue/init.lua'
+        ['queue']                            = 'queue/init.lua',
+        ['queue.version']                    = 'queue/version.lua'
     }
 }
 

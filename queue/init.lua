@@ -39,6 +39,7 @@ queue = setmetatable({
     register_driver = register_driver,
     state = queue_state.show,
     cfg = deferred_cfg,
+    _VERSION = require('queue.version'),
 }, { __index = function()
         print(debug.traceback())
         error('Please configure box.cfg{} in read/write mode first')
