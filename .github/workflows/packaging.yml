@@ -3,6 +3,22 @@ name: packaging
 on: [push, pull_request]
 
 jobs:
+  # Run not only on tags, otherwise dependent job will skip.
+  version-check:
+    # Skip pull request job when the source branch is in the same
+    # repository.
+    if: |
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check module version
+        # We need this step to run only on push with tag.
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+        uses: tarantool/actions/check-module-version@master
+        with:
+          module-name: 'queue'
+
   package:
     # Skip pull request jobs when the source branch is in the same
     # repository.
@@ -12,6 +28,7 @@ jobs:
     # Packaging for CentOS 7 does not work with other versions, see:
     # https://github.com/packpack/packpack/issues/145
     runs-on: ubuntu-20.04
+    needs: version-check
 
     strategy:
       fail-fast: false
