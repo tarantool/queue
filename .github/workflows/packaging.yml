@@ -11,7 +11,7 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.repository
     # Packaging for CentOS 7 does not work with other versions, see:
     # https://github.com/packpack/packpack/issues/145
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     strategy:
       fail-fast: false
