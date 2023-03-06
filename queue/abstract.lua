@@ -520,10 +520,39 @@ function method._on_consumer_disconnect()
     session.disconnect(conn_id)
 end
 
+-- function takes tuples and recreates tube
+local function recreate_tube(tube_tuple)
+    local name, id, space_name, tube_type, opts = tube_tuple:unpack()
+
+    local driver = queue.driver[tube_type]
+    if driver == nil then
+        error("Unknown tube type " .. tostring(tube_type))
+    end
+
+    local space = box.space[space_name]
+    if space == nil then
+        error(("Space '%s' doesn't exists"):format(space_name))
+    end
+    return make_self(driver, space, name, tube_type, id, opts)
+end
+
 -- Function takes new queue state.
 -- The "RUNNING" and "WAITING" states do not require additional actions.
 local function on_state_change(state)
     if state == queue_state.states.STARTUP then
+        local replicaset_mode = queue.cfg['in_replicaset'] or false
+        -- gh-202: In replicaset mode, tubes can be created and deleted on different nodes.
+        -- Accordingly, it is necessary to rebuild the queue.tube index.
+        if replicaset_mode then
+            for _, tube_name in pairs(queue.tube()) do
+                queue.tube[tube_name] = nil
+            end
+            for _, tube_tuple in box.space._queue:pairs() do
+                if queue.driver[tube_tuple[4]] ~= nil then
+                    recreate_tube(tube_tuple)
+                end
+            end
+        end
         for name, tube in pairs(queue.tube) do
             tube_release_all_orphaned_tasks(tube)
             log.info('queue: [tube "%s"] start driver', name)
@@ -549,22 +578,6 @@ local function on_state_change(state)
     else
         error('on_state_change: unexpected queue state')
     end
-end
-
--- function takes tuples and recreates tube
-local function recreate_tube(tube_tuple)
-    local name, id, space_name, tube_type, opts = tube_tuple:unpack()
-
-    local driver = queue.driver[tube_type]
-    if driver == nil then
-        error("Unknown tube type " .. tostring(tube_type))
-    end
-
-    local space = box.space[space_name]
-    if space == nil then
-        error(("Space '%s' doesn't exists"):format(space_name))
-    end
-    return make_self(driver, space, name, tube_type, id, opts)
 end
 
 -------------------------------------------------------------------------------

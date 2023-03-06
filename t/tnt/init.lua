@@ -87,7 +87,7 @@ local function tnt_cluster_prepare(cfg_args)
 
     box.cfg(cfg_args)
     -- Allow guest all operations.
-    box.schema.user.grant('guest', 'read, write, execute', 'universe')
+    box.schema.user.grant('guest', 'read, write, execute, create, drop', 'universe')
     box.schema.user.create('replicator', {password = 'password'})
     box.schema.user.grant('replicator', 'replication')
 

@@ -21,7 +21,7 @@ end
 -- Replica connection handler.
 local conn = {}
 
-test:plan(7)
+test:plan(8)
 
 test:test('Check master-replica setup', function(test)
     test:plan(8)
@@ -335,6 +335,57 @@ test:test('Check in_replicaset switching', function(test)
     queue.tube.test:release_all()
     test:is(queue.statistics().test.tasks.taken, 0,
         'taken tasks count after release_all')
+end)
+
+-- gh-202
+test:test('Check that tubes indexes is actual after role change', function(test)
+    local engine = os.getenv('ENGINE') or 'memtx'
+    test:plan(10)
+    box.cfg{read_only = true}
+    queue_state.poll(queue_state.states.WAITING, 10)
+    test:is(queue.state(), 'WAITING', 'master state is waiting')
+    conn:eval('box.cfg{read_only=false}')
+    conn:eval([[
+        queue_state = require('queue.abstract.queue_state')
+        queue_state.poll(queue_state.states.RUNNING, 10)
+    ]])
+    test:is(conn:call('queue.state'), 'RUNNING', 'replica state is running')
+    conn:eval([[queue.create_tube('repl_tube', 'fifo', {engine =]] .. engine .. [[})]])
+
+    -- Switch roles back.
+    conn:eval('box.cfg{read_only=true}')
+    conn:eval([[
+        queue_state = require('queue.abstract.queue_state')
+        queue_state.poll(queue_state.states.WAITING, 10)
+    ]])
+    box.cfg{read_only = false}
+    queue_state.poll(queue_state.states.RUNNING, 10)
+    test:is(queue.state(), 'RUNNING', 'master state is running')
+    test:is(conn:call('queue.state'), 'WAITING', 'replica state is waiting')
+    test:ok(queue.tube.repl_tube, 'repl_tube is accessible')
+
+    box.cfg{read_only = true}
+    queue_state.poll(queue_state.states.WAITING, 10)
+    test:is(queue.state(), 'WAITING', 'master state is waiting')
+    conn:eval('box.cfg{read_only=false}')
+    conn:eval([[
+        queue_state = require('queue.abstract.queue_state')
+        queue_state.poll(queue_state.states.RUNNING, 10)
+    ]])
+    test:is(conn:call('queue.state'), 'RUNNING', 'replica state is running')
+    conn:eval('queue.tube.repl_tube:drop()')
+
+    -- Switch roles back.
+    conn:eval('box.cfg{read_only=true}')
+    conn:eval([[
+        queue_state = require('queue.abstract.queue_state')
+        queue_state.poll(queue_state.states.WAITING, 10)
+    ]])
+    box.cfg{read_only = false}
+    queue_state.poll(queue_state.states.RUNNING, 10)
+    test:is(queue.state(), 'RUNNING', 'master state is running')
+    test:is(conn:call('queue.state'), 'WAITING', 'replica state is waiting')
+    test:isnil(queue.tube.repl_tube, "repl_tube is not indexed")
 end)
 
 rawset(_G, 'queue', nil)
