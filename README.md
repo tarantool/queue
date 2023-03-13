@@ -27,6 +27,7 @@ align="right">
 * [Installing](#installing)
 * [Using the queue module](#using-the-queue-module)
   * [Initialization](#initialization)
+  * [Get the module version](#get-the-module-version)
   * [Creating a new queue](#creating-a-new-queue)
   * [Set queue settings](#set-queue-settings)
   * [Session identify](#session-identify)
@@ -424,6 +425,13 @@ switched, triggers may fail (`_on_consumer_disconnect` for example), which may
 cause an inconsistent state of the queue. As for the core drivers that use
 background fibers (fifottl, limfifottl, utubettl) - they check the instance mode
 on each iteration and will wait until the instance will be switched to rw mode.
+
+## Get the module version
+```lua
+queue._VERSION
+```
+
+Returns the current version of the module.
 
 ## Creating a new queue
 
