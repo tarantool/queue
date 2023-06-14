@@ -144,6 +144,7 @@ local function fifottl_fiber_iteration(self, processed)
     if estimated > 0 or processed > 1000 then
         -- free refcounter
         estimated = estimated > 0 and estimated or 0
+        processed = 0
         self.cond:wait(estimated)
     end
 

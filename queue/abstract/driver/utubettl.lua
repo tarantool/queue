@@ -152,6 +152,7 @@ local function utubettl_fiber_iteration(self, processed)
         -- free refcounter
         estimated = processed > 1000 and 0 or estimated
         estimated = estimated > 0 and estimated or 0
+        processed = 0
         self.cond:wait(estimated)
     end
 
