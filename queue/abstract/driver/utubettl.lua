@@ -217,7 +217,27 @@ end
 
 -- put task in space
 function method.put(self, data, opts)
-    local max = self.space.index.task_id:max()
+    local max
+
+    -- Taking the maximum of the index is an implicit transactions, so it is
+    -- always done with 'read-confirmed' mvcc isolation level.
+    -- It can lead to errors when trying to make parallel 'put' calls with mvcc enabled.
+    -- It is hapenning because 'max' for several puts in parallel will be the same since
+    -- read confirmed isolation level makes visible all transactions that finished the commit.
+    -- To fix it we wrap it with box.begin/commit and set right isolation level.
+    -- Current fix does not resolve that bug in situations when we already are in transaction
+    -- since it will open nested transactions.
+    -- See https://github.com/tarantool/queue/issues/207
+    -- See https://www.tarantool.io/ru/doc/latest/concepts/atomic/txn_mode_mvcc/
+
+    if box.cfg.memtx_use_mvcc_engine and (not box.is_in_txn()) then
+        box.begin({txn_isolation = 'read-committed'})
+        max = self.space.index.task_id:max()
+        box.commit()
+    else
+        max = self.space.index.task_id:max()
+    end
+
     local id = max and max[i_id] + 1 or 0
 
     local status
@@ -280,7 +300,25 @@ function method.take(self)
             break
         elseif not is_expired(t) then
             local next_event = util.time() + t[i_ttr]
-            local taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
+            local taken
+            -- Taking the minimum is an implicit transactions, so it is
+            -- always done with 'read-confirmed' mvcc isolation level.
+            -- It can lead to errors when trying to make parallel 'take' calls with mvcc enabled.
+            -- It is hapenning because 'min' for several takes in parallel will be the same since
+            -- read confirmed isolation level makes visible all transactions that finished the commit.
+            -- To fix it we wrap it with box.begin/commit and set right isolation level.
+            -- Current fix does not resolve that bug in situations when we already are in transaction
+            -- since it will open nested transactions.
+            -- See https://github.com/tarantool/queue/issues/207
+            -- See https://www.tarantool.io/ru/doc/latest/concepts/atomic/txn_mode_mvcc/
+            if box.cfg.memtx_use_mvcc_engine and (not box.is_in_txn()) then
+                box.begin({txn_isolation = 'read-committed'})
+                taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
+                box.commit()
+            else
+                taken = self.space.index.utube:min{state.TAKEN, t[i_utube]}
+            end
+
             if taken == nil or taken[i_status] ~= state.TAKEN then
                 t = self.space:update(t[1], {
                     { '=', i_status, state.TAKEN },
