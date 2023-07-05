@@ -217,7 +217,24 @@ end
 
 -- put task in space
 function method.put(self, data, opts)
-    local max = self.space.index.task_id:max()
+    local max
+
+    -- Taking the maximum of the index is an implicit transactions, so it is
+    -- always done with 'read-confirmed' mvcc isolation level.
+    -- It can lead to errors when trying to make parallel 'put' calls with mvcc enabled.
+    -- It is hapenning because 'max' for several puts in parallel will be the same since
+    -- read confirmed isolation level makes visible all transactions that finished the commit.
+    -- To fix it we wrap it with box.begin/commit and set right isolation level.
+    -- See https://github.com/tarantool/queue/issues/207
+    -- See https://www.tarantool.io/ru/doc/latest/concepts/atomic/txn_mode_mvcc/
+    if box.cfg.memtx_use_mvcc_engine then
+        box.begin({txn_isolation = 'read-committed'})
+        max = self.space.index.task_id:max()
+        box.commit()
+    else
+        max = self.space.index.task_id:max()
+    end
+
     local id = max and max[i_id] + 1 or 0
 
     local status
