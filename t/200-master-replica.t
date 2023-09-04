@@ -24,7 +24,7 @@ local conn = {}
 test:plan(8)
 
 test:test('Check master-replica setup', function(test)
-    test:plan(8)
+    test:plan(9)
     local engine = os.getenv('ENGINE') or 'memtx'
     tnt.cluster.cfg{}
 
@@ -41,6 +41,8 @@ test:test('Check master-replica setup', function(test)
 
     -- Setup tube. Set ttr = 0.5 for sessions expire testing.
     conn:call('queue.cfg', {{ttr = 0.5, in_replicaset = true}})
+    test:isnil(conn:call('queue.create_tube', {'test', 'fifo'}),
+        'check api call in INIT state')
     queue.cfg{ttr = 0.5, in_replicaset = true}
     local tube = queue.create_tube('test', 'fifo', {engine = engine})
     test:ok(tube, 'test tube created')
