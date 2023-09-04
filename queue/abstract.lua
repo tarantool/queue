@@ -88,9 +88,9 @@ end
 local tube = {}
 
 -- This check must be called from all public tube methods.
-local function check_state()
+local function check_state(method)
     if queue_state.get() ~= queue_state.states.RUNNING then
-        log.error(('Queue is in %s state'):format(queue_state.show()))
+        log.error(('%s: queue is in %s state'):format(method, queue_state.show()))
         return false
     end
 
@@ -98,7 +98,7 @@ local function check_state()
 end
 
 function tube.put(self, data, opts)
-    if not check_state() then
+    if not check_state("put") then
         return nil
     end
     opts = opts or {}
@@ -110,7 +110,7 @@ local conds = {}
 local releasing_connections = {}
 
 function tube.take(self, timeout)
-    if not check_state() then
+    if not check_state("take") then
         return nil
     end
     timeout = util.time(timeout or util.TIMEOUT_INFINITY)
@@ -151,7 +151,7 @@ function tube.take(self, timeout)
 end
 
 function tube.touch(self, id, delta)
-    if not check_state() then
+    if not check_state("touch") then
         return
     end
     if delta == nil then
@@ -177,7 +177,7 @@ function tube.touch(self, id, delta)
 end
 
 function tube.ack(self, id)
-    if not check_state() then
+    if not check_state("ack") then
         return nil
     end
     check_task_is_taken(self.tube_id, id)
@@ -206,7 +206,7 @@ local function tube_release_internal(self, id, opts, session_uuid)
 end
 
 function tube.release(self, id, opts)
-    if not check_state() then
+    if not check_state("release") then
         return nil
     end
     return tube_release_internal(self, id, opts)
@@ -214,7 +214,7 @@ end
 
 -- Release all tasks.
 function tube.release_all(self)
-    if not check_state() then
+    if not check_state("tube") then
         return
     end
     local prefix = ('queue: [tube "%s"] '):format(self.name)
@@ -229,7 +229,7 @@ function tube.release_all(self)
 end
 
 function tube.peek(self, id)
-    if not check_state() then
+    if not check_state("peek") then
         return nil
     end
     local task = self.raw:peek(id)
@@ -240,7 +240,7 @@ function tube.peek(self, id)
 end
 
 function tube.bury(self, id)
-    if not check_state() then
+    if not check_state("bury") then
         return nil
     end
     local task = self:peek(id)
@@ -255,7 +255,7 @@ function tube.bury(self, id)
 end
 
 function tube.kick(self, count)
-    if not check_state() then
+    if not check_state("kick") then
         return nil
     end
     count = count or 1
@@ -263,7 +263,7 @@ function tube.kick(self, count)
 end
 
 function tube.delete(self, id)
-    if not check_state() then
+    if not check_state("delete") then
         return nil
     end
     self:peek(id)
@@ -272,7 +272,7 @@ end
 
 -- drop tube
 function tube.drop(self)
-    if not check_state() then
+    if not check_state("drop") then
         return nil
     end
     local tube_name = self.name
@@ -309,7 +309,7 @@ end
 -- truncate tube
 -- (delete everything from tube)
 function tube.truncate(self)
-    if not check_state() then
+    if not check_state("truncate") then
         return
     end
     self.raw:truncate()
@@ -322,7 +322,7 @@ function tube.on_task_change(self, cb)
 end
 
 function tube.grant(self, user, args)
-    if not check_state() then
+    if not check_state("grant") then
         return
     end
     local function tube_grant_space(user, name, tp)
@@ -583,7 +583,7 @@ end
 -------------------------------------------------------------------------------
 -- create tube
 function method.create_tube(tube_name, tube_type, opts)
-    if not check_state() then
+    if not check_state("create_tube") then
         return
     end
     opts = opts or {}
