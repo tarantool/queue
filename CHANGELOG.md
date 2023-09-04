@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- In replicaset mode, the behavior of the public API is reduced to the same behavior
+  in all queue states, including INIT. Previously, in the INIT state, an ambiguous
+  error was thrown when trying to access a public method on a replica and the script
+  was interrupted by an error.
+
+  Old behavior (call `create_tube` on replica, queue is in INIT state):
+  ```
+  2023-09-04 14:01:11.000 [5990] main/103/replica.lua/box.load_cfg I> set 'read_only' configuration option to true
+  stack traceback:
+    /home/void/tmp/cluster/repl/queue/init.lua:44: in function '__index'
+    replica.lua:13: in main chunk
+  2023-09-04 14:01:11.004 [5990] main/105/checkpoint_daemon I> scheduled next checkpoint for Mon Sep  4 15:11:32 2023
+  2023-09-04 14:01:11.004 [5990] main utils.c:610 E> LuajitError: /home/void/tmp/cluster/repl/queue/init.lua:45: Please configure box.cfg{} in read/write mode first
+  ```
+  After this fix:
+  ```
+  2023-09-11 10:24:31.463 [19773] main/103/replica.lua abstract.lua:93 E> create_tube: queue is in INIT state
+  ```
+
 ## [1.3.2] - 2023-08-24
 
 ### Fixed

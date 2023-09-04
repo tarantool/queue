@@ -1,3 +1,4 @@
+local abstract = require('queue.abstract')
 local queue_state = require('queue.abstract.queue_state')
 local queue = nil
 
@@ -40,9 +41,18 @@ queue = setmetatable({
     state = queue_state.show,
     cfg = deferred_cfg,
     _VERSION = require('queue.version'),
-}, { __index = function()
-        print(debug.traceback())
-        error('Please configure box.cfg{} in read/write mode first')
+}, { __index = function(self, key)
+        -- In replicaset mode, the user can attempt to call public methods on the replica start.
+        -- For example, a single script is used for master and replica.
+        -- Each public method has a check on the state of the queue, so this forwarding is safe.
+        if deferred_opts['in_replicaset'] == true then
+            if abstract[key] ~= nil then
+                return abstract[key]
+            end
+        else
+            print(debug.traceback())
+            error('Please configure box.cfg{} in read/write mode first')
+        end
     end
 })
 
