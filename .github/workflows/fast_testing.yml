@@ -19,7 +19,7 @@ jobs:
         tarantool:
           - '1.10'
           - '2.8'
-          - '2.9'
+          - '2.10'
 
     steps:
       - name: Clone the module
