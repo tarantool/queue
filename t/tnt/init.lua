@@ -76,14 +76,11 @@ local function tnt_cluster_prepare(cfg_args)
     cfg_args[snapdir_optname()] = dir
     cfg_args[logger_optname()]  = fio.pathjoin(dir, 'tarantool.log')
     cfg_args['listen']          = bind_master
-    cfg_args['replication']     = {'replicator:password@' .. bind_replica,
-                                   'replicator:password@' .. bind_master}
+    cfg_args['replication']     = {'replicator:password@' .. bind_master}
     if vinyl_name() then
         local vinyl_optname     = vinyl_name() .. '_dir'
         cfg_args[vinyl_optname] = dir
     end
-    cfg_args['replication_connect_quorum']  = 1
-    cfg_args['replication_connect_timeout'] = 0.01
 
     box.cfg(cfg_args)
     -- Allow guest all operations.
@@ -123,14 +120,27 @@ local function tnt_cluster_prepare(cfg_args)
         stderr = 'devnull',
     })
 
-    -- Wait for replica to connect.
-    local id = (box.info.replication[1].uuid ~= box.info.uuid and 1) or 2
     local attempts = 0
 
-    while true do
-        if #box.info.replication == 2 and box.info.replication[id].upstream then
-            break
+    -- Wait for replica to connect.
+    while box.info.replication[2] == nil or box.info.replication[2].downstream.status ~= 'follow' do
+        attempts = attempts + 1
+        if attempts == 30 then
+            error('wait for replica connection')
         end
+        fiber.sleep(0.1)
+    end
+
+    box.cfg({replication =
+        {'replicator:password@' .. bind_replica,
+         'replicator:password@' .. bind_master
+        }
+    })
+
+    -- Wait for connect to replica.
+    attempts = 0
+
+    while box.info.replication[2].upstream.status ~= 'follow' do
         attempts = attempts + 1
         if attempts == 30 then
             error('wait for replica failed')
