@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.3] - 2023-09-13
+
+### Fixed
 
 - In replicaset mode, the behavior of the public API is reduced to the same behavior
   in all queue states, including INIT. Previously, in the INIT state, an ambiguous
