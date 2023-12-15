@@ -16,7 +16,7 @@ test:plan(2)
 -- Verify that _queue_taken space is empty.
 local function check_result()
     if tube == nil then
-        os.exit(1)
+        return
     end
 
     -- tube:drop() is most simple way to check that _queue_taken
@@ -26,7 +26,6 @@ local function check_result()
     test:is(res, true, 'tube:drop() result is true')
 
     tnt.finish()
-    os.exit(test:check() and 0 or 1)
 end
 
 -- Yield in queue's on_disconnect trigger (which handles a client
@@ -92,7 +91,7 @@ local function test_lost_session_id_after_yield()
     -- session' error in the _on_consumer_disconnect and so the
     -- second on_disconnect trigger (check_result) will not be
     -- fired.
-    os.exit(1)
+    os.exit(test:check() and 0 or 1)
 end
 
 test_lost_session_id_after_yield()
