@@ -85,8 +85,14 @@ local function create_state_fiber(on_state_change_cb)
                     log.info('Queue state changed: WAITING')
                 end
             end
+            -- Handle server shutdown.
+            if not pcall(fiber.testcancel) then
+                break
+            end
         end
     end)
+
+    log.info('Finished queue state fiber')
 end
 
 -- Public methods.
