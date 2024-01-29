@@ -169,7 +169,7 @@ local function utubettl_fiber(self)
         if box.info.ro == false then
             local stat, err = pcall(utubettl_fiber_iteration, self, processed)
 
-            if not stat and not err.code == box.error.READONLY then
+            if not stat and not (err.code == box.error.READONLY) then
                 log.error("error catched: %s", tostring(err))
                 log.error("exiting fiber '%s'", fiber.name())
                 return 1
