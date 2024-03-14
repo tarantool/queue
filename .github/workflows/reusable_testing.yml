@@ -14,12 +14,12 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: 'Clone the queue module'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/queue
 
       - name: 'Download the tarantool build artifact'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}
 
