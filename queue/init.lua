@@ -1,5 +1,8 @@
+local fiber = require('fiber')
+
 local abstract = require('queue.abstract')
 local queue_state = require('queue.abstract.queue_state')
+local qc = require('queue.compat')
 local queue = nil
 
 -- load all core drivers
@@ -10,6 +13,10 @@ local core_drivers = {
     utubettl    = require('queue.abstract.driver.utubettl'),
     limfifottl  = require('queue.abstract.driver.limfifottl')
 }
+
+-- since:
+-- https://github.com/locker/tarantool/commit/8cf5151cb4f05cee3fd0ea831add2b3187a01fe4
+local watchers_supported = qc.check_version({2, 10, 0})
 
 local function register_driver(driver_name, tube_ctr)
     if type(tube_ctr.create_space) ~= 'function' or
@@ -60,7 +67,20 @@ queue = setmetatable({
 local orig_cfg = nil
 local orig_call = nil
 
-local wrapper_impl
+local wrapper_impl, handle_instance_mode
+
+local function rw_waiter()
+    fiber.name('queue instance rw waiter')
+    local wait_cond = fiber.cond()
+    local w = box.watch('box.status', function(_, new_status)
+        if new_status.is_ro == false then
+            wait_cond:signal()
+        end
+    end)
+    wait_cond:wait()
+    w:unregister()
+    handle_instance_mode()
+end
 
 local function cfg_wrapper(...)
     box.cfg = orig_cfg
@@ -79,24 +99,22 @@ local function wrap_box_cfg()
         orig_cfg = box.cfg
         box.cfg = cfg_wrapper
     elseif type(box.cfg) == 'table' then
-        -- box.cfg after the first box.cfg call
-        local cfg_mt = getmetatable(box.cfg)
-        orig_call = cfg_mt.__call
-        cfg_mt.__call = cfg_call_wrapper
+        if box.info.ro_reason == 'config' or not watchers_supported then
+            -- box.cfg after the first box.cfg call.
+            -- The another call could switch the mode.
+            local cfg_mt = getmetatable(box.cfg)
+            orig_call = cfg_mt.__call
+            cfg_mt.__call = cfg_call_wrapper
+        else
+            -- Wait for the rw state.
+            fiber.new(rw_waiter)
+        end
     else
         error('The box.cfg type is unexpected: ' .. type(box.cfg))
     end
 end
 
-function wrapper_impl(...)
-    local result = { pcall(box.cfg,...) }
-    if result[1] then
-        table.remove(result, 1)
-    else
-        wrap_box_cfg()
-        error(result[2])
-    end
-
+function handle_instance_mode()
     if box.info.ro == false then
         local abstract = require 'queue.abstract'
         for name, val in pairs(abstract) do
@@ -113,6 +131,18 @@ function wrapper_impl(...)
         -- with read_only = false
         wrap_box_cfg()
     end
+end
+
+function wrapper_impl(...)
+    local result = { pcall(box.cfg,...) }
+    if result[1] then
+        table.remove(result, 1)
+    else
+        wrap_box_cfg()
+        error(result[2])
+    end
+
+    handle_instance_mode()
     return unpack(result)
 end
 
