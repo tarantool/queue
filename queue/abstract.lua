@@ -295,9 +295,12 @@ function tube.drop(self)
         error("There are taken tasks in the tube")
     end
 
-    local space_name = tube[3]
-
-    box.space[space_name]:drop()
+    if self.raw.drop ~= nil then
+        self.raw:drop()
+    else
+        local space_name = tube[3]
+        box.space[space_name]:drop()
+    end
     box.space._queue:delete{tube_name}
     -- drop queue
     queue.tube[tube_name] = nil
