@@ -165,6 +165,10 @@ The main idea of this queue backend is the same as in a `fifo` queue:
 the tasks are executed in FIFO order.
 However, tasks may be grouped into sub-queues.
 
+It is advised not to use `utube` methods inside transactions with
+`read-confirmed` isolation level. It can lead to errors when trying to make
+parallel tube methods calls with mvcc enabled.
+
 The following options can be specified when creating a `utube` queue:
   * `temporary` - boolean - if true, the contents of the queue do not persist
 on disk
@@ -172,6 +176,38 @@ on disk
 already exists
   * `on_task_change` - function name - a callback to be executed on every
 operation
+  * `storage_mode` - string - one of
+    * `queue.driver.utube.STORAGE_MODE_DEFAULT` ("default") - default
+      implementation of `utube`
+    * `queue.driver.utube.STORAGE_MODE_READY_BUFFER`
+      ("ready_buffer") - allows processing `take` requests faster, but
+      by the cost of `put` operations speed. Right now this option is supported
+      only for `memtx` engine.
+      WARNING: this is an experimental storage mode.
+
+    Here is a benchmark comparison of these two modes:
+    * Benchmark for simple `put` and `take` methods. 30k utubes are created
+      with a single task each. Task creation time is calculated. After that
+      30k consumers are calling `take` + `ack`, each in the separate fiber.
+      Time to ack all tasks is calculated. The results are as follows:
+
+      |         | put (30k) | take+ack |
+      |---------|-----------|----------|
+      | default | 180ms     | 1.6s     |
+      | ready   | 270ms     | 1.7s     |
+    * Benchmark for the busy utubes. 10 tubes are created.
+      Each contains 1000 tasks. After that, 10 consumers are created (each works
+      on his tube only, one tube — one consumer). Each consumer will 
+      `take`, then `yield` and then `ack` every task from their utube 
+      (1000 tasks each).
+      After that, we can also run this benchmark with 10k tasks on each utube,
+      100k tasks and 150k tasks. But all that with 10 utubes and 10 consumers.
+      The results are as follows:
+
+      |         | 1k    | 10k  | 50k  | 150k  |
+      |---------|-------|------|------|-------|
+      | default | 53s   | 1.5h | 100h | 1000h |
+      | ready   | 450ms | 4.7s | 26s  | 72s   |
 
 The following options can be specified when putting a task in a `utube`
 queue:

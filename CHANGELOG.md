@@ -7,10 +7,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- `storage_mode` option for creating a `utube` tube (#228). It enables the
+  workaround for slow takes while working with busy tubes.
+
 ### Fixed
 
 - Stuck in `INIT` state if an instance failed to enter the `running` mode
   in time (#226). This fix works only for Tarantool versions >= 2.10.0.
+- Slow takes on busy `utube` tubes (#228). The workaround could be enabled by
+  passing the `storage_mode = "ready_buffer"` option while creating
+  the tube.
 
 ## [1.3.3] - 2023-09-13
 
