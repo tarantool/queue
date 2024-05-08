@@ -81,7 +81,7 @@ end)
 
 test:test('test corrupted space utubettl', function(test)
     test_corrupted_space(test, utubettl,
-        {'task_id', 'status', 'utube', 'watch'})
+        {'task_id', 'status', 'utube', 'watch', 'utube_pri'})
 end)
 
 test:test('Space name conflict fifo', function(test)

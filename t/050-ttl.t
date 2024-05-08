@@ -2,7 +2,7 @@
 local fiber = require('fiber')
 
 local test  = require('tap').test()
-test:plan(5)
+test:plan(7)
 
 local queue = require('queue')
 
@@ -55,6 +55,21 @@ test:test('one message per queue utttl', function (test)
     end
 end)
 
+test:test('one message per queue utttl_ready', function (test)
+    if engine == 'vinyl' then
+        return
+    end
+
+    test:plan(20)
+    local tube = queue.create_tube('ompq_utttl_ready', 'utubettl',
+        { engine = engine, storage_mode = queue.driver.utubettl.STORAGE_MODE_READY_BUFFER })
+    for i = 1, 20 do
+        tube:put('ompq_' .. i, {ttl=ttl})
+
+        test_take_after_ttl(test, tube, ttl)
+    end
+end)
+
 test:test('many messages, one queue ffttl', function (test)
     test:plan(20)
     for i = 1, 20 do
@@ -69,6 +84,21 @@ test:test('many messages, one queue utttl', function (test)
     test:plan(20)
     for i = 1, 20 do
         local tube = queue.create_tube('mmpq_utttl_' .. i, 'utubettl', { engine = engine })
+        tube:put('mmpq_' .. i, {ttl=ttl})
+
+        test_take_after_ttl(test, tube, ttl)
+    end
+end)
+
+test:test('many messages, one queue utttl_ready', function (test)
+    if engine == 'vinyl' then
+        return
+    end
+
+    test:plan(20)
+    for i = 1, 20 do
+        local tube = queue.create_tube('mmpq_utttl_ready_' .. i, 'utubettl',
+            { engine = engine, storage_mode = queue.driver.utubettl.STORAGE_MODE_READY_BUFFER })
         tube:put('mmpq_' .. i, {ttl=ttl})
 
         test_take_after_ttl(test, tube, ttl)
