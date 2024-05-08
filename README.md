@@ -244,6 +244,10 @@ in strict FIFO order.
 
 This queue type is effectively a combination of `fifottl` and `utube`.
 
+It is advised not to use `utubettl` methods inside transactions with
+`read-confirmed` isolation level. It can lead to errors when trying to make
+parallel tube methods calls with mvcc enabled.
+
 The following options can be specified when creating a `utubettl` queue:
   * `temporary` - boolean - if true, the contents of the queue do not persist
 on disk
@@ -251,9 +255,42 @@ on disk
 already exists
   * `on_task_change` - function name - a callback to be executed on every
 operation
+  * `storage_mode` - string - one of
+    * `queue.driver.utubettl.STORAGE_MODE_DEFAULT` ("default") - default
+      implementation of `utubettl`
+    * `queue.driver.utubettl.STORAGE_MODE_READY_BUFFER`
+      ("ready_buffer") - allows processing `take` requests faster, but
+      by the cost of `put` operations speed. Right now this option is supported
+      only for `memtx` engine.
+      WARNING: this is an experimental storage mode.
+
+    Here is a benchmark comparison of these two modes:
+    * Benchmark for simple `put` and `take` methods. 30k utubes are created
+      with a single task each. Task creation time is calculated. After that
+      30k consumers are calling `take` + `ack`, each in the separate fiber.
+      Time to ack all tasks is calculated. The results are as follows:
+
+      |         | put (30k) | take+ack |
+      |---------|-----------|----------|
+      | default | 200ms     | 1.7s     |
+      | ready   | 320ms     | 1.8s     |
+    * Benchmark for the busy utubes. 10 tubes are created.
+      Each contains 1000 tasks. After that, 10 consumers are created (each works
+      on his tube only, one tube — one consumer). Each consumer will
+      `take`, then `yield` and then `ack` every task from their utube
+      (1000 tasks each).
+      After that, we can also run this benchmark with 10k tasks on each utube,
+      100k tasks and 140k tasks. But all that with 10 utubes and 10 consumers.
+      The results are as follows:
+
+      |         | 1k    | 10k  | 50k  | 140k  |
+      |---------|-------|------|------|-------|
+      | default | 80s   | 1.6h | 100h | 1000h |
+      | ready   | 520ms | 5.4s | 28s  | 83s   |
 
 The following options can be specified when putting a task in a
 `utubettl` queue:
+  * `pri` - task priority (`0` is the highest priority and is the default)
   * `utube` - the name of the sub-queue
   * `ttl` - numeric - time to live for a task put into the queue, in
 seconds. if `ttl` is not specified, it is set to infinity
