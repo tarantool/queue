@@ -5,10 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] - 2024-05-20
+
+The release introduces an experimental `storage_mode` option for the `utube`
+and `utubettl` drivers with the `memtx` engine. It could be used to create a
+`utube` or `utubettl` queue with an additional buffer space that stores only
+ready to take tasks.
+
+```Lua
+local tube = queue.create_tube('utube_with_ready_buffer', 'utube',
+    {storage_mode = queue.driver.utube.STORAGE_MODE_READY_BUFFER})
+```
+```Lua
+local tube = queue.create_tube('utubettl_with_ready_buffer', 'utubettl',
+    {storage_mode = queue.driver.utubettl.STORAGE_MODE_READY_BUFFER})
+```
+
+The storage mode slower in general cases, but a much faster in cases when
+you have utubes with many tasks (see README.md for the performance comparison).
+So you should make your choice carefully.
 
 ### Added
-- `storage_mode` option for creating a `utube` and `utubettl` tube (#228).
+- Experimental `storage_mode` option for creating a `utube` and `utubettl`
+  tube (#228).
   It enables the workaround for slow takes while working with busy tubes.
 
 ### Fixed
