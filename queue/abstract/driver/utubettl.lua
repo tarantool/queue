@@ -305,11 +305,12 @@ local function utubettl_fiber(self)
             elseif stat then
                 processed = err
             end
-        end
-
-        if self.sync_chan:get(0.1) ~= nil then
-            log.info("Queue utubettl fiber was stopped")
-            break
+        else
+            -- When switching the master to the replica, the fiber will be stopped.
+            if self.sync_chan:get(0.1) ~= nil then
+                log.info("Queue utubettl fiber was stopped")
+                break
+            end
         end
     end
 end
