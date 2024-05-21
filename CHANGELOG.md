@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
 ### Fixed
 
-- Too long timings in the `utubettl` driver (#223)
+## [1.4.1] - 2024-05-21
+
+The release fixes too long release time by a `ttr` value or a `delay` timeout.
+
+### Fixed
+
+- Too long timings in the `utubettl` driver (#223).
 
 ## [1.4.0] - 2024-05-20
 
