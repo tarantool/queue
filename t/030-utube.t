@@ -19,22 +19,16 @@ test:ok(queue, 'queue is loaded')
 local tube = queue.create_tube('test', 'utube', { engine = engine })
 local tube2 = queue.create_tube('test_stat', 'utube', { engine = engine })
 local tube_ready, tube2_ready
-if engine ~= 'vinyl' then
-    tube_ready = queue.create_tube('test_ready', 'utube',
-        { engine = engine, storage_mode = queue.driver.utube.STORAGE_MODE_READY_BUFFER })
-    tube2_ready = queue.create_tube('test_stat_ready', 'utube',
-        { engine = engine, storage_mode = queue.driver.utube.STORAGE_MODE_READY_BUFFER })
-end
+tube_ready = queue.create_tube('test_ready', 'utube',
+    { engine = engine, storage_mode = queue.driver.utube.STORAGE_MODE_READY_BUFFER })
+tube2_ready = queue.create_tube('test_stat_ready', 'utube',
+    { engine = engine, storage_mode = queue.driver.utube.STORAGE_MODE_READY_BUFFER })
 test:ok(tube, 'test tube created')
 test:is(tube.name, 'test', 'tube.name')
 test:is(tube.type, 'utube', 'tube.type')
 
 test:test('Utube statistics', function(test)
-    if engine ~= 'vinyl' then
-        test:plan(13 * 2)
-    else
-        test:plan(13)
-    end
+    test:plan(13 * 2)
     for _, tube_stat in ipairs({tube2, tube2_ready}) do
         if tube_stat == nil then
             break
@@ -78,11 +72,7 @@ end)
 
 
 test:test('Easy put/take/ack', function(test)
-    if engine ~= 'vinyl' then
-        test:plan(12 * 2)
-    else
-        test:plan(12)
-    end
+    test:plan(12 * 2)
 
     for _, test_tube in ipairs({tube, tube_ready}) do
         if test_tube == nil then
@@ -110,11 +100,7 @@ test:test('Easy put/take/ack', function(test)
 end)
 
 test:test('ack in utube', function(test)
-    if engine ~= 'vinyl' then
-        test:plan(8 * 2)
-    else
-        test:plan(8)
-    end
+    test:plan(8 * 2)
 
     for _, test_tube in ipairs({tube, tube_ready}) do
         if test_tube == nil then
@@ -145,11 +131,7 @@ test:test('ack in utube', function(test)
     end
 end)
 test:test('bury in utube', function(test)
-    if engine ~= 'vinyl' then
-        test:plan(8 * 2)
-    else
-        test:plan(8)
-    end
+    test:plan(8 * 2)
 
     for _, test_tube in ipairs({tube, tube_ready}) do
         if test_tube == nil then
@@ -180,11 +162,7 @@ test:test('bury in utube', function(test)
     end
 end)
 test:test('instant bury', function(test)
-    if engine ~= 'vinyl' then
-        test:plan(1 * 2)
-    else
-        test:plan(1)
-    end
+    test:plan(1 * 2)
     tube:put(1, {ttr=60})
     local taken = tube:take(.1)
     test:is(tube:bury(taken[1])[2], '!', 'task is buried')
