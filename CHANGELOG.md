@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+## [1.4.2] - 2024-08-10
+
+The release re-publish packages.
+
+### Fixed
+
+- Package publishing.
+
 ## [1.4.1] - 2024-05-21
 
 The release fixes too long release time by a `ttr` value or a `delay` timeout.
