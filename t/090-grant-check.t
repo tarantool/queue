@@ -1,6 +1,6 @@
 #!/usr/bin/env tarantool
 local test = require('tap').test()
-test:plan(3)
+test:plan(9)
 
 local test_user = 'test'
 local test_pass = '1234'
@@ -20,6 +20,68 @@ tnt.cfg{
 local engine = os.getenv('ENGINE') or 'memtx'
 
 local qc = require('queue.compat')
+
+local test_drivers_grant_cases = {
+    {
+        name = 'fifo',
+        queue_type = 'fifo',
+    },
+    {
+        name = 'fifottl',
+        queue_type = 'fifottl',
+    },
+    {
+        name = 'utube_default',
+        queue_type = 'utube',
+        storage_mode = 'default',
+    },
+    {
+        name = 'utube_ready_buffer',
+        queue_type = 'utube',
+        storage_mode = 'ready_buffer',
+    },
+    {
+        name = 'utubettl_default',
+        queue_type = 'utubettl',
+        storage_mode = 'default',
+    },
+    {
+        name = 'utubettl_ready_buffer',
+        queue_type = 'utubettl',
+        storage_mode = 'ready_buffer',
+    },
+}
+
+for _, tc in pairs(test_drivers_grant_cases) do
+    test:test('test dirvers grant ' .. tc.name, function(test)
+        local queue = require('queue')
+        box.schema.user.create(test_user, { password = test_pass })
+
+        test:plan(2)
+
+        local tube_opts = { engine = engine }
+        if tc.storage_mode ~= nil and tc.storage_mode ~= 'default' then
+            tube_opts.storage_mode = tc.storage_mode
+            tube_opts.engine = 'memtx'
+        end
+        local tube = queue.create_tube('test', tc.queue_type, tube_opts)
+        tube:put('help')
+
+        tube:grant(test_user)
+
+        box.session.su(test_user)
+        local a = tube:take()
+        test:is(a[1], 0, 'we aren\'t getting any error')
+
+        local c = tube:ack(a[1])
+        test:is(c[1], 0, 'we aren\'t getting any error')
+
+        box.session.su('admin')
+
+        box.schema.user.drop(test_user)
+        tube:drop()
+    end)
+end
 
 test:test('check for space grants', function(test)
     -- prepare for tests

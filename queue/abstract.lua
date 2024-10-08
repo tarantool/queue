@@ -346,7 +346,7 @@ function tube.grant(self, user, args)
     tube_grant_space(user, '_queue', 'read')
     tube_grant_space(user, '_queue_consumers')
     tube_grant_space(user, '_queue_taken_2')
-    tube_grant_space(user, self.name)
+    self.raw:grant(user, {if_not_exists = true})
     session.grant(user)
 
     if args.call then
