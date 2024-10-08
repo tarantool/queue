@@ -386,6 +386,14 @@ function tube.new(space, on_task_change, opts)
     return self
 end
 
+-- method.grant grants provided user to all spaces of driver.
+function method.grant(self, user, opts)
+    box.schema.user.grant(user, 'read,write', 'space', self.space.name, opts)
+    if self.space_ready_buffer ~= nil then
+        box.schema.user.grant(user, 'read,write', 'space', self.space_ready_buffer.name, opts)
+    end
+end
+
 -- cleanup internal fields in task
 function method.normalize_task(self, task)
     return task and task:transform(i_next_event, i_data - i_next_event)

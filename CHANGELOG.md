@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- Grant method was added for `*_ready_buffer` spaces (#237).
+
 ## [1.4.2] - 2024-08-10
 
 The release re-publish packages.
