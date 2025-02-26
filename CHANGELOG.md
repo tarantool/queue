@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Grant method was added for `*_ready_buffer` spaces (#237).
+- Attempt to index a nil value if box.info.replication array has gaps.
 
 ## [1.4.2] - 2024-08-10
 
