@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+## [1.4.3] - 2024-03-05
+
+The release fixes start of a queue on instances with gaps inside
+the box.info.replication array.
+
+### Fixed
+
 - Grant method was added for `*_ready_buffer` spaces (#237).
 - Attempt to index a nil value if box.info.replication array has gaps.
 
