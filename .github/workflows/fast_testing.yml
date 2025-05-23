@@ -18,15 +18,15 @@ jobs:
       matrix:
         tarantool:
           - '1.10'
-          - '2.8'
-          - '2.10'
+          - '2.11'
+          - '3.4'
 
     steps:
       - name: Clone the module
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup tarantool ${{ matrix.tarantool }}
-        uses: tarantool/setup-tarantool@v1
+        uses: tarantool/setup-tarantool@v3
         with:
           tarantool-version: ${{ matrix.tarantool }}
 
