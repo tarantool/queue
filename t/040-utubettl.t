@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = (require('tap')).test()
-test:plan(17)
+test:plan(18)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -208,6 +208,7 @@ test:test('bury in utube', function(test)
         test:is(state, 2, 'state was changed')
     end
 end)
+
 test:test('instant bury', function(test)
     if engine ~= 'vinyl' then
         test:plan(1 * 2)
@@ -225,6 +226,40 @@ test:test('instant bury', function(test)
         test:is(tube_ready:bury(taken[1])[2], '!', 'task is buried')
     end
 end)
+
+test:test('priority in utube', function(test)
+    if engine ~= 'vinyl' then
+        test:plan(8 * 2)
+    else
+        test:plan(8)
+    end
+
+    for _, test_tube in ipairs({tube, tube_ready}) do
+        if test_tube == nil then
+            break
+        end
+
+        test:ok(test_tube:put(670, {utube = 'dee', pri = 1}), 'task was put')
+        test:ok(test_tube:put(671, {utube = 'dee', pri = 0}), 'task was put')
+
+        local taken = test_tube:take(.1)
+        test:ok(taken, 'task was taken ' .. taken[1])
+        test:is(taken[3], 671, 'task.data')
+
+        test_tube:release(taken[1])
+
+        taken = test_tube:take(.1)
+        test:ok(taken, 'task was taken ' .. taken[1])
+        test:is(taken[3], 671, 'task.data')
+        test_tube:ack(taken[1])
+
+        taken = test_tube:take(.1)
+        test:ok(taken, 'task was taken ' .. taken[1])
+        test:is(taken[3], 670, 'task.data')
+        test_tube:ack(taken[1])
+    end
+end)
+
 test:test('release in utube', function(test)
     if engine ~= 'vinyl' then
         test:plan(8 * 2)

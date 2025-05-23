@@ -137,14 +137,17 @@ end
 local function put_ready(self, id, utube, pri)
     local taken = self.space.index.utube:min{state.TAKEN, utube}
     if taken == nil or taken[i_status] ~= state.TAKEN then
-        local current_task = self.space.index.utube_pri:min{state.READY, utube}
-        if current_task[i_status] ~= state.READY or
-                current_task[i_pri] < pri or (current_task[i_pri] == pri and current_task[i_id] < id) then
-            return
+        local cur_task = self.space_ready_buffer.index.utube:get{utube}
+
+        if cur_task ~= nil then
+            local cur_id = cur_task[1]
+            local cur_pri = cur_task[3]
+            if cur_pri < pri or (cur_pri == pri and cur_id < id) then
+                return
+            end
+            self.space_ready_buffer:delete(cur_id)
         end
-        if current_task[i_pri] > pri then
-            self.space_ready_buffer:delete(current_task[id])
-        end
+
         -- Ignoring ER_TUPLE_FOUND error, if a tuple with the same task_id
         -- or utube name is already in the space.
         -- Note that both task_id and utube indexes are unique, so there will be

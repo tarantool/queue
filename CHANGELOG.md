@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- Incorrect choice by priority of task with utubettl driver + ready buffer
+  mode (#244).
+- Unable to take task with utubettl driver + ready buffer mode (#244).
+
 ## [1.4.3] - 2024-03-05
 
 The release fixes start of a queue on instances with gaps inside
