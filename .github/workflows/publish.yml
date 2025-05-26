@@ -56,7 +56,7 @@ jobs:
       # .src.rock instead. See [1] for description of rock types.
       #
       # [1]: https://github.com/luarocks/luarocks/wiki/Types-of-rocks
-      - uses: tarantool/setup-tarantool@v1
+      - uses: tarantool/setup-tarantool@v3
         with:
           tarantool-version: '2.10'
       - run: tarantoolctl rocks install queue-${{ env.TAG }}-1.rockspec
