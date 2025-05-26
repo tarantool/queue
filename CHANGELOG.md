@@ -13,11 +13,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+## [1.4.4] - 2025-05-26
+
+The patch release fixes incorrect behavior of the utubettl driver with enabled
+`STORAGE_MODE_READY_BUFFER` mode.
+
+### Fixed
+
 - Incorrect choice by priority of task with utubettl driver + ready buffer
   mode (#244).
 - Unable to take task with utubettl driver + ready buffer mode (#244).
 
-## [1.4.3] - 2024-03-05
+## [1.4.3] - 2025-03-05
 
 The release fixes start of a queue on instances with gaps inside
 the box.info.replication array.
