@@ -196,7 +196,7 @@ function tube.new(space, on_task_change, opts)
     }, { __index = method })
 
     self.cond  = qc.waiter()
-    self.fiber = fiber.create(fifottl_fiber, self)
+    self.fiber = util.background_fiber(fifottl_fiber, self)
     self.sync_chan = fiber.channel()
 
     return self
@@ -412,7 +412,7 @@ function method.start(self)
     if self.fiber then
         return
     end
-    self.fiber = fiber.create(fifottl_fiber, self)
+    self.fiber = util.background_fiber(fifottl_fiber, self)
 end
 
 function method.stop(self)
