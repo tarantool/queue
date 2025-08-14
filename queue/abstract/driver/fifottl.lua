@@ -202,9 +202,9 @@ function tube.new(space, on_task_change, opts)
     return self
 end
 
--- method.grant grants provided user to all spaces of driver.
-function method.grant(self, user, opts)
-    box.schema.user.grant(user, 'read,write', 'space', self.space.name, opts)
+-- method.grant grants provided grantee to all spaces of driver.
+function method.grant(self, grant_provider, grantee, opts)
+    grant_provider.grant(grantee, 'read,write', 'space', self.space.name, opts)
 end
 
 -- cleanup internal fields in task

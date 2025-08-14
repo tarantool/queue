@@ -285,10 +285,10 @@ local function disconnect(conn_id)
     end
 end
 
-local function grant(user)
-    box.schema.user.grant(user, 'read, write', 'space', '_queue_session_ids',
+local function grant(grant_provider, grantee)
+    grant_provider.grant(grantee, 'read, write', 'space', '_queue_session_ids',
         { if_not_exists = true })
-    box.schema.user.grant(user, 'read, write', 'space', '_queue_shared_sessions',
+    grant_provider.grant(grantee, 'read, write', 'space', '_queue_shared_sessions',
         { if_not_exists = true })
 end
 

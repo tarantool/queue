@@ -324,49 +324,52 @@ function tube.on_task_change(self, cb)
     return old_cb
 end
 
-function tube.grant(self, user, args)
+function tube.grant(self, grantee, args, opts)
+    local grant_provider = opts and opts.grant_provider or box.schema.user
+
     if not check_state("grant") then
         return
     end
-    local function tube_grant_space(user, name, tp)
-        box.schema.user.grant(user, tp or 'read,write', 'space', name, {
+    local function tube_grant_space(name, tp)
+        grant_provider.grant(grantee, tp or 'read,write', 'space', name, {
             if_not_exists = true,
         })
     end
 
-    local function tube_grant_func(user, name)
+    local function tube_grant_func(name)
         box.schema.func.create(name, { if_not_exists = true })
-        box.schema.user.grant(user, 'execute', 'function', name, {
+        grant_provider.grant(grantee, 'execute', 'function', name, {
             if_not_exists = true
         })
     end
 
     args = args or {}
 
-    tube_grant_space(user, '_queue', 'read')
-    tube_grant_space(user, '_queue_consumers')
-    tube_grant_space(user, '_queue_taken_2')
-    self.raw:grant(user, {if_not_exists = true})
-    session.grant(user)
+    tube_grant_space('_queue', 'read')
+    tube_grant_space('_queue_consumers')
+    tube_grant_space('_queue_taken_2')
+    self.raw:grant(grant_provider, grantee, {if_not_exists = true})
+    session.grant(grant_provider, grantee)
+
 
     if args.call then
-        tube_grant_func(user, 'queue.identify')
-        tube_grant_func(user, 'queue.statistics')
+        tube_grant_func('queue.identify')
+        tube_grant_func('queue.statistics')
         local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
-        tube_grant_func(user, prefix .. 'put')
-        tube_grant_func(user, prefix .. 'take')
-        tube_grant_func(user, prefix .. 'touch')
-        tube_grant_func(user, prefix .. 'ack')
-        tube_grant_func(user, prefix .. 'release')
-        tube_grant_func(user, prefix .. 'peek')
-        tube_grant_func(user, prefix .. 'bury')
-        tube_grant_func(user, prefix .. 'kick')
-        tube_grant_func(user, prefix .. 'delete')
+        tube_grant_func(prefix .. 'put')
+        tube_grant_func(prefix .. 'take')
+        tube_grant_func(prefix .. 'touch')
+        tube_grant_func(prefix .. 'ack')
+        tube_grant_func(prefix .. 'release')
+        tube_grant_func(prefix .. 'peek')
+        tube_grant_func(prefix .. 'bury')
+        tube_grant_func(prefix .. 'kick')
+        tube_grant_func(prefix .. 'delete')
     end
 
     if args.truncate then
         local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
-        tube_grant_func(user, prefix .. 'truncate')
+        tube_grant_func(prefix .. 'truncate')
     end
 
 end
