@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+## [1.4.5] - 2025-09-22
+
+Race condition between utubettl_fiber_iteration fiber and other operation.
+
+### Fixed
+
+- Erasing the task entry from _queue_taken_2 in the `utubettl` driver by
+  a race condition between utubettl_fiber_iteration fiber and other operation.
+
 ## [1.4.4] - 2025-05-26
 
 The patch release fixes incorrect behavior of the utubettl driver with enabled
