@@ -479,6 +479,11 @@ end
 
 --- Release all session tasks.
 local function release_session_tasks(session_uuid)
+    -- Early exit for replicas
+    if queue_state.get() ~= queue_state.states.RUNNING then
+        return
+    end
+
     local taken_tasks = box.space._queue_taken_2.index.uuid:select{session_uuid}
 
     for _, task in pairs(taken_tasks) do
@@ -500,6 +505,11 @@ function method.state()
 end
 
 function method._on_consumer_disconnect()
+    -- Early exit for replicas
+    if queue_state.get() ~= queue_state.states.RUNNING then
+        return
+    end
+
     local conn_id = connection.id()
 
     -- wakeup all waiters
