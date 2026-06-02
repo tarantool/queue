@@ -479,6 +479,10 @@ end
 
 --- Release all session tasks.
 local function release_session_tasks(session_uuid)
+    if box.info.ro then
+        return
+    end
+
     local taken_tasks = box.space._queue_taken_2.index.uuid:select{session_uuid}
 
     for _, task in pairs(taken_tasks) do
@@ -501,26 +505,25 @@ end
 
 function method._on_consumer_disconnect()
     local conn_id = connection.id()
+    local consumers = box.space._queue_consumers
 
     -- wakeup all waiters
-    while true do
-        local waiter = box.space._queue_consumers.index.pk:min{conn_id}
-        if waiter == nil then
-            break
-        end
-        -- Don't touch the other consumers
-        if waiter[1] ~= conn_id then
-            break
-        end
-        box.space._queue_consumers:delete{waiter[1], waiter[2]}
-        local cond = conds[waiter[2]]
+    for _, waiter in consumers.index.pk:pairs(conn_id, { iterator = 'EQ' }) do
+        local fid = waiter[2]
+        local cond = conds[fid]
         if cond then
-            releasing_connections[waiter[2]] = true
-            cond:signal(waiter[2])
+            releasing_connections[fid] = true
+            cond:signal(fid)
+        end
+
+        if not box.info.ro then
+            consumers:delete{waiter[1], waiter[2]}
         end
     end
 
-    session.disconnect(conn_id)
+    if not box.info.ro then
+        session.disconnect(conn_id)
+    end
 end
 
 -- function takes tuples and recreates tube
@@ -539,10 +542,29 @@ local function recreate_tube(tube_tuple)
     return make_self(driver, space, name, tube_type, id, opts)
 end
 
+-- Cleans local temporary spaces on startup to avoid
+-- storing old data
+local function cleanup_temp_spaces()
+    if box.info.ro then
+        return
+    end
+
+    local s = box.space._queue_consumers
+    if s ~= nil then
+        s:truncate()
+    end
+
+    s = box.space._queue_session_ids
+    if s ~= nil then
+        s:truncate()
+    end
+end
+
 -- Function takes new queue state.
 -- The "RUNNING" and "WAITING" states do not require additional actions.
 local function on_state_change(state)
     if state == queue_state.states.STARTUP then
+        cleanup_temp_spaces()
         local replicaset_mode = queue.cfg['in_replicaset'] or false
         -- gh-202: In replicaset mode, tubes can be created and deleted on different nodes.
         -- Accordingly, it is necessary to rebuild the queue.tube index.
