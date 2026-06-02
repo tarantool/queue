@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- `ERR_READONLY` errors on previous leader after leader change in cluster
+   while processing `on_disconnect` triggers (#248).
+
 ## [1.4.4] - 2025-05-26
 
 The patch release fixes incorrect behavior of the utubettl driver with enabled
