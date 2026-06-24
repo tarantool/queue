@@ -207,6 +207,10 @@ function method.grant(self, user, opts)
     box.schema.user.grant(user, 'read,write', 'space', self.space.name, opts)
 end
 
+function method.grant_role(self, role, opts)
+    box.schema.role.grant(role, 'read,write', 'space', self.space.name, opts)
+end
+
 -- cleanup internal fields in task
 function method.normalize_task(self, task)
     return task and task:transform(3, 5)

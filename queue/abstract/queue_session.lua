@@ -292,6 +292,13 @@ local function grant(user)
         { if_not_exists = true })
 end
 
+local function grant_role(role)
+    box.schema.role.grant(role, 'read, write', 'space', '_queue_session_ids',
+        { if_not_exists = true })
+    box.schema.role.grant(role, 'read, write', 'space', '_queue_shared_sessions',
+        { if_not_exists = true })
+end
+
 local function start()
     identification_init()
     queue_session.sync_chan = fiber.channel()
@@ -349,6 +356,7 @@ local method = {
     identify = identify,
     disconnect = disconnect,
     grant = grant,
+    grant_role = grant_role,
     on_session_remove = on_session_remove,
     start = start,
     stop = stop,
