@@ -324,51 +324,79 @@ function tube.on_task_change(self, cb)
     return old_cb
 end
 
+local function tube_grant_space(grantor, grantee, name, tp)
+    grantor.grant(grantee, tp or 'read,write', 'space', name, {
+        if_not_exists = true,
+    })
+end
+
+local function tube_grant_func(grantor, grantee, name)
+    box.schema.func.create(name, { if_not_exists = true })
+    grantor.grant(grantee, 'execute', 'function', name, {
+        if_not_exists = true
+    })
+end
+
+local function grant_system_spaces(grantor, grantee)
+    tube_grant_space(grantor, grantee, '_queue', 'read')
+    tube_grant_space(grantor, grantee, '_queue_consumers')
+    tube_grant_space(grantor, grantee, '_queue_taken_2')
+end
+
+local function grant_args(grantor, grantee, args, name)
+    if args.call then
+        tube_grant_func(grantor, grantee, 'queue.identify')
+        tube_grant_func(grantor, grantee, 'queue.statistics')
+        local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(name)
+        tube_grant_func(grantor, grantee, prefix .. 'put')
+        tube_grant_func(grantor, grantee, prefix .. 'take')
+        tube_grant_func(grantor, grantee, prefix .. 'touch')
+        tube_grant_func(grantor, grantee, prefix .. 'ack')
+        tube_grant_func(grantor, grantee, prefix .. 'release')
+        tube_grant_func(grantor, grantee, prefix .. 'peek')
+        tube_grant_func(grantor, grantee, prefix .. 'bury')
+        tube_grant_func(grantor, grantee, prefix .. 'kick')
+        tube_grant_func(grantor, grantee, prefix .. 'delete')
+    end
+
+    if args.truncate then
+        local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(name)
+        tube_grant_func(grantor, grantee, prefix .. 'truncate')
+    end
+end
+
 function tube.grant(self, user, args)
     if not check_state("grant") then
         return
     end
-    local function tube_grant_space(user, name, tp)
-        box.schema.user.grant(user, tp or 'read,write', 'space', name, {
-            if_not_exists = true,
-        })
-    end
 
-    local function tube_grant_func(user, name)
-        box.schema.func.create(name, { if_not_exists = true })
-        box.schema.user.grant(user, 'execute', 'function', name, {
-            if_not_exists = true
-        })
+    args = args or {}
+
+    grant_system_spaces(box.schema.user, user)
+
+    self.raw:grant(user, {if_not_exists = true})
+    session.grant(user)
+
+    grant_args(box.schema.user, user, args, self.name)
+end
+
+function tube.grant_role(self, role, args)
+    if not check_state("grant") then
+        return
     end
 
     args = args or {}
 
-    tube_grant_space(user, '_queue', 'read')
-    tube_grant_space(user, '_queue_consumers')
-    tube_grant_space(user, '_queue_taken_2')
-    self.raw:grant(user, {if_not_exists = true})
-    session.grant(user)
-
-    if args.call then
-        tube_grant_func(user, 'queue.identify')
-        tube_grant_func(user, 'queue.statistics')
-        local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
-        tube_grant_func(user, prefix .. 'put')
-        tube_grant_func(user, prefix .. 'take')
-        tube_grant_func(user, prefix .. 'touch')
-        tube_grant_func(user, prefix .. 'ack')
-        tube_grant_func(user, prefix .. 'release')
-        tube_grant_func(user, prefix .. 'peek')
-        tube_grant_func(user, prefix .. 'bury')
-        tube_grant_func(user, prefix .. 'kick')
-        tube_grant_func(user, prefix .. 'delete')
+    if self.raw.grant_role ~= nil then
+        self.raw:grant_role(role, { if_not_exists = true })
+    else
+        error(('Tube %s driver does not support grant_role()'):format(self.name))
     end
 
-    if args.truncate then
-        local prefix = (args.prefix or 'queue.tube') .. ('.%s:'):format(self.name)
-        tube_grant_func(user, prefix .. 'truncate')
-    end
+    grant_system_spaces(box.schema.role, role)
+    session.grant_role(role)
 
+    grant_args(box.schema.role, role, args, self.name)
 end
 
 -- methods

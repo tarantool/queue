@@ -134,6 +134,14 @@ function method.grant(self, user, opts)
     end
 end
 
+function method.grant_role(self, role, opts)
+    box.schema.role.grant(role, 'read,write', 'space', self.space.name, opts)
+    if self.space_ready_buffer ~= nil then
+        box.schema.role.grant(role, 'read,write', 'space',
+            self.space_ready_buffer.name, opts)
+    end
+end
+
 -- normalize task: cleanup all internal fields
 function method.normalize_task(self, task)
     return task and task:transform(3, 1)

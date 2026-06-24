@@ -29,6 +29,7 @@ align="right">
   * [Initialization](#initialization)
   * [Get the module version](#get-the-module-version)
   * [Creating a new queue](#creating-a-new-queue)
+  * [Granting access to a queue](#granting-access-to-a-queue)
   * [Set queue settings](#set-queue-settings)
   * [Session identify](#session-identify)
   * [Putting a task in a queue](#putting-a-task-in-a-queue)
@@ -528,6 +529,33 @@ Effect: a tuple is added in the `_queue` space, and a new associated space is
 created.
 
 Example: `queue.create_tube('list_of_sites', 'fifo', {temporary = true})`
+
+## Granting access to a queue
+
+```lua
+local tube = queue.create_tube('test_tube', 'fifo')
+tube:grant(user name [, {options} ])
+```
+
+This function grants the user enough privileges to work with the tube using the
+Lua API (tube:put(), tube:take(), tube:ack(), etc.) when the code is executed
+inside Tarantool under that user.
+
+Available `options`:
+* `call` - boolean - additionally grant permissions required to use the tube via remote
+calls (`net.box:call()`). When enabled, the module creates and grants execute privileges
+for `queue.identify`, `queue.statistics`, and `queue.tube.<tube_name>:*` functions.
+* `truncate` - boolean - additionally grant permission to truncate the tube via
+`queue.tube.<tube_name>:truncate` function. Useful when you want to allow clearing the
+tube contents.
+
+```lua
+local tube = queue.create_tube('test_tube', 'fifo')
+tube:grant_role(role name [, {options} ])
+```
+
+Same function as `tube:grant()`, but grants privileges to a role instead of a user.
+Any user who has this role will be able to access the tube. The options are the same.
 
 ## Set queue settings
 

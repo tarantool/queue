@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- Ability to grant tubes to roles. All default tube drivers are supported (#249).
+  Example: `queue.tube.my_tube:grant_role('queue_worker', {call = true})`
+
 ### Changed
 
 ### Fixed
