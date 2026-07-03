@@ -9,10 +9,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.5.0] - 2026-07-10
+
+This release introduces tube-level grants for roles (supported by all default
+tube drivers). It also fixes `ERR_READONLY` errors on the previous leader
+when `on_disconnect` triggers run after a leadership change.
+
+### Added
+
 - Ability to grant tubes to roles. All default tube drivers are supported (#249).
   Example: `queue.tube.my_tube:grant_role('queue_worker', {call = true})`
-
-### Changed
 
 ### Fixed
 
