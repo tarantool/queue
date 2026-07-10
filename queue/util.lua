@@ -34,6 +34,23 @@ local function event_time(tm)
     return tm
 end
 
+local function background_fiber(func, ...)
+    local fib = fiber.new(func, ...)
+
+    if not package.reload then
+        return fib
+    end
+
+    fib:set_joinable(true)
+
+    package.reload:register(function()
+        fib:cancel()
+        fib:join()
+    end)
+
+    return fib
+end
+
 local util = {
     MAX_TIMEOUT = MAX_TIMEOUT,
     TIMEOUT_INFINITY = TIMEOUT_INFINITY
@@ -42,7 +59,8 @@ local util = {
 -- methods
 local method = {
     time = time,
-    event_time = event_time
+    event_time = event_time,
+    background_fiber = background_fiber,
 }
 
 return setmetatable(util, { __index = method })
