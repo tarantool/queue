@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - The `on_task_change` callback got an expired task with a `NULL` status
   instead of `DONE` (`fifottl`, `utubettl`) (#255).
+- `kick()` corrupted the ready buffer of the `utube` driver in the
+  `ready_buffer` storage mode. A kicked task either stayed invisible to
+  `take()` forever, or was written to the buffer under its status instead of
+  its utube name, which allowed two tasks of one utube to be taken at once
+  (#256).
+- `kick()` left a transaction open when the `utube` tube had no buried tasks
+  (#256).
 
 ## [1.5.0] - 2026-07-10
 

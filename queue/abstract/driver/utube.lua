@@ -179,6 +179,19 @@ local function put_ready(self, id, utube)
     end
 end
 
+-- Try to update the current task in ready_buffer for the given 'utube'.
+local function update_ready(self, id, utube)
+    local prev_task = self.space_ready_buffer.index.utube:get{utube}
+    if prev_task ~= nil then
+        if prev_task[1] > id then
+            self.space_ready_buffer:delete(prev_task[1])
+            self.space_ready_buffer:insert({id, utube})
+        end
+    else
+        put_ready(self, id, utube)
+    end
+end
+
 local function commit()
     box.commit()
 end
@@ -413,23 +426,19 @@ function method.kick(self, count)
 
         local task = self.space.index.status:min{ state.BURIED }
         if task == nil then
+            commit_func()
+
             return i - 1
         end
         if task[2] ~= state.BURIED then
+            commit_func()
+
             return i - 1
         end
 
         task = self.space:update(task[1], {{ '=', 2, state.READY }})
         if self.ready_space_mode then
-            local prev_task = self.space_ready_buffer.index.utube:get{task[3]}
-            if prev_task ~= nil then
-                if prev_task[1] > task[1] then
-                    self.space_ready_buffer:delete(prev_task[1])
-                    self.space_ready_buffer:insert({task[1], task[2]})
-                end
-            else
-                put_ready(self, task[3])
-            end
+            update_ready(self, task[1], task[3])
         end
 
         commit_func()
