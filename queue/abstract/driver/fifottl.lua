@@ -109,9 +109,9 @@ local function fifottl_fiber_iteration(self, processed)
     end
 
     -- ttl tasks
-    for _, state in pairs(ttl_states) do
-        task = self.space.index.watch:min{ state }
-        if task ~= nil and task[i_status] == state then
+    for _, task_state in pairs(ttl_states) do
+        task = self.space.index.watch:min{ task_state }
+        if task ~= nil and task[i_status] == task_state then
             if now >= task[i_next_event] then
                 task = self:delete(task[i_id]):transform(2, 1, state.DONE)
                 self:on_task_change(task, 'ttl')

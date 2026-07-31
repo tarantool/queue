@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- The `on_task_change` callback got an expired task with a `NULL` status
+  instead of `DONE` (`fifottl`, `utubettl`) (#255).
+
 ## [1.5.0] - 2026-07-10
 
 This release introduces tube-level grants for roles (supported by all default
