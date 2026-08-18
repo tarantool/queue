@@ -825,7 +825,11 @@ queue.statistics( [queue name] )
 
 Show the number of tasks in a queue broken down by `task_state`, and the number
 of requests broken down by the type of request. If the queue name is not
-specified, show these numbers for all queues.
+specified, show these numbers for all queues. 
+
+In addition, any driver can add extra information for statistics by implementing their own `statistics` method.  
+The result of this method will be added as additional key of the returned value `queue.statistics`.
+
 Statistics are temporary, they are reset whenever the Tarantool server restarts.
 
 Example:

@@ -941,6 +941,11 @@ local function build_stats(space)
     stats['tasks']['total'] = total
     stats['tasks']['done'] = st.done or 0
 
+    local tube = queue.tube[space]
+    if tube ~= nil and tube.raw.statistics ~= nil then
+        stats['extra'] = tube.raw:statistics()
+    end
+
     return stats
 end
 
