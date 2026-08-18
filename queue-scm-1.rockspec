@@ -22,6 +22,7 @@ build = {
         ['queue.abstract.queue_state']       = 'queue/abstract/queue_state.lua',
         ['queue.abstract.driver.fifottl']    = 'queue/abstract/driver/fifottl.lua',
         ['queue.abstract.driver.utubettl']   = 'queue/abstract/driver/utubettl.lua',
+        ['queue.abstract.driver.subqueuettl'] = 'queue/abstract/driver/subqueuettl.lua',
         ['queue.abstract.driver.fifo']       = 'queue/abstract/driver/fifo.lua',
         ['queue.abstract.driver.utube']      = 'queue/abstract/driver/utube.lua',
         ['queue.abstract.driver.limfifottl'] = 'queue/abstract/driver/limfifottl.lua',

@@ -917,7 +917,7 @@ local function build_stats(space)
         take = 0, touch = 0,
         -- for *ttl queues only
         ttl  = 0, ttr   = 0, delay   = 0,
-    }}
+    }, extra = {}}
 
     local st = rawget(queue.stat, space) or {}
     local idx_tube = 1
