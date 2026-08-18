@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Optional `consumer_group(opts, task)` driver API for routing waiting
   consumers to matching tasks.
 - Support extra statistics from driver API.
+- Add the `subqueuettl` driver for processing tasks from named subqueues in one tube space.
 
 ### Fixed
 
