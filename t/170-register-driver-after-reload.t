@@ -6,7 +6,7 @@ local tap = require('tap')
 local tnt = require('t.tnt')
 
 local test = tap.test('custom driver registration after reload')
-test:plan(1)
+test:plan(2)
 
 tnt.cfg()
 
@@ -37,6 +37,19 @@ local function check_driver_registration_after_reload()
 end
 
 check_driver_registration_after_reload()
+
+local consumers = box.space._queue_consumers
+consumers:format({
+    {name = 'connection_id', type = 'unsigned'},
+    {name = 'fiber_id', type = 'unsigned'},
+    {name = 'tube_id', type = 'unsigned'},
+    {name = 'event_time', type = 'unsigned'},
+    {name = 'fiber_time', type = 'unsigned'}
+})
+queue.start()
+test:ok(consumers:format()[6].name == 'consumer_group' and
+    consumers.index.consumer.parts[2].fieldno == 6,
+    'upgrade consumer space format')
 
 tnt.finish()
 os.exit(test:check() and 0 or 1)

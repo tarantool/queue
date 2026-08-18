@@ -107,14 +107,15 @@ function tube.put(self, data, opts)
 end
 
 local conds = {}
+local CONSUMER_GROUP_ANY = ''
 local releasing_connections = {}
 
-function tube.take(self, timeout)
+function tube.take(self, timeout, opts)
     if not check_state("take") then
         return nil
     end
     timeout = util.time(timeout or util.TIMEOUT_INFINITY)
-    local task = self.raw:take()
+    local task = self.raw:take(opts)
     if task ~= nil then
         return self.raw:normalize_task(task)
     end
@@ -125,8 +126,14 @@ function tube.take(self, timeout)
         local tid = self.tube_id
         local fid = fiber.id()
         local conn_id = connection.id()
+        local consumer_group = CONSUMER_GROUP_ANY
+        if self.raw.consumer_group ~= nil then
+            consumer_group = self.raw:consumer_group(opts)
+        end
 
-        box.space._queue_consumers:insert{conn_id, fid, tid, time, started}
+        box.space._queue_consumers:insert{
+            conn_id, fid, tid, time, started, consumer_group
+        }
         conds[fid] = qc.waiter()
         conds[fid]:wait(tonumber(timeout) / 1000000)
         conds[fid]:free()
@@ -139,7 +146,7 @@ function tube.take(self, timeout)
             return nil
         end
 
-        task = self.raw:take()
+        task = self.raw:take(opts)
 
         if task ~= nil then
             return self.raw:normalize_task(task)
@@ -453,10 +460,16 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
         -- task switched to ready (or new task)
         if task[2] == state.READY then
             local tube_id = self.tube_id
-            local consumer = queue_consumers.index.consumer:min{tube_id}
+            local consumer_group = CONSUMER_GROUP_ANY
+
+            if self.raw.consumer_group ~= nil then
+                consumer_group = self.raw:consumer_group(nil, task)
+            end
+
+            local consumer = queue_consumers.index.consumer:min{tube_id, consumer_group}
 
             if consumer ~= nil then
-                if consumer[3] == tube_id then
+                if consumer[3] == tube_id and consumer[6] == consumer_group then
                     queue_consumers:delete{consumer[1], consumer[2]}
                     local cond = conds[consumer[2]]
                     if cond then
@@ -785,7 +798,7 @@ function method.start()
 
     local _cons = box.space._queue_consumers
     if _cons == nil then
-        -- connection, fid, tube, time
+        -- connection, fid, tube, time, consumer group
         _cons = box.schema.create_space('_queue_consumers', {
             temporary = true,
             format = {
@@ -793,7 +806,8 @@ function method.start()
                 {name = 'fiber_id', type = num_type()},
                 {name = 'tube_id', type = num_type()},
                 {name = 'event_time', type = num_type()},
-                {name = 'fiber_time', type = num_type()}
+                {name = 'fiber_time', type = num_type()},
+                {name = 'consumer_group', type = str_type()}
             }
         })
         _cons:create_index('pk', {
@@ -803,8 +817,21 @@ function method.start()
         })
         _cons:create_index('consumer', {
             type = 'tree',
-            parts = {3, num_type(), 4, num_type()},
+            parts = {3, num_type(), 6, str_type(), 4, num_type()},
             unique = false
+        })
+    elseif _cons:format()[6] == nil then
+        _cons:truncate()
+        _cons:format({
+            {name = 'connection_id', type = num_type()},
+            {name = 'fiber_id', type = num_type()},
+            {name = 'tube_id', type = num_type()},
+            {name = 'event_time', type = num_type()},
+            {name = 'fiber_time', type = num_type()},
+            {name = 'consumer_group', type = str_type()}
+        })
+        _cons.index.consumer:alter({
+            parts = {3, num_type(), 6, str_type(), 4, num_type()}
         })
     end
 

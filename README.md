@@ -647,7 +647,7 @@ or it may be acted on by a worker (usually with a `take` request).
 ## Taking a task from the queue ("consuming")
 
 ```lua
-queue.tube.tube_name:take([timeout])
+queue.tube.tube_name:take([timeout [, {options} ]])
 ```
 
 Take a queue task.

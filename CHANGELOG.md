@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
-### Changed
+- Allow pass options to `take()` via driver API.
+- Optional `consumer_group(opts, task)` driver API for routing waiting
+  consumers to matching tasks.
+
 
 ### Fixed
 
