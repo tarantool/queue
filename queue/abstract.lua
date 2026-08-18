@@ -128,7 +128,7 @@ function tube.take(self, timeout, opts)
         local conn_id = connection.id()
         local consumer_group = CONSUMER_GROUP_ANY
         if self.raw.consumer_group ~= nil then
-            consumer_group = self.raw:consumer_group(opts)
+            consumer_group = self.raw:consumer_group(opts) or CONSUMER_GROUP_ANY
         end
 
         box.space._queue_consumers:insert{
@@ -463,7 +463,7 @@ local function make_self(driver, space, tube_name, tube_type, tube_id, opts)
             local consumer_group = CONSUMER_GROUP_ANY
 
             if self.raw.consumer_group ~= nil then
-                consumer_group = self.raw:consumer_group(nil, task)
+                consumer_group = self.raw:consumer_group(nil, task) or CONSUMER_GROUP_ANY
             end
 
             local consumer = queue_consumers.index.consumer:min{tube_id, consumer_group}
@@ -917,7 +917,7 @@ local function build_stats(space)
         take = 0, touch = 0,
         -- for *ttl queues only
         ttl  = 0, ttr   = 0, delay   = 0,
-    }}
+    }, extra = {}}
 
     local st = rawget(queue.stat, space) or {}
     local idx_tube = 1
