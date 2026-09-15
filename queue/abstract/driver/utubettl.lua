@@ -652,7 +652,7 @@ function method.release(self, id, opts)
     else
         task = self.space:update(id, {
             { '=', i_status, state.READY },
-            { '=', i_next_event, util.time(task[i_created] + task[i_ttl]) }
+            { '=', i_next_event, task[i_created] + task[i_ttl] }
         })
 
         if self.ready_space_mode and task ~= nil then

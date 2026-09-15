@@ -3,7 +3,7 @@ local yaml  = require('yaml')
 local fiber = require('fiber')
 
 local test = (require('tap')).test()
-test:plan(18)
+test:plan(19)
 
 local queue = require('queue')
 local state = require('queue.abstract.state')
@@ -392,6 +392,21 @@ test:test('ttl after delay test', function(test)
     local task = box.space.test_ttl_release:get(0)
     test:is(task.ttl, (TTL + DELTA) * 1000000, 'check TTL after release')
     test:is(task.ttr, TTR * 1000000, 'check TTR after release')
+end)
+
+test:test('test task deleted after release and ttl', function(test)
+    local TTL = 1
+    test:plan(2)
+    box.cfg{}
+    local tube = queue.create_tube('test_delete_after_release', 'utubettl', { if_not_exists = true })
+    tube:put({'test_task'}, {ttl = TTL, ttr = 10})
+    local task = tube:take(.1)
+    test:ok(task ~= nil, 'task was taken')
+    if task == nil then return end
+    tube:release(task[1]) -- No delay.
+
+    fiber.sleep(TTL + 0.3)
+    test:is(tube:take(.1), nil, 'task must be deleted by TTL after release without delay')
 end)
 
 test:test('Get tasks by state test', function(test)
