@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   (#256).
 - `kick()` left a transaction open when the `utube` tube had no buried tasks
   (#256).
+- The `utubettl` driver could accumulate tasks in the status `READY` without
+  deleting (#261).
 
 ## [1.5.0] - 2026-07-10
 
