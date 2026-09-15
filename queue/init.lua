@@ -4,6 +4,7 @@ local abstract = require('queue.abstract')
 local queue_state = require('queue.abstract.queue_state')
 local qc = require('queue.compat')
 local queue = nil
+local util = require('queue.util')
 
 -- load all core drivers
 local core_drivers = {
@@ -107,7 +108,7 @@ local function wrap_box_cfg()
             cfg_mt.__call = cfg_call_wrapper
         else
             -- Wait for the rw state.
-            fiber.new(rw_waiter)
+            util.background_fiber(rw_waiter)
         end
     else
         error('The box.cfg type is unexpected: ' .. type(box.cfg))

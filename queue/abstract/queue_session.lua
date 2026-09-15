@@ -171,7 +171,7 @@ end
 
 --- Create an expiration fiber to cleanup expired sessions.
 local function create_expiration_fiber()
-    local exp_fiber = fiber.create(function()
+    local exp_fiber = util.background_fiber(function()
         fiber.self():name('queue_expiration_fiber')
         while true do
             if box.info.ro == false then
