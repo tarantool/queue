@@ -22,5 +22,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract/driver/fifottl.lua
         DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/abstract/driver/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract/driver/utubettl.lua
         DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/abstract/driver/)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract/driver/subqueuettl.lua
+        DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/abstract/driver/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/abstract/driver/limfifottl.lua
         DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/abstract/driver/)

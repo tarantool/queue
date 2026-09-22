@@ -16,6 +16,7 @@ align="right">
   * [fifottl \- a simple priority queue with support for task time to live](#fifottl---a-simple-priority-queue-with-support-for-task-time-to-live)
   * [utube \- a queue with sub\-queues inside](#utube---a-queue-with-sub-queues-inside)
   * [utubettl \- extension of utube to support ttl](#utubettl---extension-of-utube-to-support-ttl)
+  * [subqueuettl \- TTL subqueues in one space](#subqueuettl---ttl-subqueues-in-one-space)
 * [The underlying spaces](#the-underlying-spaces)
   * [Fields of the \_queue space](#fields-of-the-_queue-space)
   * [Fields of the \_queue\_consumers space](#fields-of-the-_queue_consumers-space)
@@ -301,6 +302,41 @@ seconds; if `ttr` is not specified, it is set to the same as `ttl`
     (if a task is being worked on for more than `ttr` seconds, its status
 is changed to 'ready' so another worker may take it)
   * `delay` - time to wait before starting to execute the task, in seconds
+
+## `subqueuettl` - TTL subqueues in one space
+
+`subqueuettl` stores independent TTL subqueues in one Tarantool space. It
+does not provide an operation to take a task from all subqueues. The driver
+supports the `memtx` engine only; `vinyl` is not supported.
+
+The following options can be specified when putting a task in a
+`subqueuettl` queue:
+
+  * `subqueue` - required name of the subqueue.
+  * `pri` - task priority (`0` is the highest priority and is the default).
+  * `ttl` - numeric time to live in seconds. If omitted, it is set to infinity.
+  * `ttr` - numeric time allotted to process a task in seconds. If omitted, it
+    is set to the same value as `ttl`.
+  * `delay` - time in seconds to wait before a task becomes ready.
+
+Both `put()` and `take()` require `opts.subqueue`:
+
+```lua
+local tube = queue.create_tube('sites', 'subqueuettl')
+tube:put('some task', {subqueue = 'example_subqueue'})
+local task = tube:take(10, {subqueue = 'example_subqueue'})
+```
+
+`subqueuettl` adds per-subqueue statistics under the common `extra` field:
+
+```lua
+local stats = queue.statistics('sites')
+local example_stats = stats.extra.subqueues['example_subqueue']
+```
+
+Each subqueue entry contains `ready`, `taken`, `buried`, `delayed`, and `total`
+task counts. The subqueue name registry is best-effort; a registry write error
+does not fail the queue operation, and a stale name can remain with zero counts.
 
 # The underlying spaces
 
@@ -647,7 +683,7 @@ or it may be acted on by a worker (usually with a `take` request).
 ## Taking a task from the queue ("consuming")
 
 ```lua
-queue.tube.tube_name:take([timeout])
+queue.tube.tube_name:take([timeout [, {options} ]])
 ```
 
 Take a queue task.
@@ -659,6 +695,10 @@ than any other tuple which also has `task_state` = 'r'.
 
 If there is no such task, and timeout was specified, then
 the job waits until a task becomes ready or the timeout expires.
+
+The options, if specified, must be one or more of the options described
+above
+(`subqueue`, required name of the subqueue to take a task from).
 
 Effect: the value of `task_state` changes to 't' (taken).
 The `take` request tells the system that the task is being worked on.
@@ -825,7 +865,11 @@ queue.statistics( [queue name] )
 
 Show the number of tasks in a queue broken down by `task_state`, and the number
 of requests broken down by the type of request. If the queue name is not
-specified, show these numbers for all queues.
+specified, show these numbers for all queues. 
+
+In addition, any driver can add extra information for statistics by implementing their own `statistics` method.  
+The result of this method will be added as additional key of the returned value `queue.statistics`.
+
 Statistics are temporary, they are reset whenever the Tarantool server restarts.
 
 Example:
@@ -856,6 +900,14 @@ queue.statistics('list_of_sites')
      bury: 1
      put: 2
      delete: 1
+   extra:
+     subqueues:
+       example.com:
+         ready: 0
+         taken: 0
+         buried: 0
+         delayed: 0
+         total: 0
 ...
 ```
 
@@ -1003,7 +1055,8 @@ API:
 which is passed on to the user (removes the administrative fields)
 * `tube:put(data[, opts])` - puts a task into the queue.
 Returns a normalized task which represents a tuple in the space
-* `tube:take()` - sets the task state to 'in progress' and returns the task.
+* `tube:take([opts])` - sets the task state to 'in progress' and returns the
+  task. `subqueuettl` requires `opts.subqueue`.
 If there are no 'ready' tasks in the queue, returns nil.
 * `tube:delete(task_id)` - deletes a task from the queue.
 Returns the original task with a state changed to 'done'

@@ -11,6 +11,7 @@ local core_drivers = {
     fifottl     = require('queue.abstract.driver.fifottl'),
     utube       = require('queue.abstract.driver.utube'),
     utubettl    = require('queue.abstract.driver.utubettl'),
+    subqueuettl = require('queue.abstract.driver.subqueuettl'),
     limfifottl  = require('queue.abstract.driver.limfifottl')
 }
 
