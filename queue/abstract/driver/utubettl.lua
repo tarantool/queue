@@ -201,6 +201,9 @@ local function begin_if_not_in_txn(self)
     end
 end
 
+-- Delay before the next ttl iteration after an unexpected error.
+local ERROR_RETRY_DELAY = 1
+
 -- The ttl fiber works while it is the fiber registered in the tube.
 -- start() and stop() change the registration, so a stop request is
 -- noticed at the next check both in rw and in ro mode.
@@ -312,9 +315,14 @@ local function utubettl_fiber(self)
             local stat, err = pcall(utubettl_fiber_iteration, self, processed)
 
             if not stat and not (err.code == box.error.READONLY) then
+                -- Do not exit: a dead fiber can not be restarted until the
+                -- next ro -> rw switch (gh-263). The error may well be
+                -- transient (a failed WAL write, a transaction conflict, a
+                -- user on_task_change callback), so back off and retry.
                 log.error("error catched: %s", tostring(err))
-                log.error("exiting fiber '%s'", fiber.name())
-                return 1
+                log.error("ttl fiber '%s' retries in %d sec", fiber.name(),
+                    ERROR_RETRY_DELAY)
+                fiber.sleep(ERROR_RETRY_DELAY)
             elseif stat then
                 processed = err
             end

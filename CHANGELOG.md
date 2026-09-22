@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- The ttl fiber of the `fifottl`, `limfifottl` and `utubettl` drivers exited
+  on any unexpected error and could not be restarted, so ttl/ttr/delay
+  processing stopped until the next ro -> rw switch. Now it logs the error
+  and retries after a delay (gh-263).
 - `stop()` of the `fifottl`, `limfifottl` and `utubettl` drivers blocked
   forever or did not stop the ttl fiber while the instance was in rw mode,
   and `drop()` of `fifottl`/`limfifottl` leaked the fiber (gh-262).
