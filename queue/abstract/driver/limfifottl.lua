@@ -39,9 +39,27 @@ function tube.new(space, on_task_change, opts)
         return self.space:len()
     end
 
+    -- The ttl fiber is registered in the parent object: forward the
+    -- lifecycle methods there so that stop() does not shadow the
+    -- registration in this wrapper.
+    local start = function (self)
+        return state.parent:start()
+    end
+
+    local stop = function (self)
+        return state.parent:stop()
+    end
+
+    local drop = function (self)
+        return state.parent:drop()
+    end
+
     return setmetatable({
         put = put,
-        len = len
+        len = len,
+        start = start,
+        stop = stop,
+        drop = drop,
     }, {__index = state.parent})
 end
 

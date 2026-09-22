@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- `stop()` of the `fifottl`, `limfifottl` and `utubettl` drivers blocked
+  forever or did not stop the ttl fiber while the instance was in rw mode,
+  and `drop()` of `fifottl`/`limfifottl` leaked the fiber (gh-262).
 - The `on_task_change` callback got an expired task with a `NULL` status
   instead of `DONE` (`fifottl`, `utubettl`) (#255).
 - `kick()` corrupted the ready buffer of the `utube` driver in the
