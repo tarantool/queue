@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- The ttl fiber of the `fifottl` and `utubettl` drivers (and `take()` of
+  `utubettl` in the ready buffer mode) failed with `attempt to index a nil
+  value` when an expired task was deleted concurrently between its
+  selection and `delete()` (gh-264).
 - The `on_task_change` callback got an expired task with a `NULL` status
   instead of `DONE` (`fifottl`, `utubettl`) (#255).
 - `kick()` corrupted the ready buffer of the `utube` driver in the
