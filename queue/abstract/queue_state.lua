@@ -2,6 +2,7 @@
 
 local log   = require('log')
 local fiber = require('fiber')
+local util  = require('queue.util')
 
 --[[ States switching scheme:
 
@@ -62,7 +63,7 @@ end
 local function create_state_fiber(on_state_change_cb)
     log.info('Started queue state fiber')
 
-    fiber.create(function()
+    util.background_fiber(function()
         fiber.self():name('queue_state_fiber')
         while true do
             if current == queue_state.states.WAITING then
