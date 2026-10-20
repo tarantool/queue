@@ -113,8 +113,12 @@ local function fifottl_fiber_iteration(self, processed)
         task = self.space.index.watch:min{ task_state }
         if task ~= nil and task[i_status] == task_state then
             if now >= task[i_next_event] then
-                task = self:delete(task[i_id]):transform(2, 1, state.DONE)
-                self:on_task_change(task, 'ttl')
+                -- delete() returns the task with the DONE status or nil if
+                -- the task has been deleted concurrently (gh-264).
+                task = self:delete(task[i_id])
+                if task ~= nil then
+                    self:on_task_change(task, 'ttl')
+                end
                 estimated = 0
                 processed = processed + 1
             else

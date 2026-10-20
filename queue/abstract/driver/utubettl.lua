@@ -240,8 +240,12 @@ local function utubettl_fiber_iteration(self, processed)
         task = self.space.index.watch:min{ task_state }
         if task ~= nil and task[i_status] == task_state then
             if now >= task[i_next_event] then
-                task = self:delete(task[i_id]):transform(2, 1, state.DONE)
-                self:on_task_change(task, 'ttl')
+                -- delete() returns the task with the DONE status or nil if
+                -- the task has been deleted concurrently (gh-264).
+                task = self:delete(task[i_id])
+                if task ~= nil then
+                    self:on_task_change(task, 'ttl')
+                end
                 estimated = 0
                 processed = processed + 1
             else
@@ -518,7 +522,9 @@ local function take_ready(self)
                     take_complete = true
                 end
             else
-                task = self:delete(task[i_id]):transform(2, 1, state.DONE)
+                -- delete() returns the task with the DONE status or nil if
+                -- the task has been deleted concurrently (gh-264).
+                task = self:delete(task[i_id])
                 take_ttl = true
             end
         end
@@ -528,7 +534,7 @@ local function take_ready(self)
         if take_complete then
             self:on_task_change(task, 'take')
             return task
-        elseif take_ttl then
+        elseif take_ttl and task ~= nil then
             self:on_task_change(task, 'ttl')
         end
     end
