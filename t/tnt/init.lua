@@ -122,8 +122,11 @@ local function tnt_cluster_prepare(cfg_args)
 
     local attempts = 0
 
-    -- Wait for replica to connect.
-    while box.info.replication[2] == nil or box.info.replication[2].downstream.status ~= 'follow' do
+    -- Wait for replica to connect. It is listed once it is registered in
+    -- _cluster, but has no downstream until it subscribes.
+    while box.info.replication[2] == nil or
+          box.info.replication[2].downstream == nil or
+          box.info.replication[2].downstream.status ~= 'follow' do
         attempts = attempts + 1
         if attempts == 30 then
             error('wait for replica connection')

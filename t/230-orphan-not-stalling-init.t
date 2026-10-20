@@ -52,6 +52,7 @@ test:test('Check orphan mode not stalling queue', function(test)
     local attempts = 0
     -- Wait for replica to connect.
     while box.info.replication[3] == nil or
+        box.info.replication[3].downstream == nil or
         box.info.replication[3].downstream.status ~= 'follow' do
 
         attempts = attempts + 1
