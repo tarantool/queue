@@ -10,8 +10,9 @@ local queue = require('queue')
 local engine = os.getenv('ENGINE') or 'memtx'
 
 test:test('access to queue until box.cfg is started', function(test)
-    test:plan(3)
+    test:plan(4)
     test:isnil(rawget(box, 'space'), 'box is not started yet')
+    test:is(queue._VERSION, require('queue.version'), 'queue._VERSION')
 
     local s, e = pcall(function() return queue.tube end)
     test:ok(not s, 'exception was generated')
@@ -24,7 +25,8 @@ local tnt  = require('t.tnt')
 tnt.cfg{}
 
 test:test('access to queue after box.cfg{}', function(test)
-    test:plan(9)
+    test:plan(10)
+    test:is(queue._VERSION, require('queue.version'), 'queue._VERSION')
     test:istable(queue.tube, 'queue.tube is table')
     test:is(#queue.tube, 0, 'queue.tube is empty')
 
