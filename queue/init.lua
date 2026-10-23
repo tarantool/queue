@@ -48,7 +48,7 @@ queue = setmetatable({
     register_driver = register_driver,
     state = queue_state.show,
     cfg = deferred_cfg,
-    _VERSION = require('queue.version'),
+    _VERSION = abstract._VERSION,
 }, { __index = function(self, key)
         -- In replicaset mode, the user can attempt to call public methods on the replica start.
         -- For example, a single script is used for master and replica.
