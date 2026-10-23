@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   (#256).
 - The `utubettl` driver could accumulate tasks in the status `READY` without
   deleting (#261).
+- `queue._VERSION` was `nil` if the module was loaded on an instance that was
+  already in read-write mode (#260).
 
 ## [1.5.0] - 2026-07-10
 

@@ -38,7 +38,8 @@ local queue = {
             return not (self[tube_name] == nil)
         end
     }),
-    stat = {}
+    stat = {},
+    _VERSION = require('queue.version'),
 }
 
 -- Release tasks that don't have session_uuid stored in inactive sessions.
