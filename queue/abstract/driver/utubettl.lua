@@ -201,6 +201,13 @@ local function begin_if_not_in_txn(self)
     end
 end
 
+-- The ttl fiber works while it is the fiber registered in the tube.
+-- start() and stop() change the registration, so a stop request is
+-- noticed at the next check both in rw and in ro mode.
+local function is_registered_fiber(self)
+    return self.fiber ~= nil and self.fiber:id() == fiber.id()
+end
+
 local function utubettl_fiber_iteration(self, processed)
     local now       = util.time()
     local task      = nil
@@ -285,7 +292,10 @@ local function utubettl_fiber_iteration(self, processed)
         estimated = processed > 1000 and 0 or estimated
         estimated = estimated > 0 and estimated or 0
         processed = 0
-        self.cond:wait(estimated)
+        -- Do not fall asleep if stop() has been called meanwhile.
+        if is_registered_fiber(self) then
+            self.cond:wait(estimated)
+        end
     end
 
     return processed
@@ -297,7 +307,7 @@ local function utubettl_fiber(self)
     log.info("Started queue utubettl fiber")
     local processed = 0
 
-    while true do
+    while is_registered_fiber(self) do
         if box.info.ro == false then
             local stat, err = pcall(utubettl_fiber_iteration, self, processed)
 
@@ -309,13 +319,13 @@ local function utubettl_fiber(self)
                 processed = err
             end
         else
-            -- When switching the master to the replica, the fiber will be stopped.
-            if self.sync_chan:get(0.1) ~= nil then
-                log.info("Queue utubettl fiber was stopped")
-                break
-            end
+            -- When switching the master to the replica, the fiber will be
+            -- stopped by the queue state machine.
+            self.cond:wait(0.1)
         end
     end
+
+    log.info("Queue utubettl fiber was stopped")
 end
 
 -- start tube on space
@@ -383,8 +393,7 @@ function tube.new(space, on_task_change, opts)
     }, { __index = method })
 
     self.cond  = qc.waiter()
-    self.fiber = fiber.create(utubettl_fiber, self)
-    self.sync_chan = fiber.channel(1)
+    self:start()
 
     return self
 end
@@ -749,16 +758,25 @@ function method.start(self)
     if self.fiber then
         return
     end
-    self.fiber = fiber.create(utubettl_fiber, self)
+    -- fiber.new(): the fiber must not run before it is registered in
+    -- self.fiber, otherwise it would see itself as already stopped.
+    self.fiber = fiber.new(utubettl_fiber, self)
+    self.fiber:name('utubettl')
+    self.fiber:set_joinable(true)
 end
 
 function method.stop(self)
-    if not self.fiber then
+    local ttl_fiber = self.fiber
+    if ttl_fiber == nil then
         return
     end
-    self.cond:signal(self.fiber:id())
-    self.sync_chan:put(true)
+    -- Deregister the fiber, wake it up and wait until it exits, so that
+    -- the caller (e.g. drop()) can not race with an in-flight iteration.
     self.fiber = nil
+    self.cond:signal(ttl_fiber:id())
+    if ttl_fiber:id() ~= fiber.id() then
+        ttl_fiber:join()
+    end
 end
 
 function method.drop(self)
