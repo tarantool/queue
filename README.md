@@ -26,6 +26,7 @@ align="right">
 * [Task state diagram](#task-state-diagram)
 * [Queue state diagram](#queue-state-diagram)
 * [Installing](#installing)
+* [Running tests](#running-tests)
 * [Using the queue module](#using-the-queue-module)
   * [Initialization](#initialization)
   * [Get the module version](#get-the-module-version)
@@ -513,6 +514,53 @@ Ubuntu, say: sudo apt-get install tarantool-queue
 * Take the Lua rock from rocks.tarantool.org.
 * Take the source files from https://github.com/tarantool/queue, then
 build and install.
+
+# Running tests
+
+The test suite lives in the `t/` directory. Each `*.t` file is a
+[Tarantool tap test](https://www.tarantool.io/en/doc/latest/reference/reference_lua/tap/)
+that starts its own database instance.
+
+## Prerequisites
+
+Install [Tarantool](https://www.tarantool.io/en/download/) and
+[CMake](https://cmake.org/) (version 2.8 or newer). On Ubuntu you also
+need the development package that ships Tarantool headers, for example
+`tarantool-dev`.
+
+## Run the full suite
+
+From the root of a source checkout:
+
+```sh
+cmake . && make check
+```
+
+CMake registers every file in `t/*.t` as two CTest cases: one with
+`ENGINE=memtx` and one with `ENGINE=vinyl`. The `check` target runs them
+all via `ctest`. This is the same command used in the project's
+[CI workflow](.github/workflows/fast_testing.yml) (Tarantool versions
+1.10, 2.11, and 3.4).
+
+To keep build artifacts in a separate directory:
+
+```sh
+mkdir build && cd build
+cmake ..
+make check
+```
+
+## Run a single test
+
+Set `LUA_PATH` so that `require('queue')` loads the module from the
+checkout, pick a storage engine, and invoke the test script with the
+`tarantool` executable:
+
+```sh
+export LUA_PATH="$PWD/?.lua;$PWD/?/init.lua;"
+export ENGINE=memtx   # or vinyl
+tarantool t/000-init.t
+```
 
 # Using the `queue` module
 
